@@ -1,0 +1,57 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables files
+.env
+.env.*.local
+
+# Logs
+*.log
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Coverage
+coverage/
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+
+# Profiling data
+*.prof
+
+# Type checkers
+.mypy_cache/
+.pyre/
+
+# pip wheel metadata
+pip-wheel-metadata/
+
+# Documentation builds
+docs/_build/
+
+# Pyenv local version file
+.python-version
+
+# Local Python library folders
+lib/
+lib64/
