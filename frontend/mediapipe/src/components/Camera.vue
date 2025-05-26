@@ -127,7 +127,7 @@ export default {
         const angle = calculateAngle(lm[a], lm[b], lm[c]);
         const [min, max] = thresholds[name.split('_')[0]];
         const correct = angle >= min && angle <= max;
-        this.$set(this.angles, name, { angle, correct });
+        this.angles[name] = { angle, correct };
         // draw angle text at landmark b
         const x = lm[b].x * this.canvas.width;
         const y = lm[b].y * this.canvas.height;
