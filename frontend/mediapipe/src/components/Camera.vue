@@ -17,6 +17,9 @@
       <button @click="toggleAnalysis" class="analysis-btn">
         {{ analyzing ? 'Pausar Análise' : 'Iniciar Análise' }}
       </button>
+      <label>Perfil:
+        <input type="checkbox" v-model="profileMode" />
+      </label>
     </div>
     <div class="camera-container" ref="container">
       <video ref="video" autoplay muted playsinline></video>
@@ -47,6 +50,7 @@ export default {
       pendingZoom: 1,
       zoomOptions: [1, 1.5, 2, 3],
       analyzing: false,
+      profileMode: false,
       angles: {}
     };
   },
@@ -103,53 +107,61 @@ export default {
       drawConnectors(this.ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00FF00', lineWidth: 4 });
       drawLandmarks(this.ctx, results.poseLandmarks, { color: '#FF0000', lineWidth: 2, radius: 4 });
 
-      // joints config
-      const joints = {
-        cotovelo_direito: [11, 13, 15], // shoulder, elbow, wrist
+      // configuration for frontal vs perfil
+      const defaultJoints = {
+        cotovelo_direito: [11, 13, 15],
         cotovelo_esquerdo: [12, 14, 16],
-        ombro_direito: [13, 11, 23], // elbow, shoulder, hip
+        ombro_direito: [13, 11, 23],
         ombro_esquerdo: [14, 12, 24],
-        quadril_direito: [11, 23, 25], // shoulder, hip, knee
+        quadril_direito: [11, 23, 25],
         quadril_esquerdo: [12, 24, 26],
         joelho_direito: [23, 25, 27],
         joelho_esquerdo: [24, 26, 28],
-        tornozelo_direito: [25, 27, 31], // knee, ankle, foot
+        tornozelo_direito: [25, 27, 31],
         tornozelo_esquerdo: [26, 28, 32]
       };
-      const thresholds = {
-        joelho: [70, 110], tornozelo: [80, 110],
-        cotovelo: [150, 175], ombro: [40, 60], quadril: [40, 60]
+      const defaultThresholds = {
+        joelho: [70, 110],
+        tornozelo: [80, 110],
+        cotovelo: [150, 175],
+        ombro: [40, 60],
+        quadril: [40, 60]
       };
+      const profileJoints = {
+        cotovelo_direito: [11, 13, 15],
+        joelho_direito: [23, 25, 27],
+        tornozelo_direito: [25, 27, 31],
+        pulso_direito: [13, 15, 17]
+      };
+      const profileThresholds = {
+        cotovelo: [150, 180],
+        joelho: [150, 180],
+        tornozelo: [80, 100],
+        pulso: [150, 180]
+      };
+      const joints = this.profileMode ? profileJoints : defaultJoints;
+      const thresholds = this.profileMode ? profileThresholds : defaultThresholds;
 
-      Object.entries(joints).forEach(([name, [a,b,c]]) => {
+      // compute angles and draw
+      const newAngles = {};
+      Object.entries(joints).forEach(([name, [a, b, c]]) => {
         const lm = results.poseLandmarks;
         if (!lm || !lm[a] || !lm[b] || !lm[c]) return;
         const angle = calculateAngle(lm[a], lm[b], lm[c]);
-        const [min, max] = thresholds[name.split('_')[0]];
+        const [min, max] = thresholds[name.split('_')[0]] || thresholds[name];
         const correct = angle >= min && angle <= max;
-        this.angles[name] = { angle, correct };
-        // draw angle text at landmark b
-        const x = lm[b].x * this.canvas.width;
-        const y = lm[b].y * this.canvas.height;
-        this.ctx.fillStyle = correct ? 'lime' : 'red';
-        this.ctx.font = 'bold 18px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`${Math.round(angle)}°`, x, y - 10);
-        // draw label below
-        this.ctx.fillStyle = correct ? 'lime' : 'red';
-        this.ctx.font = '14px Arial';
-        this.ctx.fillText(name.replace('_', ' '), x, y + 20);
+        newAngles[name] = { angle, correct };
+        if (this.analyzing) {
+          // draw text overlay
+          const x = lm[b].x * this.canvas.width;
+          const y = lm[b].y * this.canvas.height;
+          this.ctx.fillStyle = correct ? 'lime' : 'red';
+          this.ctx.font = this.profileMode ? 'bold 20px Arial' : 'bold 18px Arial';
+          this.ctx.fillText(`${Math.round(angle)}°`, x, y - 10);
+        }
       });
 
-      // After drawing angles overlay, update list
-      const newAngles = {};
-      Object.entries(joints).forEach(([name, [a,b,c]]) => {
-        const angle = calculateAngle(results.poseLandmarks[a], results.poseLandmarks[b], results.poseLandmarks[c]);
-        const [min, max] = thresholds[name.split('_')[0]];
-        newAngles[name] = { angle, correct: angle>=min&&angle<=max };
-      });
       this.angles = newAngles;
-
       this.ctx.restore();
     },
     setResolution() {
