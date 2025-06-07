@@ -8,7 +8,7 @@
         <li>Posicione-se de lado em sua bicicleta, visível para a câmera</li>
         <li>Clique em "Iniciar Análise em Tempo Real" para ver sua postura</li>
         <li>Os ângulos em <span class="correct">verde</span> estão corretos, em <span class="incorrect">vermelho</span> precisam de ajuste</li>
-        <li>Se necessário, ajuste o selim, guidão ou outra parte da bicicleta e observe os resultados em tempo real</li>
+        <li>Se necessário, ajuste o selim, guiador ou outra parte da bicicleta e observe os resultados em tempo real</li>
       </ol>
     </div>
     <Camera />
@@ -23,11 +23,11 @@
         <p>Ajuste para frente/trás se o ângulo do tornozelo estiver incorreto. Um selim muito avançado causa hiperfexão do tornozelo.</p>
       </div>
       <div class="recommendation-item">
-        <h4>Altura do Guidão</h4>
-        <p>Ajuste se o ângulo das costas estiver fora do intervalo ideal (40-60°). Um guidão muito baixo força inclinação excessiva das costas.</p>
+        <h4>Altura do guiador</h4>
+        <p>Ajuste se o ângulo das costas estiver fora do intervalo ideal (40-60°). Um guiador muito baixo força inclinação excessiva das costas.</p>
       </div>
       <div class="recommendation-item">
-        <h4>Alcance do Guidão</h4>
+        <h4>Alcance do guiador</h4>
         <p>Ajuste se o ângulo do braço estiver incorreto. Os braços devem estar em uma posição confortável sem esticar demais.</p>
       </div>
     </div>
