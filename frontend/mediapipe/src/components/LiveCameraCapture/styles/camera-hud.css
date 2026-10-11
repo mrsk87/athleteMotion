@@ -117,23 +117,51 @@
 
 .metric-row.metric-compliant {
   border-color: #10b981;
-  background-color: rgba(16, 185, 129, 0.08);
+  background-color: rgba(16, 185, 129, 0.1);
 }
 
 .metric-row.metric-compliant .angle-badge {
   color: #10b981;
   border-color: #10b981;
-  background-color: rgba(16, 185, 129, 0.15);
+  background-color: rgba(16, 185, 129, 0.2);
 }
 
-.metric-row.metric-non-compliant {
+.metric-row.metric-warning {
   border-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.08);
+  background-color: rgba(245, 158, 11, 0.1);
 }
 
-.metric-row.metric-non-compliant .angle-badge {
+.metric-row.metric-warning .angle-badge {
   color: #f59e0b;
   border-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.15);
+  background-color: rgba(245, 158, 11, 0.2);
+}
+
+.metric-row.metric-danger,
+.metric-row.metric-non-compliant {
+  border-color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.metric-row.metric-danger .angle-badge,
+.metric-row.metric-non-compliant .angle-badge {
+  color: #ef4444;
+  border-color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Indicadores de Enquadramento de Corpo Inteiro */
+.hud-fullbody-ok {
+  color: #10b981;
+  border-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.2);
+  font-weight: 700;
+}
+
+.hud-fullbody-warn {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.2);
+  font-weight: 700;
 }
 

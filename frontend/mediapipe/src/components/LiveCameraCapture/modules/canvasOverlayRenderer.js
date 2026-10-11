@@ -2,33 +2,154 @@
  * Renderizador de Sobreposição Gráfica no Canvas (CanvasOverlayRenderer).
  *
  * Responsabilidade:
- * - Desenhar marcadores articulares, esqueleto e anotações angulares com cores de conformidade.
- * - Renderizar órbita dinâmica da pedalada e retículo de foco articular.
- * - Desenhar mira de precisão ciano e marcadores manuais calibrados.
+ * - Desenhar esqueleto anatómico dinâmico com traços coloridos segundo conformidade ergonómica:
+ *   Verde (ideal), Amarelo (perto da meta), Vermelho (longe da meta).
+ * - Renderizar marcadores articulares com halo e valores angulares.
+ * - Renderizar trajetória do pedal, retículos e miras de calibração.
  */
-import { drawConnectors } from '@mediapipe/drawing_utils';
-import { POSE_CONNECTIONS } from '@mediapipe/pose';
 
 export class CanvasOverlayRenderer {
   /**
-   * Desenha conexões anatómicas e esqueleto.
+   * Obtém a cor de conformidade (RGBA) para um ângulo face à meta ergonómica.
    */
-  static drawSkeleton(ctx, landmarks) {
-    if (!ctx || !landmarks) return;
-    const bodyConnections = Array.from(POSE_CONNECTIONS).filter(([i, j]) => i >= 11 && j >= 11);
-    drawConnectors(ctx, landmarks, bodyConnections, { color: 'rgba(0, 255, 0, 0.7)', lineWidth: 3 });
+  static getComplianceColor(angle, targetRange, tolerance = 8, alpha = 0.85) {
+    if (angle === null || angle === undefined || !targetRange || targetRange.length < 2) {
+      return `rgba(148, 163, 184, ${alpha})`;
+    }
+    const [minVal, maxVal] = targetRange;
+    if (angle >= minVal && angle <= maxVal) {
+      return `rgba(0, 255, 0, ${alpha})`; // VERDE: Posição ideal
+    }
+    const diff = angle < minVal ? minVal - angle : angle - maxVal;
+    if (diff <= tolerance) {
+      return `rgba(255, 204, 0, ${alpha})`; // AMARELO: Perto da posição ideal
+    }
+    return `rgba(255, 51, 51, ${alpha})`; // VERMELHO: Longe da posição ideal
   }
 
   /**
-   * Desenha um marcador de articulação com valor angular e halo ergonómico.
+   * Obtém a cor hexadecimal correspondente para marcadores e halos.
+   */
+  static getComplianceHexColor(angle, targetRange, tolerance = 8) {
+    if (angle === null || angle === undefined || !targetRange || targetRange.length < 2) {
+      return '#94a3b8';
+    }
+    const [minVal, maxVal] = targetRange;
+    if (angle >= minVal && angle <= maxVal) {
+      return '#00FF00'; // Verde
+    }
+    const diff = angle < minVal ? minVal - angle : angle - maxVal;
+    if (diff <= tolerance) {
+      return '#FFCC00'; // Amarelo
+    }
+    return '#FF3333'; // Vermelho
+  }
+
+  /**
+   * Desenha um segmento ósseo unitário com cor dinâmica e iluminação de halo.
+   */
+  static drawBoneSegment(ctx, p1, p2, color, w, h, lineWidth = 4) {
+    if (!ctx || !p1 || !p2) return;
+    if (typeof p1.visibility === 'number' && p1.visibility < 0.25) return;
+    if (typeof p2.visibility === 'number' && p2.visibility < 0.25) return;
+
+    const x1 = p1.x * w;
+    const y1 = p1.y * h;
+    const x2 = p2.x * w;
+    const y2 = p2.y * h;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * Desenha o esqueleto completo com traços coloridos (Verde/Amarelo/Vermelho)
+   * da perna aos braços e cabeça consoante a proximidade da posição ideal.
+   */
+  static drawSkeleton(ctx, landmarks, w, h, liveAngles = {}, targets = {}, side = 'left') {
+    if (!ctx || !landmarks || landmarks.length < 33) return;
+
+    const isLeft = side === 'left';
+    const activeIdx = {
+      nose: 0,
+      ear: isLeft ? 8 : 7,
+      shoulder: isLeft ? 12 : 11,
+      elbow: isLeft ? 14 : 13,
+      wrist: isLeft ? 16 : 15,
+      hip: isLeft ? 24 : 23,
+      knee: isLeft ? 26 : 25,
+      ankle: isLeft ? 28 : 27,
+      heel: isLeft ? 30 : 29,
+      foot: isLeft ? 32 : 31,
+    };
+    const otherIdx = {
+      ear: isLeft ? 7 : 8,
+      shoulder: isLeft ? 11 : 12,
+      elbow: isLeft ? 13 : 14,
+      wrist: isLeft ? 15 : 16,
+      hip: isLeft ? 23 : 24,
+      knee: isLeft ? 25 : 26,
+      ankle: isLeft ? 27 : 28,
+      heel: isLeft ? 29 : 30,
+      foot: isLeft ? 31 : 32,
+    };
+
+    // Cores ergonómicas calculadas para os membros principais
+    const legColor = this.getComplianceColor(liveAngles.joelho, targets.knee);
+    const footColor = this.getComplianceColor(liveAngles.tornozelo, targets.ankle);
+    const backColor = this.getComplianceColor(liveAngles.costas, targets.back);
+    const armColor = this.getComplianceColor(liveAngles.braco, targets.elbow);
+    const headColor = this.getComplianceColor(liveAngles.cabeca, targets.head || [35, 55]);
+
+    // 1. Conexões anatómicas bilaterais (Ombros e Bacia)
+    const neutralColor = 'rgba(255, 255, 255, 0.35)';
+    this.drawBoneSegment(ctx, landmarks[11], landmarks[12], neutralColor, w, h, 2);
+    this.drawBoneSegment(ctx, landmarks[23], landmarks[24], neutralColor, w, h, 2);
+
+    // 2. Membros do lado oposto (desenhados com menor intensidade para não sobrecarregar)
+    const dimColor = 'rgba(148, 163, 184, 0.3)';
+    this.drawBoneSegment(ctx, landmarks[otherIdx.shoulder], landmarks[otherIdx.elbow], dimColor, w, h, 2.5);
+    this.drawBoneSegment(ctx, landmarks[otherIdx.elbow], landmarks[otherIdx.wrist], dimColor, w, h, 2.5);
+    this.drawBoneSegment(ctx, landmarks[otherIdx.hip], landmarks[otherIdx.knee], dimColor, w, h, 2.5);
+    this.drawBoneSegment(ctx, landmarks[otherIdx.knee], landmarks[otherIdx.ankle], dimColor, w, h, 2.5);
+
+    // 3. Cabeça e Pescoço (ativo)
+    this.drawBoneSegment(ctx, landmarks[activeIdx.shoulder], landmarks[activeIdx.ear], headColor, w, h, 4);
+    this.drawBoneSegment(ctx, landmarks[activeIdx.ear], landmarks[activeIdx.nose], headColor, w, h, 3.5);
+
+    // 4. Tronco / Costas (ativo)
+    this.drawBoneSegment(ctx, landmarks[activeIdx.hip], landmarks[activeIdx.shoulder], backColor, w, h, 5);
+
+    // 5. Braço e Antebraço (ativo)
+    this.drawBoneSegment(ctx, landmarks[activeIdx.shoulder], landmarks[activeIdx.elbow], armColor, w, h, 4.5);
+    this.drawBoneSegment(ctx, landmarks[activeIdx.elbow], landmarks[activeIdx.wrist], armColor, w, h, 4);
+
+    // 6. Coxa, Perna e Pé (ativo)
+    this.drawBoneSegment(ctx, landmarks[activeIdx.hip], landmarks[activeIdx.knee], legColor, w, h, 5);
+    this.drawBoneSegment(ctx, landmarks[activeIdx.knee], landmarks[activeIdx.ankle], legColor, w, h, 5);
+    this.drawBoneSegment(ctx, landmarks[activeIdx.ankle], landmarks[activeIdx.heel], footColor, w, h, 3.5);
+    this.drawBoneSegment(ctx, landmarks[activeIdx.heel], landmarks[activeIdx.foot], footColor, w, h, 3.5);
+    this.drawBoneSegment(ctx, landmarks[activeIdx.ankle], landmarks[activeIdx.foot], footColor, w, h, 3.5);
+  }
+
+  /**
+   * Desenha marcador de articulação com anotação angular e halo ergonómico tricolor.
    */
   static drawJointMarker(ctx, point, angle, targetRange, w, h) {
-    if (!ctx || !point || angle === null) return;
+    if (!ctx || !point || angle === null || angle === undefined) return;
     const px = point.x * w;
     const py = point.y * h;
-    const [minA, maxA] = targetRange || [0, 360];
-    const isOk = angle >= minA && angle <= maxA;
-    const color = isOk ? '#00FF00' : '#FFCC00';
+    const color = this.getComplianceHexColor(angle, targetRange);
 
     ctx.save();
     ctx.beginPath();
@@ -48,7 +169,7 @@ export class CanvasOverlayRenderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.shadowColor = '#000000';
     ctx.shadowBlur = 4;
-    ctx.fillText(`${angle.toFixed(1)}°`, px + 15, py - 5);
+    ctx.fillText(`${Math.round(angle)}°`, px + 15, py - 5);
     ctx.restore();
   }
 

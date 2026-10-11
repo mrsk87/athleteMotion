@@ -293,6 +293,11 @@
           {{ currentSide === 'left' ? 'ESQUERDO' : 'DIREITO' }}
         </div>
 
+        <!-- Indicador de Enquadramento de Corpo Inteiro -->
+        <div v-if="hasDetectedPose" class="hud-item" :class="isFullBodyVisible ? 'hud-fullbody-ok' : 'hud-fullbody-warn'">
+          {{ isFullBodyVisible ? '✅ CORPO COMPLETO' : `⚠️ CORPO INCOMPLETO (${missingBodyPartsText})` }}
+        </div>
+
         <!-- Taxa de Atualização de Vídeo e IA em Tempo Real -->
         <div class="hud-item hud-fps">
           🎥 {{ cameraFps }} FPS | 🤖 {{ aiFps }} FPS
@@ -379,6 +384,19 @@
         </div>
         <div class="metric-target">
           {{ t('targetRange') }} {{ targets.ankle[0] }}° - {{ targets.ankle[1] }}°
+        </div>
+      </div>
+
+      <!-- Cabeça / Cervical -->
+      <div class="metric-row" :class="getComplianceClass(liveAngles.cabeca, targets.head)">
+        <div class="metric-header">
+          <span class="joint-title">👤 {{ t('headAngleLabel') }}</span>
+          <span class="angle-badge">
+            {{ liveAngles.cabeca ? `${Math.round(liveAngles.cabeca)}°` : '--' }}
+          </span>
+        </div>
+        <div class="metric-target">
+          {{ t('targetRange') }} {{ targets.head[0] }}° - {{ targets.head[1] }}°
         </div>
       </div>
 

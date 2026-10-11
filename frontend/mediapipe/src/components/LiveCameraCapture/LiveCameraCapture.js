@@ -166,8 +166,10 @@ export default {
       bilateralStep: 'idle',
       bilateralCountdown: 20,
       bilateralResults: [],
-      liveAngles: { joelho: null, costas: null, braco: null, tornozelo: null },
-      targets: { knee: [145, 155], back: [40, 50], elbow: [150, 165], shoulder: [85, 95], ankle: [95, 105] },
+      liveAngles: { joelho: null, costas: null, braco: null, tornozelo: null, cabeca: null },
+      targets: { knee: [145, 155], back: [40, 50], elbow: [150, 165], shoulder: [85, 95], ankle: [95, 105], head: [35, 55] },
+      isFullBodyVisible: false,
+      missingBodyParts: [],
       wheelCalibrating: false,
       wheelPoints: [],
     };
@@ -183,18 +185,47 @@ export default {
       const [minB, maxB] = this.targets.back;
       return this.liveAngles.costas >= minB && this.liveAngles.costas <= maxB ? 'status-ok' : 'status-warn';
     },
+    missingBodyPartsText() {
+      return this.missingBodyParts.length ? this.missingBodyParts.join(', ') : '';
+    },
     realtimeRecommendations() {
+      if (!this.isFullBodyVisible) return [];
       const recs = [];
       const [minK, maxK] = this.targets.knee;
       const knee = this.lastBdcKneeAngle || this.liveAngles.joelho;
       if (knee) {
-        if (knee < minK) recs.push('Selim Baixo: Eleve o selim entre 5mm e 10mm.');
-        else if (knee > maxK) recs.push('Selim Alto: Desça o selim entre 5mm e 8mm.');
+        if (knee < minK) recs.push('Selim Baixo: Eleve o selim entre 5mm e 10mm para atingir extensão ideal.');
+        else if (knee > maxK) recs.push('Selim Alto: Desça o selim entre 5mm e 8mm para prevenir hiperextensão.');
       }
-      if (this.kopsResult && !this.kopsResult.isAligned) recs.push(`KOPS: ${this.kopsResult.actionPt}.`);
+      if (this.kopsResult && !this.kopsResult.isAligned) {
+        recs.push(`KOPS: ${this.kopsResult.actionPt}.`);
+      }
+      if (this.liveAngles.costas) {
+        const [minB, maxB] = this.targets.back;
+        if (this.liveAngles.costas < minB) recs.push('Tronco muito rebaixado: Eleve o guiador ou adicione espaçadores para aliviar a coluna.');
+        else if (this.liveAngles.costas > maxB) recs.push('Tronco muito ereto: Pode descer o avanço para obter melhor perfil aerodinâmico.');
+      }
+      if (this.liveAngles.braco) {
+        const [minE, maxE] = this.targets.elbow;
+        if (this.liveAngles.braco > maxE) recs.push('Braços hiperestendidos: Reduza o alcance do avanço para fletir cotovelos.');
+        else if (this.liveAngles.braco < minE) recs.push('Braços muito fletidos: Cockpit curto. Considere avançar o selim ou mesa mais longa.');
+      }
+      if (this.liveAngles.cabeca && this.targets.head) {
+        const [minH, maxH] = this.targets.head;
+        if (this.liveAngles.cabeca > maxH) {
+          recs.push('Cabeça em sobre-extensão cervical: Mantenha o olhar relaxado na linha do horizonte.');
+        } else if (this.liveAngles.cabeca < minH) {
+          recs.push('Cabeça demasiado descaída: Eleve ligeiramente o queixo para desobstruir as vias respiratórias.');
+        }
+      }
       return recs;
     },
     activeRecommendations() {
+      if (!this.isAnalyzing || !this.hasDetectedPose) return [];
+      if (!this.isFullBodyVisible) {
+        const missing = this.missingBodyParts.length ? this.missingBodyParts.join(', ') : 'membros em falta';
+        return [`⚠️ Enquadramento Incompleto: Posicione-se para visualizar a totalidade do corpo (cabeça, braços, tronco e pernas). Em falta: ${missing}. Recomendações biomecânicas pausadas.`];
+      }
       return this.realtimeRecommendations;
     },
     diagnosticErrorsCount() {
@@ -323,6 +354,9 @@ export default {
       this.liveAngles.costas = computed.costas;
       this.liveAngles.braco = computed.braco;
       this.liveAngles.tornozelo = computed.tornozelo;
+      this.liveAngles.cabeca = computed.cabeca;
+      this.isFullBodyVisible = computed.isFullBodyVisible;
+      this.missingBodyParts = computed.missingSegments;
 
       const video = this.$refs.video;
       const w = video?.videoWidth || 640;
@@ -354,7 +388,7 @@ export default {
       this.handleAudioAlarms();
     },
     handleAudioAlarms() {
-      if (!this.liveAngles.joelho || !this.audioEnabled) return;
+      if (!this.liveAngles.joelho || !this.audioEnabled || !this.isFullBodyVisible) return;
       const [minK, maxK] = this.targets.knee;
       if (this.liveAngles.joelho < minK || this.liveAngles.joelho > maxK) {
         this.consecutiveWarnFrames++;
@@ -373,15 +407,28 @@ export default {
     },
     renderOverlayGraphics(ctx, w, h) {
       if (!this.lastSmoothedLandmarks) return;
-      CanvasOverlayRenderer.drawSkeleton(ctx, this.lastSmoothedLandmarks);
+      CanvasOverlayRenderer.drawSkeleton(
+        ctx,
+        this.lastSmoothedLandmarks,
+        w,
+        h,
+        this.liveAngles,
+        this.targets,
+        this.currentSide
+      );
 
       const isLeft = this.currentSide === 'left';
       const kneePt = this.manualTracker.getAdjustedPoint('knee', this.lastSmoothedLandmarks[isLeft ? 26 : 25]);
       const anklePt = this.manualTracker.getAdjustedPoint('ankle', this.lastSmoothedLandmarks[isLeft ? 28 : 27]);
       const shoulderPt = this.manualTracker.getAdjustedPoint('shoulder', this.lastSmoothedLandmarks[isLeft ? 12 : 11]);
+      const elbowPt = this.manualTracker.getAdjustedPoint('elbow', this.lastSmoothedLandmarks[isLeft ? 14 : 13]);
+      const headPt = this.lastSmoothedLandmarks[isLeft ? 8 : 7] || this.lastSmoothedLandmarks[0];
 
       if (kneePt) CanvasOverlayRenderer.drawJointMarker(ctx, kneePt, this.liveAngles.joelho, this.targets.knee, w, h);
       if (shoulderPt) CanvasOverlayRenderer.drawJointMarker(ctx, shoulderPt, this.liveAngles.costas, this.targets.back, w, h);
+      if (elbowPt) CanvasOverlayRenderer.drawJointMarker(ctx, elbowPt, this.liveAngles.braco, this.targets.elbow, w, h);
+      if (anklePt) CanvasOverlayRenderer.drawJointMarker(ctx, anklePt, this.liveAngles.tornozelo, this.targets.ankle, w, h);
+      if (headPt) CanvasOverlayRenderer.drawJointMarker(ctx, headPt, this.liveAngles.cabeca, this.targets.head, w, h);
 
       if (kneePt && anklePt) this.kopsAnalyzer.drawPlumbLine(ctx, kneePt, anklePt, w, h);
       if (this.isManualCalibrating && this.hoverCrosshair) {
@@ -524,12 +571,17 @@ export default {
       this.showToast(this.isAnalyzing ? 'Análise em direto retomada.' : 'Análise em direto pausada.');
     },
     getComplianceClass(angle, targetRange) {
-      if (!angle || !targetRange || targetRange.length < 2) return '';
+      if (angle === null || angle === undefined || !targetRange || targetRange.length < 2) return '';
       const [minVal, maxVal] = targetRange;
       if (angle >= minVal && angle <= maxVal) {
         return 'metric-compliant';
       }
-      return 'metric-non-compliant';
+      const tolerance = 8;
+      const diff = angle < minVal ? minVal - angle : angle - maxVal;
+      if (diff <= tolerance) {
+        return 'metric-warning';
+      }
+      return 'metric-danger';
     },
     captureSnapshot() {
       if (!this.liveAngles.joelho) return;
@@ -539,6 +591,7 @@ export default {
         back_angle: this.liveAngles.costas,
         arm_angle: this.liveAngles.braco,
         ankle_angle: this.liveAngles.tornozelo,
+        head_angle: this.liveAngles.cabeca,
       };
       this.snapshotsBuffer.push(snap);
       if (this.sessionData?.session?.id && this.sessionData.session.id !== 'local-session') {

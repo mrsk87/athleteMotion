@@ -40,14 +40,35 @@ export class BiomechanicsComputer {
   }
 
   /**
-   * Extrai e calcula todos os 4 ângulos instantâneos a partir dos marcos corporais.
+   * Verifica se um marco anatómico está visível e dentro do enquadramento da câmara.
+   */
+  static isLandmarkVisible(p, minVisibility = 0.35) {
+    if (!p) return false;
+    if (typeof p.visibility === 'number' && p.visibility < minVisibility) return false;
+    if (p.x < -0.05 || p.x > 1.05 || p.y < -0.05 || p.y > 1.05) return false;
+    return true;
+  }
+
+  /**
+   * Extrai e calcula todos os ângulos instantâneos e valida integridade de corpo inteiro.
    */
   static computeFrameAngles({ lm, side, manualTracker }) {
     if (!lm || lm.length < 33) {
-      return { joelho: null, costas: null, braco: null, tornozelo: null };
+      return {
+        joelho: null,
+        costas: null,
+        braco: null,
+        tornozelo: null,
+        cabeca: null,
+        points: {},
+        isFullBodyVisible: false,
+        missingSegments: ['Cabeça', 'Braços', 'Tronco', 'Pernas'],
+      };
     }
 
     const isLeft = side === 'left';
+    const earIdx = isLeft ? 8 : 7;
+    const noseIdx = 0;
     const hipIdx = isLeft ? 24 : 23;
     const kneeIdx = isLeft ? 26 : 25;
     const ankleIdx = isLeft ? 28 : 27;
@@ -56,6 +77,7 @@ export class BiomechanicsComputer {
     const elbowIdx = isLeft ? 14 : 13;
     const wristIdx = isLeft ? 16 : 15;
 
+    const headPt = lm[earIdx] || lm[noseIdx];
     const kneePt = manualTracker ? manualTracker.getAdjustedPoint('knee', lm[kneeIdx]) : lm[kneeIdx];
     const hipPt = manualTracker ? manualTracker.getAdjustedPoint('hip', lm[hipIdx]) : lm[hipIdx];
     const anklePt = manualTracker ? manualTracker.getAdjustedPoint('ankle', lm[ankleIdx]) : lm[ankleIdx];
@@ -64,12 +86,30 @@ export class BiomechanicsComputer {
     const footPt = lm[footIdx];
     const wristPt = lm[wristIdx];
 
+    // Avaliação de visibilidade do corpo inteiro (cabeça, braços, tronco e pernas)
+    const headVisible = this.isLandmarkVisible(lm[noseIdx]) || this.isLandmarkVisible(lm[earIdx]);
+    const armVisible = this.isLandmarkVisible(shoulderPt) && this.isLandmarkVisible(elbowPt) && this.isLandmarkVisible(wristPt);
+    const torsoVisible = this.isLandmarkVisible(shoulderPt) && this.isLandmarkVisible(hipPt);
+    const legVisible = this.isLandmarkVisible(hipPt) && this.isLandmarkVisible(kneePt) && this.isLandmarkVisible(anklePt);
+
+    const missingSegments = [];
+    if (!headVisible) missingSegments.push('Cabeça');
+    if (!armVisible) missingSegments.push('Braços');
+    if (!torsoVisible) missingSegments.push('Tronco');
+    if (!legVisible) missingSegments.push('Pernas');
+
+    const isFullBodyVisible = missingSegments.length === 0;
+
     return {
       joelho: this.calculateSafeAngle(hipPt, kneePt, anklePt),
       costas: this.calculateInclination(hipPt, shoulderPt),
       braco: this.calculateSafeAngle(shoulderPt, elbowPt, wristPt),
       tornozelo: this.calculateSafeAngle(kneePt, anklePt, footPt),
-      points: { kneePt, hipPt, anklePt, shoulderPt, elbowPt, footPt, wristPt },
+      cabeca: this.calculateInclination(shoulderPt, headPt),
+      points: { kneePt, hipPt, anklePt, shoulderPt, elbowPt, footPt, wristPt, headPt },
+      visibility: { headVisible, armVisible, torsoVisible, legVisible },
+      isFullBodyVisible,
+      missingSegments,
     };
   }
 }
