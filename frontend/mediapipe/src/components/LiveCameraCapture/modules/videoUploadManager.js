@@ -158,6 +158,40 @@ export class VideoUploadManager {
     this.seekTo((this.videoElement.currentTime || 0) + deltaSeconds);
   }
 
+  startScrubbing() {
+    this.wasPlayingBeforeScrub = this.isPlaying;
+    this.pause();
+  }
+
+  stopScrubbing(resume = false) {
+    if (resume && this.wasPlayingBeforeScrub) {
+      this.play();
+    }
+  }
+
+  stepRangeFrame(direction = 1, fps = 30) {
+    if (!this.videoElement) return;
+    const delta = (1 / fps) * direction;
+    const current = this.videoElement.currentTime || 0;
+    let next = current + delta;
+    if (this.loopEnd > this.loopStart) {
+      if (next > this.loopEnd) next = this.loopStart;
+      else if (next < this.loopStart) next = this.loopEnd;
+    }
+    this.seekTo(next);
+  }
+
+  stepRangeSeconds(deltaSeconds) {
+    if (!this.videoElement) return;
+    const current = this.videoElement.currentTime || 0;
+    let next = current + deltaSeconds;
+    if (this.loopEnd > this.loopStart) {
+      if (next > this.loopEnd) next = this.loopStart;
+      else if (next < this.loopStart) next = this.loopEnd;
+    }
+    this.seekTo(next);
+  }
+
   setPlaybackRate(rate) {
     this.playbackRate = rate;
     if (this.videoElement) {

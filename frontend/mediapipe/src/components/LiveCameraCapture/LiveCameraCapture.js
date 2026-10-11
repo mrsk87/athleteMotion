@@ -219,6 +219,7 @@ export default {
       imageAnalysisMgr: markRaw(new MultiImageAnalysisManager()),
       isAnalyzingSingleImage: false,
       showMultiPositionModal: false,
+      isRangeScrubbing: false,
     };
   },
   computed: {
@@ -248,6 +249,26 @@ export default {
     },
     crankPositionsList() {
       return MultiImageAnalysisManager.CRANK_POSITIONS;
+    },
+    isRangeActive() {
+      return (
+        this.videoSourceMode === 'file' &&
+        Boolean(this.uploadedVideoFile) &&
+        (this.loopRange.enabled || this.loopRange.start > 0 || this.loopRange.end > 0)
+      );
+    },
+    rangeDuration() {
+      if (!this.loopRange.end || this.loopRange.end <= this.loopRange.start) return 1;
+      return Math.max(0.1, this.loopRange.end - this.loopRange.start);
+    },
+    rangeRelativeCurrentTime() {
+      const cur = this.videoCurrentTime || 0;
+      const start = this.loopRange.start || 0;
+      return Math.max(0, Math.min(this.rangeDuration, cur - start));
+    },
+    rangeProgressPercent() {
+      if (!this.rangeDuration) return 0;
+      return Math.min(100, Math.max(0, Math.round((this.rangeRelativeCurrentTime / this.rangeDuration) * 100)));
     },
     liveKneeStatus() {
       if (!this.liveAngles.joelho) return 'status-idle';
@@ -1249,6 +1270,24 @@ export default {
       this.loopRange = { start: 0, end: 0, enabled: false };
       this.renderTimelineChart();
       this.showToast('Intervalo de Loop A-B limpo');
+    },
+    onRangeScrubStart() {
+      this.isRangeScrubbing = true;
+      this.videoUploadMgr.startScrubbing();
+    },
+    onRangeScrubInput(event) {
+      const newTime = Number(event.target.value);
+      this.seekVideo(newTime);
+    },
+    onRangeScrubEnd() {
+      this.isRangeScrubbing = false;
+      this.videoUploadMgr.stopScrubbing(false);
+    },
+    stepRangeFrame(direction) {
+      this.videoUploadMgr.stepRangeFrame(direction, 30);
+    },
+    stepRangeSeconds(delta) {
+      this.videoUploadMgr.stepRangeSeconds(delta);
     },
     toggleTuningReportModal() {
       this.showTuningReportModal = !this.showTuningReportModal;

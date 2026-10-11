@@ -510,6 +510,95 @@
           Intervalo: {{ loopRange.start.toFixed(1) }}s → {{ loopRange.end.toFixed(1) }}s ({{ (loopRange.end - loopRange.start).toFixed(1) }}s)
         </span>
       </div>
+
+      <!-- Deslizador de Vaivém de Alta Precisão do Intervalo Escolhido (Jog/Shuttle Range Scrubber) -->
+      <div v-if="loopRange.start > 0 || loopRange.end > 0 || loopRange.enabled" class="range-scrubber-box">
+        <div class="range-scrubber-header">
+          <div class="range-title-group">
+            <span class="range-icon">🎛️</span>
+            <strong>Deslizador do Período Selecionado (Vaivém Manual)</strong>
+          </div>
+          <span class="range-metrics-pill">
+            [A: {{ (loopRange.start || 0).toFixed(2) }}s] ➔ [B: {{ (loopRange.end || videoDuration).toFixed(2) }}s]
+            (Duração: {{ rangeDuration.toFixed(2) }}s)
+          </span>
+        </div>
+
+        <!-- Slider de Vaivém Dedicado ao Intervalo A-B com passo ultra-fino -->
+        <div class="range-slider-wrapper">
+          <span class="range-bound-tag range-start-tag">{{ (loopRange.start || 0).toFixed(2) }}s</span>
+          <input
+            type="range"
+            class="range-scrubber-slider"
+            :min="loopRange.start || 0"
+            :max="loopRange.end || videoDuration"
+            step="0.01"
+            :value="videoCurrentTime"
+            @mousedown="onRangeScrubStart"
+            @touchstart="onRangeScrubStart"
+            @input="onRangeScrubInput"
+            @mouseup="onRangeScrubEnd"
+            @touchend="onRangeScrubEnd"
+            title="Arraste para a frente e para trás para deslocar manualmente à velocidade que desejar"
+          />
+          <span class="range-bound-tag range-end-tag">{{ (loopRange.end || videoDuration).toFixed(2) }}s</span>
+        </div>
+
+        <!-- Controlos de Vaivém Fotograma a Fotograma e Ajuste de Precisão -->
+        <div class="range-jog-controls-row">
+          <div class="jog-step-buttons">
+            <button
+              type="button"
+              class="btn-jog"
+              @click="stepRangeSeconds(-0.1)"
+              title="Recuar 0.1s"
+            >
+              ⏪ -0.1s
+            </button>
+            <button
+              type="button"
+              class="btn-jog"
+              @click="stepRangeFrame(-1)"
+              title="Recuar 1 fotograma (~33ms)"
+            >
+              ◀ -1 Frame
+            </button>
+            <button
+              type="button"
+              class="btn-jog btn-jog-play"
+              @click="toggleVideoPlay"
+              title="Reproduzir / Pausar intervalo"
+            >
+              {{ isVideoPlaying ? '⏸ Pausa' : '▶ Play' }}
+            </button>
+            <button
+              type="button"
+              class="btn-jog"
+              @click="stepRangeFrame(1)"
+              title="Avançar 1 fotograma (~33ms)"
+            >
+              +1 Frame ▶
+            </button>
+            <button
+              type="button"
+              class="btn-jog"
+              @click="stepRangeSeconds(0.1)"
+              title="Avançar 0.1s"
+            >
+              +0.1s ⏩
+            </button>
+          </div>
+
+          <div class="range-pos-telemetry">
+            <span class="telemetry-time">
+              Posição: <strong>{{ videoCurrentTime.toFixed(2) }}s</strong>
+            </span>
+            <span class="telemetry-rel">
+              (+{{ rangeRelativeCurrentTime.toFixed(2) }}s | {{ rangeProgressPercent }}% do ciclo)
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Gráfico de Evolução dos Ângulos na Linha Temporal do Vídeo -->
