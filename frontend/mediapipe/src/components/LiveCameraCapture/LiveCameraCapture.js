@@ -39,6 +39,7 @@ import { DebugLogger } from './modules/debugLogger';
 import { VideoUploadManager } from './modules/videoUploadManager';
 import { AnglesTimelineChart } from './modules/anglesTimelineChart';
 import { LiveTuningReportManager } from './modules/liveTuningReportManager';
+import { MultiImageAnalysisManager } from './modules/multiImageAnalysisManager';
 import { GifExportService } from '../../services/gifExportService';
 
 export default {
@@ -215,6 +216,9 @@ export default {
       isFlippedHorizontal: false,
       loopRange: { start: 0, end: 0, enabled: false },
       showTuningReportModal: false,
+      imageAnalysisMgr: markRaw(new MultiImageAnalysisManager()),
+      isAnalyzingSingleImage: false,
+      showMultiPositionModal: false,
     };
   },
   computed: {
@@ -232,6 +236,18 @@ export default {
     nonCompliantItems() {
       if (!this.activeTuningReport || !this.activeTuningReport.items) return [];
       return this.activeTuningReport.items.filter((item) => item.status !== 'ok');
+    },
+    imageItems() {
+      return this.imageAnalysisMgr.items;
+    },
+    activeImage() {
+      return this.imageAnalysisMgr.getActiveImage();
+    },
+    multiPositionSummary() {
+      return this.imageAnalysisMgr.getComparisonSummary();
+    },
+    crankPositionsList() {
+      return MultiImageAnalysisManager.CRANK_POSITIONS;
     },
     liveKneeStatus() {
       if (!this.liveAngles.joelho) return 'status-idle';
@@ -784,7 +800,30 @@ export default {
     setVideoSourceMode(mode) {
       if (this.videoSourceMode === mode) return;
       this.videoSourceMode = mode;
-      if (mode === 'file') {
+      if (mode === 'images') {
+        this.deviceMgr.stopStream();
+        this.poseRunner.stopLoop();
+        this.videoUploadMgr.pause();
+        this.cameraLoading = false;
+        this.cameraError = '';
+        const video = this.$refs.video;
+        if (video) {
+          video.pause();
+          video.srcObject = null;
+          video.removeAttribute('src');
+          video.load();
+        }
+        if (this.ctx && this.$refs.canvas) {
+          this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
+        }
+        const active = this.imageAnalysisMgr.getActiveImage();
+        if (active) {
+          this.drawActiveImageToCanvas(active);
+        } else {
+          this.$nextTick(() => this.triggerImageFilesInput());
+        }
+        this.showToast('Modo de fotos das posições da pedalada ativado.');
+      } else if (mode === 'file') {
         this.deviceMgr.stopStream();
         this.poseRunner.stopLoop();
         this.cameraLoading = false;
@@ -824,6 +863,210 @@ export default {
         }
         this.startPipeline();
       }
+    },
+    triggerImageFilesInput() {
+      if (this.$refs.imageFileInput) {
+        this.$refs.imageFileInput.value = '';
+        this.$refs.imageFileInput.click();
+      }
+    },
+    async handleImageFilesUpload(event) {
+      const files = event.target.files;
+      if (!files || !files.length) return;
+      const added = await this.imageAnalysisMgr.addFiles(files);
+      if (added.length > 0) {
+        this.showToast(`${added.length} foto(s) carregada(s) para análise.`);
+        const active = this.imageAnalysisMgr.getActiveImage();
+        if (active) {
+          this.drawActiveImageToCanvas(active);
+        }
+      }
+    },
+    drawActiveImageToCanvas(item) {
+      if (!item || !item.imageElement || !this.$refs.canvas || !this.ctx) return;
+      const canvas = this.$refs.canvas;
+      const img = item.imageElement;
+      canvas.width = img.naturalWidth || img.width || 800;
+      canvas.height = img.naturalHeight || img.height || 600;
+      this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+      this.ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      if (item.status === 'done' && item.landmarks) {
+        this.lastSmoothedLandmarks = item.landmarks;
+        this.liveAngles = { ...item.angles };
+        this.isFullBodyVisible = item.isFullBodyVisible;
+        this.missingBodyParts = item.missingSegments || [];
+        this.kopsResult = item.kopsResult;
+        this.hasDetectedPose = true;
+        this.renderOverlayGraphics(this.ctx, canvas.width, canvas.height);
+      }
+    },
+    selectImageItem(id) {
+      this.imageAnalysisMgr.setActiveImage(id);
+      const item = this.imageAnalysisMgr.getActiveImage();
+      if (item) {
+        this.drawActiveImageToCanvas(item);
+      }
+    },
+    setImageItemPosition(id, position) {
+      this.imageAnalysisMgr.setCrankPosition(id, position);
+      const item = this.imageAnalysisMgr.items.find((it) => it.id === id);
+      if (item && item.status === 'done') {
+        item.report = LiveTuningReportManager.generateReport({
+          bdcKneeAngle: position === 'bdc' ? item.angles.joelho : this.lastBdcKneeAngle,
+          liveAngles: item.angles,
+          kopsResult: item.kopsResult,
+          targets: this.targets,
+          isFullBody: item.isFullBodyVisible,
+          rpm: 0,
+          psi: 90,
+        });
+      }
+    },
+    removeImageItem(id) {
+      this.imageAnalysisMgr.removeImage(id);
+      const active = this.imageAnalysisMgr.getActiveImage();
+      if (active) {
+        this.drawActiveImageToCanvas(active);
+      } else if (this.ctx && this.$refs.canvas) {
+        this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
+      }
+    },
+    clearAllImageItems() {
+      this.imageAnalysisMgr.clearAll();
+      if (this.ctx && this.$refs.canvas) {
+        this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
+      }
+    },
+    async analyzeImageItem(id) {
+      const item = this.imageAnalysisMgr.items.find((it) => it.id === id);
+      if (!item || !item.imageElement) return;
+
+      this.imageAnalysisMgr.setActiveImage(id);
+      item.status = 'analyzing';
+      this.isAnalyzingSingleImage = true;
+
+      const canvas = this.$refs.canvas;
+      const ctx = this.ctx;
+      if (!canvas || !ctx) {
+        item.status = 'error';
+        this.isAnalyzingSingleImage = false;
+        return;
+      }
+
+      canvas.width = item.imageElement.naturalWidth || item.imageElement.width || 800;
+      canvas.height = item.imageElement.naturalHeight || item.imageElement.height || 600;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(item.imageElement, 0, 0, canvas.width, canvas.height);
+
+      try {
+        const results = await this.poseRunner.processStaticImage(canvas);
+
+        if (results && results.poseLandmarks && results.poseLandmarks.length >= 33) {
+          this.lastSmoothedLandmarks = results.poseLandmarks;
+          item.landmarks = results.poseLandmarks;
+
+          const computed = BiomechanicsComputer.computeFrameAngles({
+            lm: results.poseLandmarks,
+            side: this.currentSide,
+            manualTracker: this.manualTracker,
+          });
+
+          item.angles = {
+            joelho: computed.joelho,
+            costas: computed.costas,
+            braco: computed.braco,
+            tornozelo: computed.tornozelo,
+            cabeca: computed.cabeca,
+            anca: computed.anca,
+          };
+          item.isFullBodyVisible = computed.isFullBodyVisible;
+          item.missingSegments = computed.missingSegments;
+
+          this.liveAngles.joelho = computed.joelho;
+          this.liveAngles.costas = computed.costas;
+          this.liveAngles.braco = computed.braco;
+          this.liveAngles.tornozelo = computed.tornozelo;
+          this.liveAngles.cabeca = computed.cabeca;
+          this.isFullBodyVisible = computed.isFullBodyVisible;
+          this.missingBodyParts = computed.missingSegments;
+          this.hasDetectedPose = true;
+
+          if (item.crankPosition === 'bdc' && computed.joelho) {
+            this.lastBdcKneeAngle = Math.round(computed.joelho);
+          }
+
+          if (computed.points.kneePt && computed.points.anklePt) {
+            item.kopsResult = this.kopsAnalyzer.analyze(
+              computed.points.kneePt,
+              computed.points.anklePt,
+              canvas.width,
+              canvas.height,
+              computed.points.hipPt
+            );
+            this.kopsResult = item.kopsResult;
+          }
+
+          item.report = LiveTuningReportManager.generateReport({
+            bdcKneeAngle: item.crankPosition === 'bdc' ? computed.joelho : this.lastBdcKneeAngle,
+            liveAngles: item.angles,
+            kopsResult: item.kopsResult,
+            targets: this.targets,
+            isFullBody: item.isFullBodyVisible,
+            rpm: 0,
+            psi: 90,
+          });
+
+          this.renderOverlayGraphics(ctx, canvas.width, canvas.height);
+
+          try {
+            item.analyzedCanvasDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          } catch {
+            item.analyzedCanvasDataUrl = item.dataUrl;
+          }
+
+          item.status = 'done';
+          this.showToast(`Foto '${item.name}' analisada com sucesso!`);
+        } else {
+          item.status = 'error';
+          item.errorMessage = 'Pose não detetada. Verifique o enquadramento do ciclista.';
+          this.showToast(`Aviso: Nenhuma pose detetada em '${item.name}'`);
+        }
+      } catch (err) {
+        item.status = 'error';
+        item.errorMessage = err?.message || 'Erro durante inferência';
+        this.showToast(`Erro ao analisar foto: ${item.errorMessage}`);
+      } finally {
+        this.isAnalyzingSingleImage = false;
+      }
+    },
+    async analyzeAllImages() {
+      if (this.imageAnalysisMgr.isBatchAnalyzing) return;
+      this.imageAnalysisMgr.isBatchAnalyzing = true;
+      const items = [...this.imageAnalysisMgr.items];
+      let doneCount = 0;
+
+      for (const item of items) {
+        await this.analyzeImageItem(item.id);
+        doneCount++;
+        await new Promise((r) => setTimeout(r, 80));
+      }
+
+      this.imageAnalysisMgr.isBatchAnalyzing = false;
+      this.showToast(`Análise em lote concluída (${doneCount} fotos processadas).`);
+    },
+    toggleMultiPositionModal() {
+      this.showMultiPositionModal = !this.showMultiPositionModal;
+    },
+    copyMultiPositionReport() {
+      const athleteName = this.sessionData?.athlete?.name || 'Ciclista';
+      const bikeModel = this.sessionData?.bike?.model || 'Bicicleta';
+      const txt = this.imageAnalysisMgr.formatMultiPositionReport(athleteName, bikeModel);
+      navigator.clipboard.writeText(txt).then(() => {
+        this.showToast('Relatório multi-posição copiado para a área de transferência!');
+      }).catch(() => {
+        this.showToast('Erro ao copiar texto.');
+      });
     },
     triggerVideoFileInput() {
       if (this.$refs.videoFileInput) {

@@ -106,6 +106,7 @@ export class BiomechanicsComputer {
       braco: this.calculateSafeAngle(shoulderPt, elbowPt, wristPt),
       tornozelo: this.calculateSafeAngle(kneePt, anklePt, footPt),
       cabeca: this.calculateInclination(shoulderPt, headPt),
+      anca: this.calculateSafeAngle(shoulderPt, hipPt, kneePt),
       points: { kneePt, hipPt, anklePt, shoulderPt, elbowPt, footPt, wristPt, headPt },
       visibility: { headVisible, armVisible, torsoVisible, legVisible },
       isFullBodyVisible,

@@ -159,6 +159,49 @@ export class PosePipelineRunner {
       });
   }
 
+  /**
+   * Processa uma imagem estática (ou canvas estático) a pedido.
+   * Retorna uma Promise que resolve com os resultados da pose.
+   */
+  processStaticImage(imageSource) {
+    if (!this.poseInstance) return Promise.reject(new Error('MediaPipe não inicializado'));
+
+    return new Promise((resolve, reject) => {
+      let timeoutId = null;
+      const originalHandler = this.onResults;
+
+      const finish = (results) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        this.onResults = originalHandler;
+        resolve(results);
+      };
+
+      this.onResults = (results) => {
+        if (originalHandler) {
+          try {
+            originalHandler(results);
+          } catch {
+            // ignorar erros internos do handler principal
+          }
+        }
+        finish(results);
+      };
+
+      timeoutId = setTimeout(() => {
+        this.onResults = originalHandler;
+        resolve(null);
+      }, 4000);
+
+      this.poseInstance
+        .send({ image: imageSource })
+        .catch((err) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          this.onResults = originalHandler;
+          reject(err);
+        });
+    });
+  }
+
   stopLoop() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);

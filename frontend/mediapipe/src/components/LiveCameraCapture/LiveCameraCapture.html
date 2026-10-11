@@ -34,6 +34,14 @@
     </button>
     <button
       type="button"
+      class="btn-source-mode"
+      :class="{ active: videoSourceMode === 'images' }"
+      @click="setVideoSourceMode('images')"
+    >
+      🖼️ Análise de Fotos / Posições
+    </button>
+    <button
+      type="button"
       class="btn-source-mode btn-flip-mode"
       :class="{ active: isFlippedHorizontal }"
       @click="toggleFlipHorizontal"
@@ -280,6 +288,16 @@
     @change="handleVideoFileUpload"
   />
 
+  <!-- Input de Ficheiros de Imagem Oculto (1 ou várias fotos de posições) -->
+  <input
+    ref="imageFileInput"
+    type="file"
+    multiple
+    accept="image/png,image/jpeg,image/webp,image/*"
+    style="display: none;"
+    @change="handleImageFilesUpload"
+  />
+
   <!-- Área Principal de Vídeo e Canvas Sobreposto -->
   <div class="viewport-wrapper">
     <div
@@ -307,14 +325,31 @@
         <button type="button" class="btn-video-choose">Escolher Ficheiro</button>
       </div>
 
-      <!-- Indicador de Status Overlay na Câmara ou Vídeo (HUD) -->
-      <div v-if="videoSourceMode === 'camera' || uploadedVideoFile" class="camera-hud-overlay">
-        <div class="hud-item hud-status" :class="{ 'hud-active': isAnalyzing }">
-          ● {{ isAnalyzing ? 'LIVE TRACKING' : 'PAUSADO' }}
+      <!-- Overlay de upload exibido quando em modo fotos e sem imagens carregadas -->
+      <div
+        v-if="videoSourceMode === 'images' && imageItems.length === 0"
+        class="video-canvas-upload-overlay"
+        @click="triggerImageFilesInput"
+      >
+        <div class="upload-icon">🖼️</div>
+        <h3>Carregar Fotos das Posições da Pedalada</h3>
+        <p>Selecione uma ou várias fotos em diferentes posições dos pés e cranques (BDC, 90°, TDC, etc.).</p>
+        <button type="button" class="btn-video-choose">Escolher Imagens (1 ou várias)</button>
+      </div>
+
+      <!-- Indicador de Status Overlay na Câmara, Vídeo ou Fotos (HUD) -->
+      <div v-if="videoSourceMode === 'camera' || uploadedVideoFile || (videoSourceMode === 'images' && imageItems.length > 0)" class="camera-hud-overlay">
+        <div class="hud-item hud-status" :class="{ 'hud-active': isAnalyzing || videoSourceMode === 'images' }">
+          ● {{ videoSourceMode === 'images' ? 'MODO FOTO' : (isAnalyzing ? 'LIVE TRACKING' : 'PAUSADO') }}
+        </div>
+
+        <!-- Etiqueta da foto ativa no modo fotos -->
+        <div v-if="videoSourceMode === 'images' && activeImage" class="hud-item hud-photo-tag">
+          📷 {{ activeImage.name }} [{{ imageAnalysisMgr.getPositionMeta(activeImage.crankPosition).shortLabel }}]
         </div>
 
         <!-- Badge de Cadência RPM Dinâmica -->
-        <div class="hud-item hud-cadence">
+        <div v-if="videoSourceMode !== 'images'" class="hud-item hud-cadence">
           🔄 {{ currentRpm > 0 ? `${currentRpm} RPM` : '-- RPM' }}
         </div>
 
@@ -535,6 +570,193 @@
         >
           {{ isExportingClip ? 'A gravar clipe...' : t('exportClipBtn') }}
         </button>
+      </div>
+    </div>
+
+    <!-- Painel de Controlo & Galeria de Fotos das Posições da Pedalada -->
+    <div v-if="videoSourceMode === 'images'" class="images-analysis-dashboard">
+      <div class="images-dashboard-header">
+        <div class="images-header-title">
+          <h4>🖼️ Galeria de Fotos da Pedalada ({{ imageItems.length }} foto{{ imageItems.length === 1 ? '' : 's' }})</h4>
+          <span class="images-analyzed-count">
+            {{ multiPositionSummary.totalAnalyzed }} analisada(s) de {{ imageItems.length }}
+          </span>
+        </div>
+        <div class="images-header-actions">
+          <button type="button" class="btn-img-act btn-add-images" @click="triggerImageFilesInput">
+            ➕ Adicionar Fotos
+          </button>
+          <button
+            type="button"
+            class="btn-img-act btn-analyze-all"
+            :disabled="imageItems.length === 0 || imageAnalysisMgr.isBatchAnalyzing"
+            @click="analyzeAllImages"
+          >
+            {{ imageAnalysisMgr.isBatchAnalyzing ? '⏳ A Analisar...' : '⚡ Analisar Todas as Fotos' }}
+          </button>
+          <button
+            v-if="multiPositionSummary.totalAnalyzed >= 2"
+            type="button"
+            class="btn-img-act btn-compare-modal"
+            @click="toggleMultiPositionModal"
+          >
+            ⚖ Comparar Posições
+          </button>
+          <button
+            v-if="imageItems.length > 0"
+            type="button"
+            class="btn-img-act btn-clear-images"
+            @click="clearAllImageItems"
+          >
+            🗑️ Limpar
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista / Grelha de Cartões das Fotos da Pedalada -->
+      <div class="images-cards-grid" v-if="imageItems.length > 0">
+        <div
+          v-for="imgItem in imageItems"
+          :key="imgItem.id"
+          class="image-item-card"
+          :class="{ active: imgItem.id === activeImage?.id, [`status-${imgItem.status}`]: true }"
+          @click="selectImageItem(imgItem.id)"
+        >
+          <div class="image-thumb-wrapper">
+            <img :src="imgItem.analyzedCanvasDataUrl || imgItem.dataUrl" class="image-thumb" :alt="imgItem.name" />
+            <span class="image-pos-badge">
+              {{ imageAnalysisMgr.getPositionMeta(imgItem.crankPosition).icon }}
+              {{ imageAnalysisMgr.getPositionMeta(imgItem.crankPosition).shortLabel }}
+            </span>
+            <span v-if="imgItem.status === 'analyzing'" class="image-spin-badge">⏳</span>
+          </div>
+
+          <div class="image-card-info">
+            <div class="image-card-name" :title="imgItem.name">{{ imgItem.name }}</div>
+
+            <!-- Seletor da Posição do Pé na Pedaleira -->
+            <div class="image-position-selector" @click.stop>
+              <label>Posição:</label>
+              <select
+                :value="imgItem.crankPosition"
+                @change="setImageItemPosition(imgItem.id, $event.target.value)"
+                class="select-crank-pos"
+              >
+                <option v-for="pos in crankPositionsList" :key="pos.value" :value="pos.value">
+                  {{ pos.icon }} {{ pos.label }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Resumo Angular se já analisada -->
+            <div v-if="imgItem.status === 'done'" class="image-card-angles">
+              <span class="angle-pill angle-knee" v-if="imgItem.angles.joelho !== null">
+                Joelho: <strong>{{ Math.round(imgItem.angles.joelho) }}°</strong>
+              </span>
+              <span class="angle-pill angle-hip" v-if="imgItem.angles.anca !== null">
+                Anca: <strong>{{ Math.round(imgItem.angles.anca) }}°</strong>
+              </span>
+              <span class="angle-pill angle-torso" v-if="imgItem.angles.costas !== null">
+                Tronco: <strong>{{ Math.round(imgItem.angles.costas) }}°</strong>
+              </span>
+            </div>
+
+            <div v-else-if="imgItem.status === 'error'" class="image-card-error">
+              ⚠️ {{ imgItem.errorMessage || 'Erro ao detetar pose' }}
+            </div>
+
+            <!-- Ações do Cartão Individual -->
+            <div class="image-card-actions" @click.stop>
+              <button
+                type="button"
+                class="btn-card-analyze"
+                :disabled="isAnalyzingSingleImage"
+                @click="analyzeImageItem(imgItem.id)"
+              >
+                {{ imgItem.status === 'done' ? '🔄 Re-analisar' : '⚡ Analisar a Pedido' }}
+              </button>
+              <button
+                type="button"
+                class="btn-card-delete"
+                title="Remover foto"
+                @click="removeImageItem(imgItem.id)"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quadro Comparativo Rápido entre as Fases da Pedalada -->
+      <div v-if="multiPositionSummary.totalAnalyzed >= 2" class="multi-position-comparison-box">
+        <div class="comp-box-header">
+          <h5>📊 Quadro Clínico Comparativo das Fases da Pedalada</h5>
+          <button type="button" class="btn-copy-comp" @click="copyMultiPositionReport">
+            📋 Copiar Resumo
+          </button>
+        </div>
+
+        <div class="comp-phases-grid">
+          <!-- Fase BDC (6h) -->
+          <div class="comp-phase-card" :class="multiPositionSummary.bdcItem ? 'has-data' : 'no-data'">
+            <div class="phase-card-top">
+              <span class="phase-icon">🔻</span>
+              <strong>BDC (Ponto Morto Inferior - 6h)</strong>
+            </div>
+            <p class="phase-goal">Meta: Extensão máx. joelho 145°-155° (Holmes)</p>
+            <div v-if="multiPositionSummary.bdcItem" class="phase-values">
+              <div class="val-row">
+                <span>Ângulo Medido:</span>
+                <strong :style="{ color: multiPositionSummary.bdcItem.angles.joelho >= 145 && multiPositionSummary.bdcItem.angles.joelho <= 155 ? '#10b981' : '#f59e0b' }">
+                  {{ multiPositionSummary.bdcItem.angles.joelho ? `${Math.round(multiPositionSummary.bdcItem.angles.joelho)}°` : '--' }}
+                </strong>
+              </div>
+              <span class="verdict-tag">{{ multiPositionSummary.bdcItem.report?.items[0]?.action || 'Avaliado' }}</span>
+            </div>
+            <div v-else class="phase-placeholder">Foto BDC em falta (atribua uma foto a BDC)</div>
+          </div>
+
+          <!-- Fase 90° (3h) -->
+          <div class="comp-phase-card" :class="multiPositionSummary.ninetyItem ? 'has-data' : 'no-data'">
+            <div class="phase-card-top">
+              <span class="phase-icon">➡️</span>
+              <strong>Potência (90° / 3h - Horizontal)</strong>
+            </div>
+            <p class="phase-goal">Meta: Alinhamento KOPS patela/pedal (±10 mm)</p>
+            <div v-if="multiPositionSummary.ninetyItem" class="phase-values">
+              <div class="val-row">
+                <span>Desvio KOPS:</span>
+                <strong>
+                  {{ multiPositionSummary.ninetyItem.kopsResult ? `${multiPositionSummary.ninetyItem.kopsResult.offsetMm} mm` : '--' }}
+                </strong>
+              </div>
+              <span class="verdict-tag">{{ multiPositionSummary.ninetyItem.kopsResult?.actionPt || 'Avaliado' }}</span>
+            </div>
+            <div v-else class="phase-placeholder">Foto 90° em falta (atribua uma foto a 90°)</div>
+          </div>
+
+          <!-- Fase TDC (12h) -->
+          <div class="comp-phase-card" :class="multiPositionSummary.tdcItem ? 'has-data' : 'no-data'">
+            <div class="phase-card-top">
+              <span class="phase-icon">🔺</span>
+              <strong>TDC (Ponto Morto Superior - 12h)</strong>
+            </div>
+            <p class="phase-goal">Meta: Fecho da Anca > 50° (sem pinçamento femoroacetabular)</p>
+            <div v-if="multiPositionSummary.tdcItem" class="phase-values">
+              <div class="val-row">
+                <span>Ângulo da Anca:</span>
+                <strong :style="{ color: (multiPositionSummary.tdcItem.angles.anca || 0) >= 50 ? '#10b981' : '#ef4444' }">
+                  {{ multiPositionSummary.tdcItem.angles.anca ? `${Math.round(multiPositionSummary.tdcItem.angles.anca)}°` : '--' }}
+                </strong>
+              </div>
+              <span class="verdict-tag">
+                {{ (multiPositionSummary.tdcItem.angles.anca || 0) >= 50 ? '✅ Anca Desobstruída' : '⚠️ Risco Pinçamento' }}
+              </span>
+            </div>
+            <div v-else class="phase-placeholder">Foto TDC em falta (atribua uma foto a TDC)</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -854,6 +1076,50 @@
           🖨 Imprimir / PDF
         </button>
         <button type="button" class="btn-tuning-act btn-close-modal" @click="toggleTuningReportModal">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Comparativo Multi-Posição da Pedalada -->
+  <div v-if="showMultiPositionModal" class="tuning-overlay-modal" @click.self="toggleMultiPositionModal">
+    <div class="tuning-modal-box multi-position-modal-box">
+      <div class="tuning-modal-header">
+        <div class="tuning-header-title">
+          <h3>⚖ Comparador Biomecânico Multi-Posição da Pedalada</h3>
+          <span class="tuning-timestamp">{{ multiPositionSummary.totalAnalyzed }} fotos analisadas</span>
+        </div>
+        <button type="button" class="btn-close-tuning" @click="toggleMultiPositionModal">✕</button>
+      </div>
+
+      <div class="multi-position-modal-body">
+        <div class="modal-gallery-row">
+          <div
+            v-for="item in multiPositionSummary.analyzedItems"
+            :key="item.id"
+            class="modal-pos-card"
+          >
+            <div class="modal-card-top">
+              <span class="pos-tag">{{ imageAnalysisMgr.getPositionMeta(item.crankPosition).icon }} {{ imageAnalysisMgr.getPositionMeta(item.crankPosition).label }}</span>
+            </div>
+            <img :src="item.analyzedCanvasDataUrl || item.dataUrl" class="modal-card-img" />
+            <div class="modal-card-telemetry">
+              <div>🦵 Joelho: <strong>{{ item.angles.joelho !== null ? `${Math.round(item.angles.joelho)}°` : '--' }}</strong></div>
+              <div>📐 Anca: <strong>{{ item.angles.anca !== null ? `${Math.round(item.angles.anca)}°` : '--' }}</strong></div>
+              <div>📐 Tronco: <strong>{{ item.angles.costas !== null ? `${Math.round(item.angles.costas)}°` : '--' }}</strong></div>
+              <div>💪 Braço: <strong>{{ item.angles.braco !== null ? `${Math.round(item.angles.braco)}°` : '--' }}</strong></div>
+              <div v-if="item.kopsResult">🎯 KOPS: <strong>{{ item.kopsResult.offsetMm }} mm ({{ item.kopsResult.actionPt }})</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tuning-modal-actions">
+        <button type="button" class="btn-tuning-act btn-copy-report" @click="copyMultiPositionReport">
+          📋 Copiar Relatório
+        </button>
+        <button type="button" class="btn-tuning-act btn-close-modal" @click="toggleMultiPositionModal">
           Fechar
         </button>
       </div>
