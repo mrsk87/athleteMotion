@@ -81,19 +81,9 @@ export class CanvasOverlayRenderer {
     if (!ctx || !landmarks || landmarks.length < 33) return;
 
     const isLeft = side === 'left';
+    // No MediaPipe Pose: Ímpares = Esquerdo, Pares = Direito (Lado da transmissão)
     const activeIdx = {
       nose: 0,
-      ear: isLeft ? 8 : 7,
-      shoulder: isLeft ? 12 : 11,
-      elbow: isLeft ? 14 : 13,
-      wrist: isLeft ? 16 : 15,
-      hip: isLeft ? 24 : 23,
-      knee: isLeft ? 26 : 25,
-      ankle: isLeft ? 28 : 27,
-      heel: isLeft ? 30 : 29,
-      foot: isLeft ? 32 : 31,
-    };
-    const otherIdx = {
       ear: isLeft ? 7 : 8,
       shoulder: isLeft ? 11 : 12,
       elbow: isLeft ? 13 : 14,
@@ -103,6 +93,17 @@ export class CanvasOverlayRenderer {
       ankle: isLeft ? 27 : 28,
       heel: isLeft ? 29 : 30,
       foot: isLeft ? 31 : 32,
+    };
+    const otherIdx = {
+      ear: isLeft ? 8 : 7,
+      shoulder: isLeft ? 12 : 11,
+      elbow: isLeft ? 14 : 13,
+      wrist: isLeft ? 16 : 15,
+      hip: isLeft ? 24 : 23,
+      knee: isLeft ? 26 : 25,
+      ankle: isLeft ? 28 : 27,
+      heel: isLeft ? 30 : 29,
+      foot: isLeft ? 32 : 31,
     };
 
     // Cores ergonómicas calculadas para os membros principais
@@ -439,12 +440,13 @@ export class CanvasOverlayRenderer {
 
     const scale = Math.max(1.0, Math.min(3.5, Math.max(w, h) / 720));
     const isLeft = side === 'left';
-    const hipIdx = isLeft ? 24 : 23;
-    const kneeIdx = isLeft ? 26 : 25;
-    const ankleIdx = isLeft ? 28 : 27;
-    const shoulderIdx = isLeft ? 12 : 11;
-    const elbowIdx = isLeft ? 14 : 13;
-    const wristIdx = isLeft ? 16 : 15;
+    // Ímpares = Esquerdo, Pares = Direito (Lado da transmissão)
+    const hipIdx = isLeft ? 23 : 24;
+    const kneeIdx = isLeft ? 25 : 26;
+    const ankleIdx = isLeft ? 27 : 28;
+    const shoulderIdx = isLeft ? 11 : 12;
+    const elbowIdx = isLeft ? 13 : 14;
+    const wristIdx = isLeft ? 15 : 16;
 
     // 1. GUIA PARA EXTENSÃO DO JOELHO (Altura do Selim)
     const kneeTarget = targets.knee || [145, 155];

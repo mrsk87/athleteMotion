@@ -67,15 +67,16 @@ export class BiomechanicsComputer {
     }
 
     const isLeft = side === 'left';
-    const earIdx = isLeft ? 8 : 7;
+    // No MediaPipe Pose oficial: Índices ímpares são ESQUERDOS, índices pares são DIREITOS (Lado da transmissão)
+    const earIdx = isLeft ? 7 : 8;
     const noseIdx = 0;
-    const hipIdx = isLeft ? 24 : 23;
-    const kneeIdx = isLeft ? 26 : 25;
-    const ankleIdx = isLeft ? 28 : 27;
-    const footIdx = isLeft ? 32 : 31;
-    const shoulderIdx = isLeft ? 12 : 11;
-    const elbowIdx = isLeft ? 14 : 13;
-    const wristIdx = isLeft ? 16 : 15;
+    const hipIdx = isLeft ? 23 : 24;
+    const kneeIdx = isLeft ? 25 : 26;
+    const ankleIdx = isLeft ? 27 : 28;
+    const footIdx = isLeft ? 31 : 32;
+    const shoulderIdx = isLeft ? 11 : 12;
+    const elbowIdx = isLeft ? 13 : 14;
+    const wristIdx = isLeft ? 15 : 16;
 
     const headPt = lm[earIdx] || lm[noseIdx];
     const kneePt = manualTracker ? manualTracker.getAdjustedPoint('knee', lm[kneeIdx]) : lm[kneeIdx];

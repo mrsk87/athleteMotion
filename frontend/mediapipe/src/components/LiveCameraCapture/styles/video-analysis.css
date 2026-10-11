@@ -424,6 +424,126 @@
   border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
+.btn-infinite-loop {
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  color: #a1a1aa;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-infinite-loop:hover {
+  background-color: #3f3f46;
+  color: #fff;
+  border-color: #a855f7;
+}
+
+.btn-infinite-loop.active {
+  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+.loop-timeline-pickers {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background-color: #141416;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #27272a;
+  width: 100%;
+}
+
+.loop-point-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.picker-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+
+.loop-point-slider {
+  flex: 1;
+  accent-color: #a855f7;
+  height: 5px;
+  cursor: pointer;
+}
+
+.loop-point-val {
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #c084fc;
+  min-width: 44px;
+  text-align: right;
+}
+
+.loop-all-video-pill {
+  color: #a1a1aa;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.hud-side-drivetrain {
+  background: rgba(234, 88, 12, 0.85) !important;
+  color: #fff !important;
+  border: 1px solid #f97316 !important;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.4) !important;
+  font-weight: 800 !important;
+}
+
+.hud-side-left {
+  background: rgba(14, 116, 144, 0.85) !important;
+  color: #fff !important;
+  border: 1px solid #06b6d4 !important;
+  font-weight: 800 !important;
+}
+
+.hud-playback-mode {
+  display: flex !important;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px !important;
+  background: rgba(24, 24, 27, 0.85) !important;
+}
+
+.hud-badge-fwd {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.hud-badge-rev {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.hud-badge-loop {
+  background: rgba(168, 85, 247, 0.25);
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  color: #e9d5ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 10px;
+}
+
 /* Botão de Inversão Horizontal no Modo de Entrada */
 .btn-flip-mode.active {
   background-color: #8b5cf6;

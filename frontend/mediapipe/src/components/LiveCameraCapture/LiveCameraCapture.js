@@ -231,6 +231,7 @@ export default {
       bdcAnglesHistory: [],
       isFlippedHorizontal: false,
       loopRange: { start: 0, end: 0, enabled: false },
+      isInfiniteLoopActive: true,
       showTuningReportModal: false,
       imageAnalysisMgr: markRaw(new MultiImageAnalysisManager()),
       isAnalyzingSingleImage: false,
@@ -528,13 +529,14 @@ export default {
 
       const isLeft = this.currentSide === 'left';
       // Rastreio contínuo de características óticas (luz, relevo e bordas) nos fotogramas
+      // Ímpares = Esquerdo, Pares = Direito (Lado da transmissão)
       if ((this.$refs.video || this.$refs.canvas) && this.hasManualMarkers) {
         this.manualTracker.updateOpticalTracking(this.$refs.video || this.$refs.canvas, {
-          knee: this.lastSmoothedLandmarks[isLeft ? 26 : 25],
-          ankle: this.lastSmoothedLandmarks[isLeft ? 28 : 27],
-          hip: this.lastSmoothedLandmarks[isLeft ? 24 : 23],
-          shoulder: this.lastSmoothedLandmarks[isLeft ? 12 : 11],
-          elbow: this.lastSmoothedLandmarks[isLeft ? 14 : 13],
+          knee: this.lastSmoothedLandmarks[isLeft ? 25 : 26],
+          ankle: this.lastSmoothedLandmarks[isLeft ? 27 : 28],
+          hip: this.lastSmoothedLandmarks[isLeft ? 23 : 24],
+          shoulder: this.lastSmoothedLandmarks[isLeft ? 11 : 12],
+          elbow: this.lastSmoothedLandmarks[isLeft ? 13 : 14],
         });
       }
 
@@ -677,11 +679,12 @@ export default {
 
       const isLeft = this.currentSide === 'left';
       const isImage = this.videoSourceMode === 'images';
-      const kneePt = (isImage ? null : this.manualTracker?.getAdjustedPoint('knee', this.lastSmoothedLandmarks[isLeft ? 26 : 25])) || this.lastSmoothedLandmarks[isLeft ? 26 : 25];
-      const anklePt = (isImage ? null : this.manualTracker?.getAdjustedPoint('ankle', this.lastSmoothedLandmarks[isLeft ? 28 : 27])) || this.lastSmoothedLandmarks[isLeft ? 28 : 27];
-      const shoulderPt = (isImage ? null : this.manualTracker?.getAdjustedPoint('shoulder', this.lastSmoothedLandmarks[isLeft ? 12 : 11])) || this.lastSmoothedLandmarks[isLeft ? 12 : 11];
-      const elbowPt = (isImage ? null : this.manualTracker?.getAdjustedPoint('elbow', this.lastSmoothedLandmarks[isLeft ? 14 : 13])) || this.lastSmoothedLandmarks[isLeft ? 14 : 13];
-      const headPt = this.lastSmoothedLandmarks[isLeft ? 8 : 7] || this.lastSmoothedLandmarks[0];
+      // Ímpares = Esquerdo, Pares = Direito (Lado da transmissão)
+      const kneePt = (isImage ? null : this.manualTracker?.getAdjustedPoint('knee', this.lastSmoothedLandmarks[isLeft ? 25 : 26])) || this.lastSmoothedLandmarks[isLeft ? 25 : 26];
+      const anklePt = (isImage ? null : this.manualTracker?.getAdjustedPoint('ankle', this.lastSmoothedLandmarks[isLeft ? 27 : 28])) || this.lastSmoothedLandmarks[isLeft ? 27 : 28];
+      const shoulderPt = (isImage ? null : this.manualTracker?.getAdjustedPoint('shoulder', this.lastSmoothedLandmarks[isLeft ? 11 : 12])) || this.lastSmoothedLandmarks[isLeft ? 11 : 12];
+      const elbowPt = (isImage ? null : this.manualTracker?.getAdjustedPoint('elbow', this.lastSmoothedLandmarks[isLeft ? 13 : 14])) || this.lastSmoothedLandmarks[isLeft ? 13 : 14];
+      const headPt = this.lastSmoothedLandmarks[isLeft ? 7 : 8] || this.lastSmoothedLandmarks[0];
 
       if (kneePt) CanvasOverlayRenderer.drawJointMarker(ctx, kneePt, this.liveAngles.joelho, this.targets.knee, w, h);
       if (shoulderPt) CanvasOverlayRenderer.drawJointMarker(ctx, shoulderPt, this.liveAngles.costas, this.targets.back, w, h);
@@ -725,12 +728,12 @@ export default {
     },
     getJointIndexForName(name, isLeft) {
       switch (name) {
-        case 'knee': return isLeft ? 26 : 25;
-        case 'hip': return isLeft ? 24 : 23;
-        case 'ankle': return isLeft ? 28 : 27;
-        case 'shoulder': return isLeft ? 12 : 11;
-        case 'elbow': return isLeft ? 14 : 13;
-        default: return isLeft ? 26 : 25;
+        case 'knee': return isLeft ? 25 : 26;
+        case 'hip': return isLeft ? 23 : 24;
+        case 'ankle': return isLeft ? 27 : 28;
+        case 'shoulder': return isLeft ? 11 : 12;
+        case 'elbow': return isLeft ? 13 : 14;
+        default: return isLeft ? 25 : 26;
       }
     },
     handleCanvasClick(event) {
@@ -810,8 +813,37 @@ export default {
       this.restartCamera();
     },
     setProfileSide(side) {
+      if (this.currentSide === side) return;
       this.currentSide = side;
-      this.showToast(`Perfil: ${side === 'left' ? 'Esquerdo' : 'Direito'}`);
+      this.showToast(
+        side === 'right'
+          ? 'Perfil Direito (Lado da Transmissão) ativado'
+          : 'Perfil Esquerdo (Lado sem corrente) ativado'
+      );
+
+      // Recalcular ângulos imediatamente com os novos marcos anatómicos do lado selecionado
+      if (this.lastSmoothedLandmarks) {
+        const computed = BiomechanicsComputer.computeFrameAngles({
+          lm: this.lastSmoothedLandmarks,
+          side: this.currentSide,
+          manualTracker: this.videoSourceMode === 'images' ? null : this.manualTracker,
+        });
+        this.liveAngles.joelho = computed.joelho;
+        this.liveAngles.costas = computed.costas;
+        this.liveAngles.braco = computed.braco;
+        this.liveAngles.tornozelo = computed.tornozelo;
+        this.liveAngles.cabeca = computed.cabeca;
+        this.liveAngles.anca = computed.anca;
+      }
+
+      // Repintar sobreposição visual no canvas de imediato
+      if (this.ctx && this.$refs.canvas) {
+        if (this.videoSourceMode === 'images' && this.activeImage) {
+          this.drawActiveImageToCanvas(this.activeImage);
+        } else if (this.lastSmoothedLandmarks) {
+          this.renderOverlayGraphics(this.ctx, this.$refs.canvas.width, this.$refs.canvas.height);
+        }
+      }
     },
     setViewPlane(plane) {
       this.viewPlane = plane;
@@ -1434,11 +1466,44 @@ export default {
       this.renderTimelineChart();
       this.showToast(this.loopRange.enabled ? 'Repetição de Loop A-B ativada' : 'Loop A-B desativado');
     },
+    toggleInfiniteLoop() {
+      const active = this.videoUploadMgr.toggleInfiniteLoop();
+      this.isInfiniteLoopActive = active;
+      this.showToast(
+        active
+          ? '♾️ Loop Infinito Ativado (reprodução contínua sem fim)'
+          : 'Loop Infinito Desativado (pausa ao atingir o fim)'
+      );
+    },
+    updateLoopStart(sec) {
+      const start = Math.max(0, Math.min(Number(sec) || 0, this.videoDuration || 0));
+      const currentEnd = this.loopRange.end > start ? this.loopRange.end : (this.videoDuration || start + 1.0);
+      this.videoUploadMgr.setLoopRange(start, currentEnd);
+      this.loopRange = {
+        start: this.videoUploadMgr.loopStart,
+        end: this.videoUploadMgr.loopEnd,
+        enabled: true,
+      };
+      this.renderTimelineChart();
+      this.showToast(`Ponto de início do loop definido para ${start.toFixed(2)}s`);
+    },
+    updateLoopEnd(sec) {
+      const end = Math.max(0.1, Math.min(Number(sec) || 0, this.videoDuration || 0));
+      const currentStart = this.loopRange.start < end ? this.loopRange.start : Math.max(0, end - 1.0);
+      this.videoUploadMgr.setLoopRange(currentStart, end);
+      this.loopRange = {
+        start: this.videoUploadMgr.loopStart,
+        end: this.videoUploadMgr.loopEnd,
+        enabled: true,
+      };
+      this.renderTimelineChart();
+      this.showToast(`Ponto final do loop definido para ${end.toFixed(2)}s`);
+    },
     clearLoop() {
       this.videoUploadMgr.clearLoop();
       this.loopRange = { start: 0, end: 0, enabled: false };
       this.renderTimelineChart();
-      this.showToast('Intervalo de Loop A-B limpo');
+      this.showToast('Intervalo de Loop limpo: a reproduzir o vídeo completo com as definições escolhidas');
     },
     onRangeScrubStart() {
       this.isRangeScrubbing = true;

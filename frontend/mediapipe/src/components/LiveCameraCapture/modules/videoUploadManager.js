@@ -24,6 +24,9 @@ export class VideoUploadManager {
     this.loopEnd = 0;
     this.loopEnabled = false;
 
+    // Loop Infinito (Reprodução Sem Fim por omissão)
+    this.infiniteLoop = true;
+
     // Sentido de reprodução temporal (Marcha-Atrás / Reverse)
     this.playbackDirection = 'forward'; // 'forward' | 'reverse'
     this.isReversePlaying = false;
@@ -69,7 +72,20 @@ export class VideoUploadManager {
       // Execução do Loop A-B automático no intervalo definido (sentido normal)
       if (this.loopEnabled && this.loopEnd > this.loopStart) {
         if (this.currentTime >= this.loopEnd || this.currentTime < this.loopStart - 0.25) {
-          this.seekTo(this.loopStart);
+          if (this.infiniteLoop) {
+            this.seekTo(this.loopStart);
+            return;
+          } else {
+            this.seekTo(this.loopEnd);
+            this.pause();
+            return;
+          }
+        }
+      } else if (this.infiniteLoop && this.duration > 0) {
+        // Se não houver intervalo definido mas o Loop Infinito estiver ativo, repete o vídeo todo
+        if (this.currentTime >= this.duration - 0.08) {
+          this.seekTo(0);
+          this.play();
           return;
         }
       }
@@ -79,11 +95,15 @@ export class VideoUploadManager {
 
     this.videoElement.onended = () => {
       if (this.isReversePlaying) return;
-      if (this.loopEnabled && this.loopEnd > this.loopStart) {
-        this.seekTo(this.loopStart);
+
+      // Se o loop infinito estiver ativo, repete sem fim (no intervalo ou no vídeo completo)
+      if (this.infiniteLoop) {
+        const startPoint = (this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopStart : 0;
+        this.seekTo(startPoint);
         this.play();
         return;
       }
+
       this.isPlaying = false;
       if (this.onPlayStateChange) this.onPlayStateChange(false);
       if (this.onEnded) this.onEnded();
@@ -117,6 +137,14 @@ export class VideoUploadManager {
     this.loopEnabled = true;
   }
 
+  setLoopRange(start, end) {
+    const s = Math.max(0, Math.min(start, this.duration));
+    const e = Math.max(s + 0.1, Math.min(end, this.duration));
+    this.loopStart = s;
+    this.loopEnd = e;
+    this.loopEnabled = true;
+  }
+
   toggleLoop(enabled) {
     this.loopEnabled = typeof enabled === 'boolean' ? enabled : !this.loopEnabled;
     if (this.loopEnabled && (this.currentTime < this.loopStart || this.currentTime >= this.loopEnd)) {
@@ -128,6 +156,15 @@ export class VideoUploadManager {
     this.loopEnabled = false;
     this.loopStart = 0;
     this.loopEnd = 0;
+  }
+
+  setInfiniteLoop(enabled) {
+    this.infiniteLoop = Boolean(enabled);
+  }
+
+  toggleInfiniteLoop() {
+    this.infiniteLoop = !this.infiniteLoop;
+    return this.infiniteLoop;
   }
 
   /**
@@ -164,13 +201,12 @@ export class VideoUploadManager {
       this.videoElement.pause();
     }
 
-    // Se estiver no início ou fora do loop, reposiciona no ponto final adequado
-    if (this.loopEnabled && this.loopEnd > this.loopStart) {
-      if (this.videoElement.currentTime <= this.loopStart + 0.05 || this.videoElement.currentTime > this.loopEnd) {
-        this.seekTo(this.loopEnd);
-      }
-    } else if ((this.videoElement.currentTime || 0) <= 0.05) {
-      this.seekTo(this.duration || 0);
+    const minBound = (this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopStart : 0;
+    const maxBound = (this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopEnd : (this.duration || 0);
+
+    // No modo inverso, o início é o final do vídeo (ou fim do loop)
+    if ((this.videoElement.currentTime || 0) <= minBound + 0.08 || (this.videoElement.currentTime || 0) > maxBound) {
+      this.seekTo(maxBound);
     }
 
     this.isReversePlaying = true;
@@ -220,18 +256,19 @@ export class VideoUploadManager {
     const current = this.videoElement.currentTime || 0;
     let target = current - step;
 
-    // Fronteira com Loop A-B ativo: ao atingir o ponto A, faz wrap para o ponto B
-    if (this.loopEnabled && this.loopEnd > this.loopStart) {
-      if (target <= this.loopStart) {
-        target = this.loopEnd;
-      }
-    } else {
-      // Sem loop: ao atingir o início do vídeo (0s), pausa e termina
-      if (target <= 0) {
-        target = 0;
-        this.videoElement.currentTime = 0;
-        this.currentTime = 0;
-        if (this.onTimeUpdate) this.onTimeUpdate(0, this.duration);
+    const minBound = (this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopStart : 0;
+    const maxBound = (this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopEnd : (this.duration || 0);
+
+    // Fronteira de recuo:
+    if (target <= minBound) {
+      if (this.infiniteLoop) {
+        // Loop infinito na marcha-atrás: recomeça continuamente a partir do fim (vídeo todo ou loop)
+        target = maxBound;
+      } else {
+        target = minBound;
+        this.videoElement.currentTime = minBound;
+        this.currentTime = minBound;
+        if (this.onTimeUpdate) this.onTimeUpdate(minBound, this.duration);
         this.pauseReverse();
         if (this.onEnded) this.onEnded();
         return;
@@ -260,6 +297,20 @@ export class VideoUploadManager {
     }
     this.playbackDirection = direction;
     if (this.onDirectionChange) this.onDirectionChange(direction);
+
+    const minBound = (this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopStart : 0;
+    const maxBound = (this.loopEnabled && this.loopEnd > this.loopStart) ? this.loopEnd : (this.duration || 0);
+
+    // "quando se escolhe inverso, o início do vídeo é o final dele em modo normal"
+    if (direction === 'reverse') {
+      if ((this.currentTime || 0) <= minBound + 0.1 || (this.currentTime || 0) >= maxBound - 0.05) {
+        this.seekTo(maxBound);
+      }
+    } else {
+      if ((this.currentTime || 0) >= maxBound - 0.1 || (this.currentTime || 0) <= minBound) {
+        this.seekTo(minBound);
+      }
+    }
 
     if (wasPlaying) {
       if (direction === 'reverse') {

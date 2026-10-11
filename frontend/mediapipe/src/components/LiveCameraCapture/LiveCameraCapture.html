@@ -206,15 +206,17 @@
           type="button"
           :class="{ active: currentSide === 'left' }"
           @click="setProfileSide('left')"
+          title="Perfil Esquerdo (Lado sem corrente da bicicleta)"
         >
-          {{ t('leftProfile') }}
+          🚲 {{ t('leftProfile') }}
         </button>
         <button
           type="button"
           :class="{ active: currentSide === 'right' }"
           @click="setProfileSide('right')"
+          title="Perfil Direito (Lado da transmissão / pedaleira / corrente)"
         >
-          {{ t('rightProfile') }}
+          ⚙️ {{ t('rightProfile') }}
         </button>
       </div>
     </div>
@@ -393,8 +395,18 @@
           🔄 PSI: {{ livePsi }}%
         </div>
 
-        <div class="hud-item hud-side">
-          {{ currentSide === 'left' ? 'ESQUERDO' : 'DIREITO' }}
+        <div class="hud-item hud-side" :class="currentSide === 'right' ? 'hud-side-drivetrain' : 'hud-side-left'">
+          {{ currentSide === 'right' ? '⚙️ LADO DA TRANSMISSÃO (DIR)' : '🚲 LADO SEM CORRENTE (ESQ)' }}
+        </div>
+
+        <!-- Indicador de Sentido Temporal & Loop Infinito no HUD em modo Vídeo -->
+        <div v-if="videoSourceMode === 'file'" class="hud-item hud-playback-mode">
+          <span :class="playbackDirection === 'reverse' ? 'hud-badge-rev' : 'hud-badge-fwd'">
+            {{ playbackDirection === 'reverse' ? '◀ DE TRÁS P/ FRENTE' : '▶ DE FRENTE P/ TRÁS' }}
+          </span>
+          <span v-if="isInfiniteLoopActive" class="hud-badge-loop">
+            ♾️ SEM FIM
+          </span>
         </div>
 
         <!-- Indicador de Enquadramento de Corpo Inteiro -->
@@ -457,30 +469,30 @@
             class="btn-video-ctrl btn-play-main"
             :class="{ 'btn-playing-reverse': isReversePlaying }"
             @click="toggleVideoPlay"
-            :title="playbackDirection === 'reverse' ? 'Reproduzir / Pausar no sentido oposto (marcha-atrás)' : 'Reproduzir / Pausar no sentido normal'"
+            :title="playbackDirection === 'reverse' ? 'Reproduzir / Pausar de trás para a frente (marcha-atrás)' : 'Reproduzir / Pausar de frente para trás (normal)'"
           >
-            {{ isVideoPlaying ? (isReversePlaying ? '⏸ Pausa (Reverso)' : '⏸ Pausa') : (playbackDirection === 'reverse' ? '◀ Marcha-Atrás' : '▶ Reproduzir') }}
+            {{ isVideoPlaying ? (isReversePlaying ? '⏸ Pausa (Trás p/ Frente)' : '⏸ Pausa') : (playbackDirection === 'reverse' ? '◀ De Trás p/ Frente' : '▶ De Frente p/ Trás') }}
           </button>
 
-          <!-- Comutador de Sentido Temporal (Normal vs Sentido Oposto) -->
+          <!-- Comutador de Sentido Temporal (De Frente para Trás vs De Trás para a Frente) -->
           <div class="direction-toggle-group">
             <button
               type="button"
               class="btn-direction"
               :class="{ active: playbackDirection === 'forward' }"
               @click="setPlaybackDirection('forward')"
-              title="Avançar no tempo (sentido normal)"
+              title="Avançar no tempo: De Frente para Trás (Normal)"
             >
-              ▶ Normal
+              ▶ De Frente p/ Trás
             </button>
             <button
               type="button"
               class="btn-direction btn-direction-rev"
               :class="{ active: playbackDirection === 'reverse' }"
               @click="setPlaybackDirection('reverse')"
-              title="Recuar no tempo (sentido oposto / marcha-atrás)"
+              title="Recuar no tempo: De Trás para a Frente (Inverso - começa no final)"
             >
-              ◀ Sentido Oposto
+              ◀ De Trás p/ Frente
             </button>
           </div>
 
@@ -490,7 +502,7 @@
             class="btn-video-ctrl btn-rev-direct"
             :class="{ active: isReversePlaying }"
             @click="playReverseVideo"
-            title="Reproduzir diretamente no sentido oposto"
+            title="Reproduzir diretamente de trás para a frente"
           >
             ⏪ Recuar
           </button>
@@ -546,9 +558,20 @@
         </div>
       </div>
 
-      <!-- Controlos de Loop A-B por Intervalo de Tempo -->
+      <!-- Controlos de Loop Infinito e Escolha de Pontos Temporais -->
       <div class="video-loop-row">
         <div class="loop-buttons-group">
+          <!-- Botão de Loop Infinito / Reprodução Sem Fim -->
+          <button
+            type="button"
+            class="btn-infinite-loop"
+            :class="{ active: isInfiniteLoopActive }"
+            @click="toggleInfiniteLoop"
+            title="Loop Infinito: Reprodução perpétua sem fim (no vídeo todo ou no intervalo escolhido)"
+          >
+            ♾️ {{ isInfiniteLoopActive ? 'Loop Infinito: Ligado' : 'Loop Infinito: Desligado' }}
+          </button>
+
           <button
             type="button"
             class="btn-loop-ctrl"
@@ -556,20 +579,57 @@
             @click="toggleLoop"
             title="Ativar/Desativar repetição contínua no intervalo definido"
           >
-            🔁 {{ loopRange.enabled ? 'Loop A-B Ativo' : 'Loop A-B' }}
+            🔁 {{ loopRange.enabled ? 'Repetir Intervalo' : 'Intervalo A-B' }}
           </button>
           <button type="button" class="btn-loop-ctrl" @click="setLoopPointA" title="Definir ponto A no segundo atual">
-            [A] Início: {{ loopRange.start > 0 ? `${loopRange.start.toFixed(1)}s` : 'Definir' }}
+            [A] Fixar Atual: {{ (videoCurrentTime || 0).toFixed(1) }}s
           </button>
           <button type="button" class="btn-loop-ctrl" @click="setLoopPointB" title="Definir ponto B no segundo atual">
-            [B] Fim: {{ loopRange.end > 0 ? `${loopRange.end.toFixed(1)}s` : 'Definir' }}
+            [B] Fixar Atual: {{ (videoCurrentTime || 0).toFixed(1) }}s
           </button>
-          <button v-if="loopRange.start > 0 || loopRange.end > 0" type="button" class="btn-loop-clear" @click="clearLoop" title="Limpar intervalo">
-            ✕ Limpar
+          <button v-if="loopRange.start > 0 || loopRange.end > 0" type="button" class="btn-loop-clear" @click="clearLoop" title="Limpar intervalo e reproduzir o vídeo completo">
+            ✕ Limpar Intervalo
           </button>
         </div>
+
+        <!-- Seletores de Pontos Temporais no Slide Temporal do Vídeo -->
+        <div class="loop-timeline-pickers">
+          <div class="loop-point-picker">
+            <span class="picker-label">⏱ Ponto A (Início):</span>
+            <input
+              type="range"
+              class="loop-point-slider"
+              min="0"
+              :max="loopRange.end > 0 ? loopRange.end : (videoDuration || 10)"
+              step="0.05"
+              :value="loopRange.start || 0"
+              @input="updateLoopStart($event.target.value)"
+              title="Ajuste o ponto inicial do loop no slide temporal"
+            />
+            <span class="loop-point-val">{{ (loopRange.start || 0).toFixed(2) }}s</span>
+          </div>
+
+          <div class="loop-point-picker">
+            <span class="picker-label">⏱ Ponto B (Fim):</span>
+            <input
+              type="range"
+              class="loop-point-slider"
+              :min="loopRange.start || 0"
+              :max="videoDuration || 10"
+              step="0.05"
+              :value="loopRange.end > 0 ? loopRange.end : (videoDuration || 10)"
+              @input="updateLoopEnd($event.target.value)"
+              title="Ajuste o ponto final do loop no slide temporal"
+            />
+            <span class="loop-point-val">{{ (loopRange.end > 0 ? loopRange.end : videoDuration).toFixed(2) }}s</span>
+          </div>
+        </div>
+
         <span v-if="loopRange.enabled" class="loop-status-pill">
-          Intervalo: {{ loopRange.start.toFixed(1) }}s → {{ loopRange.end.toFixed(1) }}s ({{ (loopRange.end - loopRange.start).toFixed(1) }}s)
+          🔁 Intervalo: {{ loopRange.start.toFixed(1) }}s → {{ loopRange.end.toFixed(1) }}s ({{ (loopRange.end - loopRange.start).toFixed(1) }}s)
+        </span>
+        <span v-else class="loop-status-pill loop-all-video-pill">
+          🌐 Sem intervalo: a reproduzir o vídeo completo {{ isInfiniteLoopActive ? '(Loop Infinito ativo)' : '' }}
         </span>
       </div>
 
