@@ -104,3 +104,36 @@
 .status-idle {
   background-color: #666;
 }
+
+/* Indicadores de conformidade ergonómica em tempo real */
+.metric-row {
+  background-color: #242424;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.metric-row.metric-compliant {
+  border-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.08);
+}
+
+.metric-row.metric-compliant .angle-badge {
+  color: #10b981;
+  border-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.15);
+}
+
+.metric-row.metric-non-compliant {
+  border-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.08);
+}
+
+.metric-row.metric-non-compliant .angle-badge {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.15);
+}
+

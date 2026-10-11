@@ -168,6 +168,8 @@ export default {
       bilateralResults: [],
       liveAngles: { joelho: null, costas: null, braco: null, tornozelo: null },
       targets: { knee: [145, 155], back: [40, 50], elbow: [150, 165], shoulder: [85, 95], ankle: [95, 105] },
+      wheelCalibrating: false,
+      wheelPoints: [],
     };
   },
   computed: {
@@ -399,6 +401,14 @@ export default {
         this.showToast('Marcador manual fixado com sucesso!');
         return;
       }
+      if (this.wheelCalibrating) {
+        const calibrated = this.wheelHandler.handleClick({ x, y }, this.sessionData?.athlete?.riding_style || 'road');
+        this.wheelPoints = [...this.wheelHandler.points];
+        if (calibrated || !this.wheelHandler.isCalibrating) {
+          this.wheelCalibrating = false;
+        }
+        return;
+      }
       this.wheelHandler.handleClick({ x, y }, this.sessionData?.athlete?.riding_style || 'road');
     },
     handleCanvasMouseMove(e) {
@@ -482,14 +492,44 @@ export default {
         this.showToast(err.message);
       }
     },
+    connectBluetoothSensor() {
+      return this.connectBleSensors();
+    },
     startWheelCalibration() {
+      this.wheelCalibrating = true;
+      this.wheelPoints = [];
       this.wheelHandler.start();
     },
     cancelWheelCalibration() {
+      this.wheelCalibrating = false;
+      this.wheelPoints = [];
       this.wheelHandler.cancel();
     },
     copyDiagnosticLogs() {
       this.debugLogMgr.copyLogsToClipboard().then(() => this.showToast('Logs copiados!')).catch(() => this.showToast('Erro ao copiar'));
+    },
+    copyDebugLogs() {
+      return this.copyDiagnosticLogs();
+    },
+    clearDebugLogs() {
+      this.debugLogMgr.clearLogs();
+      this.debugLogs = [];
+      this.showToast('Logs de diagnóstico limpos.');
+    },
+    toggleDebugModal() {
+      this.showDebugModal = !this.showDebugModal;
+    },
+    toggleAnalysis() {
+      this.isAnalyzing = !this.isAnalyzing;
+      this.showToast(this.isAnalyzing ? 'Análise em direto retomada.' : 'Análise em direto pausada.');
+    },
+    getComplianceClass(angle, targetRange) {
+      if (!angle || !targetRange || targetRange.length < 2) return '';
+      const [minVal, maxVal] = targetRange;
+      if (angle >= minVal && angle <= maxVal) {
+        return 'metric-compliant';
+      }
+      return 'metric-non-compliant';
     },
     captureSnapshot() {
       if (!this.liveAngles.joelho) return;
