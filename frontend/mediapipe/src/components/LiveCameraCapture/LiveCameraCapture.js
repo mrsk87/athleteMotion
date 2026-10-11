@@ -260,6 +260,54 @@ export default {
     activeImage() {
       return this.imageAnalysisMgr.getActiveImage();
     },
+    activeImageReport() {
+      if (!this.activeImage || this.activeImage.status !== 'done') return null;
+      if (this.activeImage.report) return this.activeImage.report;
+      return LiveTuningReportManager.generateReport({
+        bdcKneeAngle: this.activeImage.crankPosition === 'bdc' ? this.activeImage.angles?.joelho : this.lastBdcKneeAngle,
+        liveAngles: this.activeImage.angles || {},
+        kopsResult: this.activeImage.kopsResult,
+        targets: this.targets,
+        isFullBody: this.activeImage.isFullBodyVisible,
+        rpm: 0,
+        psi: 90,
+      });
+    },
+    activeImageNonCompliantItems() {
+      if (!this.activeImageReport?.items) return [];
+      return this.activeImageReport.items.filter((item) => item.status !== 'ok');
+    },
+    activeImageCompliantItems() {
+      if (!this.activeImageReport?.items) return [];
+      return this.activeImageReport.items.filter((item) => item.status === 'ok');
+    },
+    consolidatedPhotoActions() {
+      const allDone = this.imageItems.filter((it) => it.status === 'done' && it.report?.items);
+      if (!allDone.length) return [];
+
+      const map = new Map();
+      allDone.forEach((it) => {
+        it.report.items.forEach((repItem) => {
+          if (repItem.status !== 'ok') {
+            const key = repItem.component;
+            if (!map.has(key) || repItem.status === 'danger') {
+              map.set(key, {
+                ...repItem,
+                photoName: it.name,
+                crankPosition: it.crankPosition,
+              });
+            }
+          }
+        });
+      });
+      return Array.from(map.values());
+    },
+    consolidatedPhotosScore() {
+      const allDone = this.imageItems.filter((it) => it.status === 'done' && it.report?.score !== undefined);
+      if (!allDone.length) return null;
+      const sum = allDone.reduce((acc, it) => acc + it.report.score, 0);
+      return Math.round(sum / allDone.length);
+    },
     multiPositionSummary() {
       return this.imageAnalysisMgr.getComparisonSummary();
     },
@@ -628,10 +676,11 @@ export default {
       );
 
       const isLeft = this.currentSide === 'left';
-      const kneePt = this.manualTracker.getAdjustedPoint('knee', this.lastSmoothedLandmarks[isLeft ? 26 : 25]);
-      const anklePt = this.manualTracker.getAdjustedPoint('ankle', this.lastSmoothedLandmarks[isLeft ? 28 : 27]);
-      const shoulderPt = this.manualTracker.getAdjustedPoint('shoulder', this.lastSmoothedLandmarks[isLeft ? 12 : 11]);
-      const elbowPt = this.manualTracker.getAdjustedPoint('elbow', this.lastSmoothedLandmarks[isLeft ? 14 : 13]);
+      const isImage = this.videoSourceMode === 'images';
+      const kneePt = (isImage ? null : this.manualTracker?.getAdjustedPoint('knee', this.lastSmoothedLandmarks[isLeft ? 26 : 25])) || this.lastSmoothedLandmarks[isLeft ? 26 : 25];
+      const anklePt = (isImage ? null : this.manualTracker?.getAdjustedPoint('ankle', this.lastSmoothedLandmarks[isLeft ? 28 : 27])) || this.lastSmoothedLandmarks[isLeft ? 28 : 27];
+      const shoulderPt = (isImage ? null : this.manualTracker?.getAdjustedPoint('shoulder', this.lastSmoothedLandmarks[isLeft ? 12 : 11])) || this.lastSmoothedLandmarks[isLeft ? 12 : 11];
+      const elbowPt = (isImage ? null : this.manualTracker?.getAdjustedPoint('elbow', this.lastSmoothedLandmarks[isLeft ? 14 : 13])) || this.lastSmoothedLandmarks[isLeft ? 14 : 13];
       const headPt = this.lastSmoothedLandmarks[isLeft ? 8 : 7] || this.lastSmoothedLandmarks[0];
 
       if (kneePt) CanvasOverlayRenderer.drawJointMarker(ctx, kneePt, this.liveAngles.joelho, this.targets.knee, w, h);
@@ -640,31 +689,33 @@ export default {
       if (anklePt) CanvasOverlayRenderer.drawJointMarker(ctx, anklePt, this.liveAngles.tornozelo, this.targets.ankle, w, h);
       if (headPt) CanvasOverlayRenderer.drawJointMarker(ctx, headPt, this.liveAngles.cabeca, this.targets.head, w, h);
 
-      // Renderização de Retículos de Bloqueio Ótico e Lupa de Relevo em Tempo Real
-      const opticalJoints = [
-        { pt: kneePt, label: 'Joelho' },
-        { pt: anklePt, label: 'Tornozelo' },
-        { pt: shoulderPt, label: 'Ombro' },
-        { pt: elbowPt, label: 'Cotovelo' },
-      ];
-      const activeOptical = opticalJoints.find((j) => j.pt && j.pt.isOptical);
+      if (!isImage) {
+        // Renderização de Retículos de Bloqueio Ótico e Lupa de Relevo em Tempo Real (modo vídeo/câmara)
+        const opticalJoints = [
+          { pt: kneePt, label: 'Joelho' },
+          { pt: anklePt, label: 'Tornozelo' },
+          { pt: shoulderPt, label: 'Ombro' },
+          { pt: elbowPt, label: 'Cotovelo' },
+        ];
+        const activeOptical = opticalJoints.find((j) => j.pt && j.pt.isOptical);
 
-      opticalJoints.forEach(({ pt, label }) => {
-        if (pt && pt.isOptical) {
-          CanvasOverlayRenderer.drawOpticalLockReticle(ctx, pt.x * w, pt.y * h, label, pt.confidence, pt.status);
+        opticalJoints.forEach(({ pt, label }) => {
+          if (pt && pt.isOptical) {
+            CanvasOverlayRenderer.drawOpticalLockReticle(ctx, pt.x * w, pt.y * h, label, pt.confidence, pt.status);
+          }
+        });
+
+        if (activeOptical && activeOptical.pt && (this.$refs.video || this.$refs.canvas)) {
+          CanvasOverlayRenderer.drawMagnifyingLoupe(
+            ctx,
+            this.$refs.video || this.$refs.canvas,
+            activeOptical.pt.x * w,
+            activeOptical.pt.y * h,
+            activeOptical.label,
+            activeOptical.pt.confidence || 100,
+            w
+          );
         }
-      });
-
-      if (activeOptical && activeOptical.pt && (this.$refs.video || this.$refs.canvas)) {
-        CanvasOverlayRenderer.drawMagnifyingLoupe(
-          ctx,
-          this.$refs.video || this.$refs.canvas,
-          activeOptical.pt.x * w,
-          activeOptical.pt.y * h,
-          activeOptical.label,
-          activeOptical.pt.confidence || 100,
-          w
-        );
       }
 
       if (kneePt && anklePt) this.kopsAnalyzer.drawPlumbLine(ctx, kneePt, anklePt, w, h);
@@ -935,10 +986,12 @@ export default {
       if (!files || !files.length) return;
       const added = await this.imageAnalysisMgr.addFiles(files);
       if (added.length > 0) {
-        this.showToast(`${added.length} foto(s) carregada(s) para análise.`);
+        this.showToast(`${added.length} foto(s) carregada(s). A iniciar análise...`);
         const active = this.imageAnalysisMgr.getActiveImage();
         if (active) {
           this.drawActiveImageToCanvas(active);
+          // Analisa automaticamente a foto ativa de imediato para feedback instantâneo
+          await this.analyzeImageItem(active.id);
         }
       }
     },
@@ -1020,7 +1073,7 @@ export default {
       ctx.drawImage(item.imageElement, 0, 0, canvas.width, canvas.height);
 
       try {
-        const results = await this.poseRunner.processStaticImage(canvas);
+        const results = await this.poseRunner.processStaticImage(item.imageElement || canvas);
 
         if (results && results.poseLandmarks && results.poseLandmarks.length >= 33) {
           this.lastSmoothedLandmarks = results.poseLandmarks;
@@ -1029,7 +1082,7 @@ export default {
           const computed = BiomechanicsComputer.computeFrameAngles({
             lm: results.poseLandmarks,
             side: this.currentSide,
-            manualTracker: this.manualTracker,
+            manualTracker: null, // Sem deslocamento residual ótico de vídeo
           });
 
           item.angles = {
@@ -1127,6 +1180,34 @@ export default {
       }).catch(() => {
         this.showToast('Erro ao copiar texto.');
       });
+    },
+    copyActivePhotoReport() {
+      if (!this.activeImageReport) return;
+      const athleteName = this.sessionData?.athlete?.name || 'Ciclista';
+      const bikeModel = this.sessionData?.bike?.model || 'Bicicleta';
+      const txt = LiveTuningReportManager.formatTextSummary(
+        this.activeImageReport,
+        athleteName,
+        `${bikeModel} (${this.activeImage?.name || 'Foto'})`
+      );
+      navigator.clipboard.writeText(txt).then(() => {
+        this.showToast('📋 Diagnóstico da foto atual copiado para a área de transferência!');
+      }).catch(() => {
+        this.showToast('Erro ao copiar texto.');
+      });
+    },
+    copyConsolidatedPhotoReport() {
+      const athleteName = this.sessionData?.athlete?.name || 'Ciclista';
+      const bikeModel = this.sessionData?.bike?.model || 'Bicicleta';
+      const txt = LiveTuningReportManager.formatPhotoConsolidatedSummary(this.imageItems, athleteName, bikeModel);
+      navigator.clipboard.writeText(txt).then(() => {
+        this.showToast('📋 Resumo Consolidado de Afinações copiado para a área de transferência!');
+      }).catch(() => {
+        this.showToast('Erro ao copiar texto.');
+      });
+    },
+    printPhotoReport() {
+      window.print();
     },
     triggerVideoFileInput() {
       if (this.$refs.videoFileInput) {

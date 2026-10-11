@@ -404,4 +404,77 @@ export class LiveTuningReportManager {
     txt += `========================================================\n`;
     return txt;
   }
+
+  /**
+   * Converte o relatório consolidado de todas as fotos analisadas num documento estruturado.
+   */
+  static formatPhotoConsolidatedSummary(imageItems = [], athleteName = 'Ciclista', bikeModel = 'Bicicleta') {
+    const analyzed = imageItems.filter((i) => i.status === 'done' && i.report);
+    let txt = `======================================================================\n`;
+    txt += `  ATHLETE MOTION - RESUMO FINAL CONSOLIDADO DE AFINAÇÕES (FOTOS)\n`;
+    txt += `======================================================================\n`;
+    txt += `Atleta: ${athleteName} | Bicicleta: ${bikeModel}\n`;
+    txt += `Data/Hora: ${new Date().toLocaleString('pt-PT')}\n`;
+    txt += `Total de Fotos Analisadas: ${analyzed.length} de ${imageItems.length}\n\n`;
+
+    if (!analyzed.length) {
+      txt += `Nenhuma foto foi analisada com sucesso ainda.\n`;
+      txt += `======================================================================\n`;
+      return txt;
+    }
+
+    // 1. Resumo por foto individual
+    txt += `1. DETALHE DAS FOTOS ANALISADAS:\n`;
+    analyzed.forEach((item, idx) => {
+      txt += `----------------------------------------------------------------------\n`;
+      txt += `[Foto ${idx + 1}] ${item.name} (${item.crankPosition?.toUpperCase() || 'LIVRE'})\n`;
+      if (item.angles) {
+        txt += `   - Joelho: ${item.angles.joelho ? Math.round(item.angles.joelho) + '°' : '--'}\n`;
+        txt += `   - Tronco: ${item.angles.costas ? Math.round(item.angles.costas) + '°' : '--'}\n`;
+        txt += `   - Braço:  ${item.angles.braco ? Math.round(item.angles.braco) + '°' : '--'}\n`;
+        txt += `   - Anca:   ${item.angles.anca ? Math.round(item.angles.anca) + '°' : '--'}\n`;
+      }
+      if (item.report?.score !== undefined) {
+        txt += `   - Conformidade: ${item.report.score}% (${item.report.verdict})\n`;
+      }
+    });
+
+    // 2. Ações consolidadas do que se deve fazer (sem duplicações)
+    const map = new Map();
+    analyzed.forEach((it) => {
+      it.report?.items?.forEach((repItem) => {
+        if (repItem.status !== 'ok') {
+          const key = repItem.component;
+          if (!map.has(key) || repItem.status === 'danger') {
+            map.set(key, repItem);
+          }
+        }
+      });
+    });
+
+    txt += `\n======================================================================\n`;
+    txt += `2. PRESCRIÇÃO CONSOLIDADA DE AFINAÇÕES DA BICICLETA (O QUE FAZER):\n`;
+    txt += `======================================================================\n`;
+
+    if (map.size === 0) {
+      txt += `✅ EXCELENTE: Todos os parâmetros analisados cumprem os intervalos ideais de bike fit!\n`;
+      txt += `Nenhuma alteração mecânica necessária na bicicleta.\n`;
+    } else {
+      let counter = 1;
+      map.forEach((item) => {
+        txt += `${counter}. [${item.component}] - ${item.badge}\n`;
+        txt += `   🔧 O QUE SE DEVE FAZER: ${item.whatToDo}\n`;
+        txt += `   📐 ONDE ESTÁ MAL / GRAUS: ${item.degreesInfo}\n`;
+        txt += `   💡 PORQUÊ: ${item.why}\n`;
+        txt += `   ⚠️ O DANO / MALEFÍCIO QUE CAUSA: ${item.harmDone}\n`;
+        txt += `----------------------------------------------------------------------\n`;
+        counter++;
+      });
+    }
+
+    txt += `======================================================================\n`;
+    txt += `Relatório gerado automaticamente por Athlete Motion Biomechanics AI.\n`;
+    return txt;
+  }
 }
+

@@ -53,6 +53,7 @@ export class CanvasOverlayRenderer {
     if (typeof p1.visibility === 'number' && p1.visibility < 0.25) return;
     if (typeof p2.visibility === 'number' && p2.visibility < 0.25) return;
 
+    const scale = Math.max(1.0, Math.min(4.0, Math.max(w, h) / 720));
     const x1 = p1.x * w;
     const y1 = p1.y * h;
     const x2 = p2.x * w;
@@ -63,11 +64,11 @@ export class CanvasOverlayRenderer {
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
+    ctx.lineWidth = Math.max(3, Math.round(lineWidth * scale));
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.shadowColor = color;
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = Math.round(6 * scale);
     ctx.stroke();
     ctx.restore();
   }
@@ -147,29 +148,31 @@ export class CanvasOverlayRenderer {
    */
   static drawJointMarker(ctx, point, angle, targetRange, w, h) {
     if (!ctx || !point || angle === null || angle === undefined) return;
+    const scale = Math.max(1.0, Math.min(4.0, Math.max(w, h) / 720));
     const px = point.x * w;
     const py = point.y * h;
     const color = this.getComplianceHexColor(angle, targetRange);
 
     ctx.save();
     ctx.beginPath();
-    ctx.arc(px, py, 7, 0, 2 * Math.PI);
+    ctx.arc(px, py, Math.round(7 * scale), 0, 2 * Math.PI);
     ctx.fillStyle = color;
     ctx.shadowColor = color;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = Math.round(10 * scale);
     ctx.fill();
 
     ctx.beginPath();
-    ctx.arc(px, py, 12, 0, 2 * Math.PI);
+    ctx.arc(px, py, Math.round(13 * scale), 0, 2 * Math.PI);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(2, Math.round(2 * scale));
     ctx.stroke();
 
-    ctx.font = 'bold 13px sans-serif';
+    const fontSize = Math.round(14 * scale);
+    ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.fillStyle = '#FFFFFF';
     ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 4;
-    ctx.fillText(`${Math.round(angle)}°`, px + 15, py - 5);
+    ctx.shadowBlur = Math.round(4 * scale);
+    ctx.fillText(`${Math.round(angle)}°`, px + Math.round(16 * scale), py - Math.round(6 * scale));
     ctx.restore();
   }
 
@@ -360,19 +363,19 @@ export class CanvasOverlayRenderer {
   /**
    * Desenha uma seta de deslocamento da posição atual para a posição alvo recomendada.
    */
-  static drawDisplacementArrow(ctx, fromX, fromY, toX, toY, color = '#10b981') {
+  static drawDisplacementArrow(ctx, fromX, fromY, toX, toY, color = '#10b981', scale = 1.0) {
     if (!ctx) return;
     const dist = Math.hypot(toX - fromX, toY - fromY);
-    if (dist < 8) return; // Se a diferença for insignificante, não poluir o ecrã
-    const headLen = Math.min(12, Math.max(7, dist * 0.28));
+    if (dist < 8 * scale) return; // Se a diferença for insignificante, não poluir o ecrã
+    const headLen = Math.min(26, Math.max(8 * scale, dist * 0.28));
     const angle = Math.atan2(toY - fromY, toX - fromX);
 
     ctx.save();
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = Math.max(2.5, 2.5 * scale);
     ctx.shadowColor = color;
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = Math.round(6 * scale);
 
     // Linha de deslocamento
     ctx.beginPath();
@@ -393,24 +396,25 @@ export class CanvasOverlayRenderer {
   /**
    * Desenha um badge informativo elegante sobreposto no canvas com texto e cor de destaque.
    */
-  static drawCanvasBadge(ctx, text, x, y, borderColor = '#10b981', textColor = '#ffffff') {
+  static drawCanvasBadge(ctx, text, x, y, borderColor = '#10b981', textColor = '#ffffff', scale = 1.0) {
     if (!ctx || !text) return;
     ctx.save();
-    ctx.font = 'bold 11px sans-serif';
+    const fontSize = Math.round(11 * scale);
+    ctx.font = `bold ${fontSize}px sans-serif`;
     const textWidth = ctx.measureText(text).width;
-    const paddingX = 8;
+    const paddingX = Math.round(8 * scale);
     const boxW = textWidth + paddingX * 2;
-    const boxH = 22;
+    const boxH = Math.round(22 * scale);
 
     const boxX = Math.max(8, x - boxW / 2);
     const boxY = Math.max(8, y - boxH / 2);
 
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.strokeStyle = borderColor;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = Math.max(1.5, 1.5 * scale);
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
-      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+      ctx.roundRect(boxX, boxY, boxW, boxH, Math.round(6 * scale));
     } else {
       ctx.rect(boxX, boxY, boxW, boxH);
     }
@@ -421,7 +425,7 @@ export class CanvasOverlayRenderer {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = '#000000';
-    ctx.shadowBlur = 3;
+    ctx.shadowBlur = Math.round(3 * scale);
     ctx.fillText(text, boxX + paddingX, boxY + boxH / 2);
     ctx.restore();
   }
@@ -433,6 +437,7 @@ export class CanvasOverlayRenderer {
   static drawTargetGhostAndGuides(ctx, landmarks, w, h, liveAngles = {}, targets = {}, side = 'left') {
     if (!ctx || !landmarks || landmarks.length < 33) return;
 
+    const scale = Math.max(1.0, Math.min(3.5, Math.max(w, h) / 720));
     const isLeft = side === 'left';
     const hipIdx = isLeft ? 24 : 23;
     const kneeIdx = isLeft ? 26 : 25;
@@ -480,33 +485,33 @@ export class CanvasOverlayRenderer {
           // Traço com cor fraca / semi-transparente do membro alvo
           ctx.save();
           ctx.beginPath();
-          ctx.setLineDash([6, 5]);
-          ctx.lineWidth = 3.5;
+          ctx.setLineDash([Math.round(6 * scale), Math.round(5 * scale)]);
+          ctx.lineWidth = Math.max(3, Math.round(3.5 * scale));
           ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
           ctx.shadowColor = '#10b981';
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = Math.round(8 * scale);
           ctx.moveTo(Kx, Ky);
           ctx.lineTo(targetAx, targetAy);
           ctx.stroke();
 
           // Marcador do alvo ideal
           ctx.beginPath();
-          ctx.arc(targetAx, targetAy, 7, 0, 2 * Math.PI);
+          ctx.arc(targetAx, targetAy, Math.round(7 * scale), 0, 2 * Math.PI);
           ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
           ctx.fill();
           ctx.strokeStyle = '#10b981';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = Math.max(2, Math.round(2 * scale));
           ctx.stroke();
           ctx.restore();
 
           // Seta de deslocamento da posição errada para a certa
-          this.drawDisplacementArrow(ctx, Ax, Ay, targetAx, targetAy, '#10b981');
+          this.drawDisplacementArrow(ctx, Ax, Ay, targetAx, targetAy, '#10b981', scale);
 
           // Indicação textual no ecrã
           const kneeBadge = kneeAngle < kneeTarget[0]
             ? `⬆ Subir Selim (Alvo: 150° | Atual: ${Math.round(kneeAngle)}°)`
             : `⬇ Descer Selim (Alvo: 150° | Atual: ${Math.round(kneeAngle)}°)`;
-          this.drawCanvasBadge(ctx, kneeBadge, Kx, Ky - 24, '#10b981');
+          this.drawCanvasBadge(ctx, kneeBadge, Kx, Ky - Math.round(24 * scale), '#10b981', '#ffffff', scale);
         }
       }
     }
@@ -541,30 +546,30 @@ export class CanvasOverlayRenderer {
           // Traço fantasma com cor suave
           ctx.save();
           ctx.beginPath();
-          ctx.setLineDash([6, 5]);
-          ctx.lineWidth = 3.5;
+          ctx.setLineDash([Math.round(6 * scale), Math.round(5 * scale)]);
+          ctx.lineWidth = Math.max(3, Math.round(3.5 * scale));
           ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
           ctx.shadowColor = '#38bdf8';
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = Math.round(8 * scale);
           ctx.moveTo(Hx, Hy);
           ctx.lineTo(targetSx, targetSy);
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.arc(targetSx, targetSy, 7, 0, 2 * Math.PI);
+          ctx.arc(targetSx, targetSy, Math.round(7 * scale), 0, 2 * Math.PI);
           ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
           ctx.fill();
           ctx.strokeStyle = '#38bdf8';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = Math.max(2, Math.round(2 * scale));
           ctx.stroke();
           ctx.restore();
 
-          this.drawDisplacementArrow(ctx, Sx, Sy, targetSx, targetSy, '#38bdf8');
+          this.drawDisplacementArrow(ctx, Sx, Sy, targetSx, targetSy, '#38bdf8', scale);
 
           const backBadge = backAngle < backTarget[0]
             ? `⬆ Elevar Tronco (Alvo: 45° | Atual: ${Math.round(backAngle)}°)`
             : `⬇ Inclinar Tronco (Alvo: 45° | Atual: ${Math.round(backAngle)}°)`;
-          this.drawCanvasBadge(ctx, backBadge, Sx, Sy - 24, '#38bdf8');
+          this.drawCanvasBadge(ctx, backBadge, Sx, Sy - Math.round(24 * scale), '#38bdf8', '#ffffff', scale);
         }
       }
     }
@@ -607,30 +612,30 @@ export class CanvasOverlayRenderer {
 
           ctx.save();
           ctx.beginPath();
-          ctx.setLineDash([6, 5]);
-          ctx.lineWidth = 3;
+          ctx.setLineDash([Math.round(6 * scale), Math.round(5 * scale)]);
+          ctx.lineWidth = Math.max(2.5, Math.round(3 * scale));
           ctx.strokeStyle = 'rgba(192, 132, 252, 0.7)';
           ctx.shadowColor = '#c084fc';
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = Math.round(8 * scale);
           ctx.moveTo(Ex, Ey);
           ctx.lineTo(targetWx, targetWy);
           ctx.stroke();
 
           ctx.beginPath();
-          ctx.arc(targetWx, targetWy, 6, 0, 2 * Math.PI);
+          ctx.arc(targetWx, targetWy, Math.round(6 * scale), 0, 2 * Math.PI);
           ctx.fillStyle = 'rgba(192, 132, 252, 0.3)';
           ctx.fill();
           ctx.strokeStyle = '#c084fc';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = Math.max(2, Math.round(2 * scale));
           ctx.stroke();
           ctx.restore();
 
-          this.drawDisplacementArrow(ctx, Wx, Wy, targetWx, targetWy, '#c084fc');
+          this.drawDisplacementArrow(ctx, Wx, Wy, targetWx, targetWy, '#c084fc', scale);
 
           const armBadge = armAngle > armTarget[1]
             ? `↩ Fletir Braço (Alvo: 155° | Atual: ${Math.round(armAngle)}°)`
             : `↪ Abrir Cockpit (Alvo: 155° | Atual: ${Math.round(armAngle)}°)`;
-          this.drawCanvasBadge(ctx, armBadge, Ex, Ey - 20, '#c084fc');
+          this.drawCanvasBadge(ctx, armBadge, Ex, Ey - Math.round(20 * scale), '#c084fc', '#ffffff', scale);
         }
       }
     }

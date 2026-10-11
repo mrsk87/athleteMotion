@@ -839,6 +839,155 @@
         </div>
       </div>
 
+      <!-- Diagnóstico Completo da Foto Ativa: Onde Está Mal & O Que Fazer -->
+      <div v-if="activeImage && activeImage.status === 'done'" class="photo-active-diagnosis-panel">
+        <div class="photo-diag-header">
+          <div class="photo-diag-title">
+            <h5>🔍 Diagnóstico da Foto: <span>{{ activeImage.name }}</span> ({{ imageAnalysisMgr.getPositionMeta(activeImage.crankPosition).label }})</h5>
+            <span class="photo-score-badge" :style="{ background: activeImageReport?.verdictColor || '#10b981' }">
+              Conformidade: {{ activeImageReport?.score }}% - {{ activeImageReport?.verdict }}
+            </span>
+          </div>
+          <div class="photo-diag-actions">
+            <button type="button" class="btn-img-act btn-copy-diag" @click="copyActivePhotoReport">
+              📋 Copiar Diagnóstico Desta Foto
+            </button>
+          </div>
+        </div>
+
+        <!-- Se houver pontos fora da conformidade: Lista Detalhada do Onde Está Mal e O Que Fazer -->
+        <div v-if="activeImageNonCompliantItems.length > 0" class="photo-issues-container">
+          <div class="photo-issues-intro">
+            <span class="badge-alert-count">⚠️ {{ activeImageNonCompliantItems.length }} ponto(s) a necessitar de correção nesta postura:</span>
+          </div>
+          <div class="photo-issues-grid">
+            <div
+              v-for="(issue, idx) in activeImageNonCompliantItems"
+              :key="idx"
+              class="photo-issue-card"
+              :class="`issue-${issue.status}`"
+            >
+              <div class="issue-card-header">
+                <div class="issue-component-name">
+                  <span class="issue-idx">#{{ idx + 1 }}</span>
+                  <strong>{{ issue.component }}</strong>
+                </div>
+                <span class="issue-status-badge" :class="`badge-${issue.status}`">{{ issue.badge }}</span>
+              </div>
+
+              <div class="issue-details-sections">
+                <!-- ONDE ESTÁ MAL -->
+                <div class="issue-section issue-where-wrong">
+                  <span class="sec-label">📐 Onde está mal / Desvio:</span>
+                  <div class="sec-content">
+                    <strong>{{ issue.degreesInfo }}</strong>
+                  </div>
+                </div>
+
+                <!-- O QUE SE DEVE FAZER -->
+                <div class="issue-section issue-action-fix">
+                  <span class="sec-label">🔧 O que se deve fazer (Afinação Mecânica):</span>
+                  <div class="sec-content action-highlight">
+                    {{ issue.whatToDo }}
+                  </div>
+                </div>
+
+                <!-- O PORQUÊ -->
+                <div class="issue-section issue-why">
+                  <span class="sec-label">💡 Fundamento Biomecânico:</span>
+                  <div class="sec-content">
+                    {{ issue.why }}
+                  </div>
+                </div>
+
+                <!-- O DANO / MALEFÍCIO QUE CAUSA -->
+                <div class="issue-section issue-harm-warning">
+                  <span class="sec-label">⚠️ Dano que causa se não corrigir:</span>
+                  <div class="sec-content harm-text">
+                    {{ issue.harmDone }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Se todos os parâmetros estiverem em conformidade -->
+        <div v-else class="photo-all-compliant-banner">
+          <span class="all-ok-icon">✅</span>
+          <div class="all-ok-text">
+            <strong>Postura Perfeita Nesta Foto!</strong>
+            <p>Todos os ângulos anatómicos desta imagem cumprem as metas de conforto e aerodinâmica de Bike Fit.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumo Final Consolidado dos Dados Totais Adquiridos (Prescrição Global de Afinações) -->
+      <div v-if="multiPositionSummary.totalAnalyzed > 0" class="photo-consolidated-summary-panel">
+        <div class="consolidated-header">
+          <div class="consolidated-title-group">
+            <h4>📋 Resumo Final Consolidado dos Dados Totais Adquiridos</h4>
+            <p class="consolidated-subtitle">
+              Prescrição de afinações biomecânicas agregada com base em {{ multiPositionSummary.totalAnalyzed }} foto(s) analisada(s).
+              <span v-if="consolidatedPhotosScore !== null" class="overall-photos-score">
+                Índice Global de Ajuste: <strong>{{ consolidatedPhotosScore }}%</strong>
+              </span>
+            </p>
+          </div>
+          <div class="consolidated-header-actions">
+            <button type="button" class="btn-img-act btn-copy-consolidated" @click="copyConsolidatedPhotoReport">
+              📋 Copiar Resumo Final
+            </button>
+            <button type="button" class="btn-img-act btn-print-consolidated" @click="printPhotoReport">
+              🖨️ Imprimir Resumo
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabela Resumo Consolidada do que se deve fazer -->
+        <div class="consolidated-actions-table-wrapper" v-if="consolidatedPhotoActions.length > 0">
+          <table class="consolidated-actions-table">
+            <thead>
+              <tr>
+                <th>Componente da Bicicleta</th>
+                <th>Estado</th>
+                <th>O Que Se Deve Fazer (Afinação Mecânica)</th>
+                <th>Onde Está Mal / Graus</th>
+                <th>Consequência Clínica Evitada</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(act, aIdx) in consolidatedPhotoActions"
+                :key="aIdx"
+                :class="`row-${act.status}`"
+              >
+                <td class="col-component">
+                  <strong>{{ act.component }}</strong>
+                  <span class="source-photo-tag" v-if="act.photoName">Foto: {{ act.photoName }}</span>
+                </td>
+                <td class="col-badge">
+                  <span class="issue-status-badge" :class="`badge-${act.status}`">{{ act.badge }}</span>
+                </td>
+                <td class="col-action">
+                  <strong>{{ act.whatToDo }}</strong>
+                </td>
+                <td class="col-degrees">
+                  {{ act.degreesInfo }}
+                </td>
+                <td class="col-harm">
+                  <span class="harm-pill">{{ act.harmDone }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="consolidated-perfect-alert">
+          🎉 <strong>Excelente!</strong> Nenhuma das fotos analisadas apresentou desvios fora da tolerância ergonómica. A bicicleta está afinada à medida do ciclista.
+        </div>
+      </div>
+
       <!-- Quadro Comparativo Rápido entre as Fases da Pedalada -->
       <div v-if="multiPositionSummary.totalAnalyzed >= 2" class="multi-position-comparison-box">
         <div class="comp-box-header">

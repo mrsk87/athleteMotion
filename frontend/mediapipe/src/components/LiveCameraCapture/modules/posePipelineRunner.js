@@ -168,43 +168,106 @@ export class PosePipelineRunner {
    * Processa uma imagem estática (ou canvas estático) a pedido.
    * Retorna uma Promise que resolve com os resultados da pose.
    */
-  processStaticImage(imageSource) {
-    if (!this.poseInstance) return Promise.reject(new Error('MediaPipe não inicializado'));
+  /**
+   * Processa uma imagem estática (ou canvas estático) a pedido com resiliência e alta velocidade.
+   * Redimensiona imagens de alta resolução para dimensão ideal (max 1280px) prevenindo sobrecarga de WebAssembly.
+   * Executa tentativa primária e fallback de sensibilidade automático caso a iluminação seja desafiante,
+   * garantindo sucesso no primeiro clique sem necessidade de re-análises manuais.
+   */
+  async processStaticImage(imageSource) {
+    if (!this.poseInstance) {
+      this.initPose();
+    }
+    if (!this.poseInstance) {
+      return Promise.reject(new Error('MediaPipe não pôde ser inicializado'));
+    }
 
-    return new Promise((resolve, reject) => {
-      let timeoutId = null;
-      const originalHandler = this.onResults;
+    this.isInferring = false;
+    if (this.inferenceWatchdog) {
+      clearTimeout(this.inferenceWatchdog);
+      this.inferenceWatchdog = null;
+    }
 
-      const finish = (results) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        this.onResults = originalHandler;
-        resolve(results);
-      };
+    let inferenceSource = imageSource;
+    const srcW = imageSource.naturalWidth || imageSource.videoWidth || imageSource.width || 0;
+    const srcH = imageSource.naturalHeight || imageSource.videoHeight || imageSource.height || 0;
 
-      this.onResults = (results) => {
-        if (originalHandler) {
-          try {
-            originalHandler(results);
-          } catch {
-            // ignorar erros internos do handler principal
-          }
-        }
-        finish(results);
-      };
+    // Se a imagem for de alta resolução (> 1280px), redimensiona temporariamente para acelerar a inferência
+    if (srcW > 1280 || srcH > 1280) {
+      const maxDim = 1280;
+      let targetW = srcW;
+      let targetH = srcH;
+      if (srcW > srcH) {
+        targetW = maxDim;
+        targetH = Math.round((srcH / srcW) * maxDim);
+      } else {
+        targetH = maxDim;
+        targetW = Math.round((srcW / srcH) * maxDim);
+      }
 
-      timeoutId = setTimeout(() => {
-        this.onResults = originalHandler;
-        resolve(null);
-      }, 4000);
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = targetW;
+      tempCanvas.height = targetH;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        tempCtx.drawImage(imageSource, 0, 0, targetW, targetH);
+        inferenceSource = tempCanvas;
+      }
+    }
 
-      this.poseInstance
-        .send({ image: imageSource })
-        .catch((err) => {
+    // Configuração otimizada para foto estática (maior sensibilidade que streaming)
+    const runInferenceAttempt = (confidence = 0.5) => {
+      try {
+        this.poseInstance.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: false,
+          enableSegmentation: false,
+          minDetectionConfidence: confidence,
+          minTrackingConfidence: confidence,
+        });
+      } catch (_) {
+        // ignorar
+      }
+
+      return new Promise((resolve, reject) => {
+        let timeoutId = null;
+        const originalHandler = this.onResults;
+
+        const finish = (results) => {
           if (timeoutId) clearTimeout(timeoutId);
           this.onResults = originalHandler;
-          reject(err);
-        });
-    });
+          resolve(results);
+        };
+
+        this.onResults = (results) => {
+          finish(results);
+        };
+
+        timeoutId = setTimeout(() => {
+          this.onResults = originalHandler;
+          resolve(null);
+        }, 7000);
+
+        this.poseInstance
+          .send({ image: inferenceSource })
+          .catch((err) => {
+            if (timeoutId) clearTimeout(timeoutId);
+            this.onResults = originalHandler;
+            reject(err);
+          });
+      });
+    };
+
+    // 1ª Tentativa com confiança padrão (0.50)
+    let results = await runInferenceAttempt(0.5);
+
+    // Se não detetar pose (ex.: ciclista com roupa escura ou luz fraca), executa fallback imediato (0.38)
+    if (!results || !results.poseLandmarks || results.poseLandmarks.length < 33) {
+      if (this.onDebugLog) this.onDebugLog('info', 'MediaPipe: A executar fallback autónomo de sensibilidade (0.38)...');
+      results = await runInferenceAttempt(0.38);
+    }
+
+    return results;
   }
 
   stopLoop() {
