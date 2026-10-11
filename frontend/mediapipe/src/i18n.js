@@ -103,6 +103,16 @@ export const messages = {
     completeSessionBtn: '🏁 Finalizar Sessão e Gerar Relatório',
     noAnglesDetected: 'Nenhuma pose detetada. Afaste-se até o corpo todo ficar visível na câmara.',
     connectingServer: 'A sincronizar dados com o backend...',
+    tabLiveMode: '📹 Câmara ao Vivo',
+    tabVideoMode: '📁 Ficheiro de Vídeo (Upload)',
+    uploadVideoPrompt: 'Clique ou arraste um ficheiro de vídeo (.mp4, .mov, .webm) para analisar a pedalada',
+    exportGifBtn: '🎞 Exportar GIF Animado',
+    exportClipBtn: '🎥 Descarregar Clipe de Vídeo',
+    anglesTimelineTitle: '📈 Evolução dos Ângulos no Vídeo',
+    videoSummaryTitle: '🎯 Movimentos & Correções do Vídeo',
+    pedalCycles: 'Ciclos de Pedalada:',
+    avgBdc: 'BDC Médio:',
+    torsoStability: 'Oscilação do Tronco:',
 
     // Articulações e Leituras em Direto
     kneeAngleLabel: 'Joelho (Extensão no Ponto Morto Inferior):',
@@ -313,6 +323,16 @@ export const messages = {
     completeSessionBtn: '🏁 Complete Session & Generate Report',
     noAnglesDetected: 'No pose detected yet. Step back until your whole body is visible in the frame.',
     connectingServer: 'Synchronizing session data with backend...',
+    tabLiveMode: '📹 Live Camera',
+    tabVideoMode: '📁 Video File (Upload)',
+    uploadVideoPrompt: 'Click or drop a video file (.mp4, .mov, .webm) to analyze bike fit',
+    exportGifBtn: '🎞 Export Animated GIF',
+    exportClipBtn: '🎥 Download Video Clip',
+    anglesTimelineTitle: '📈 Angles Evolution Along Video',
+    videoSummaryTitle: '🎯 Video Movements & Diagnostics',
+    pedalCycles: 'Pedal Cycles:',
+    avgBdc: 'Avg BDC Extension:',
+    torsoStability: 'Torso Oscillation:',
 
     // Joints & Live Angles
     kneeAngleLabel: 'Knee (Extension at Bottom Dead Center):',

@@ -1,0 +1,289 @@
+/* =========================================================================
+   ESTILOS DE LEITURA E ANÁLISE DE VÍDEO, GRÁFICO E EXPORTAÇÃO DE GIF
+   ========================================================================= */
+
+/* Seletor de Modo de Fonte (Câmara vs Ficheiro de Vídeo) */
+.source-mode-bar {
+  display: flex;
+  gap: 8px;
+  background-color: #1e1e1e;
+  padding: 6px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #333;
+}
+
+.btn-source-mode {
+  flex: 1;
+  padding: 8px 14px;
+  background-color: transparent;
+  color: #a1a1aa;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-source-mode:hover {
+  color: #fff;
+  background-color: #27272a;
+}
+
+.btn-source-mode.active {
+  background-color: #0284c7;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+}
+
+/* Zona de Carregamento de Vídeo (Dropzone) */
+.video-upload-box {
+  background-color: #18181b;
+  border: 2px dashed #3f3f46;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.video-upload-box:hover {
+  border-color: #38bdf8;
+  background-color: rgba(56, 189, 248, 0.05);
+}
+
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.upload-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.upload-sub {
+  font-size: 12px;
+  color: #71717a;
+}
+
+/* Barra de Controlos de Reprodução de Vídeo */
+.video-player-controls {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.video-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.video-slider {
+  flex: 1;
+  accent-color: #38bdf8;
+  height: 6px;
+  cursor: pointer;
+}
+
+.video-time-label {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #38bdf8;
+  min-width: 80px;
+  text-align: right;
+}
+
+.video-buttons-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.video-main-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-video-ctrl {
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-video-ctrl:hover {
+  background-color: #38bdf8;
+  color: #000;
+}
+
+.speed-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-speed {
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  color: #a1a1aa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-speed.active {
+  background-color: #10b981;
+  color: #fff;
+  border-color: #10b981;
+}
+
+/* Painel do Gráfico de Ângulos no Vídeo */
+.video-chart-card {
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.chart-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.chart-canvas {
+  width: 100%;
+  height: 160px;
+  border-radius: 6px;
+  border: 1px solid #27272a;
+  cursor: crosshair;
+}
+
+/* Painel de Movimentos e Resumo do Vídeo */
+.video-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.summary-stat-box {
+  background-color: #242424;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #a1a1aa;
+  text-transform: uppercase;
+}
+
+.stat-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: #38bdf8;
+  margin-top: 2px;
+}
+
+/* Botões de Ações de Exportação (GIF, Clipe, etc.) */
+.video-export-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-export-gif {
+  background: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s;
+}
+
+.btn-export-gif:hover {
+  opacity: 0.9;
+}
+
+.btn-export-clip {
+  background-color: #0284c7;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

@@ -7,6 +7,7 @@
 @import './styles/bilateral-wizard.css';
 @import './styles/scrubber-bar.css';
 @import './styles/debug-drawer.css';
+@import './styles/video-analysis.css';
 
 /* Layout Principal */
 .live-capture-card {

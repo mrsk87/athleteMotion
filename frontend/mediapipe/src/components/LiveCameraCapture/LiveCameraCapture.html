@@ -14,6 +14,26 @@
     </div>
   </div>
 
+  <!-- Barra Seletora de Modo de Entrada: Câmara vs Ficheiro de Vídeo -->
+  <div class="source-mode-bar">
+    <button
+      type="button"
+      class="btn-source-mode"
+      :class="{ active: videoSourceMode === 'camera' }"
+      @click="setVideoSourceMode('camera')"
+    >
+      {{ t('tabLiveMode') }}
+    </button>
+    <button
+      type="button"
+      class="btn-source-mode"
+      :class="{ active: videoSourceMode === 'file' }"
+      @click="setVideoSourceMode('file')"
+    >
+      {{ t('tabVideoMode') }}
+    </button>
+  </div>
+
   <!-- Barra de Ferramentas Avançadas (BLE, Calibração, Câmara Lenta, Bilateral) -->
   <div class="advanced-tools-bar">
     <!-- Conectar BLE -->
@@ -91,13 +111,21 @@
   <!-- Barra de Controlos Responsiva (PC / Telemóvel / Tablet) -->
   <div class="controls-bar">
     <!-- Seletor de Câmara para Dispositivos Móveis e PC -->
-    <div class="control-item">
+    <div class="control-item" v-if="videoSourceMode === 'camera'">
       <label for="camera-select">{{ t('selectCamera') }}</label>
       <select id="camera-select" v-model="selectedDeviceId" @change="restartCamera">
         <option v-for="dev in videoDevices" :key="dev.deviceId" :value="dev.deviceId">
           {{ dev.label }} {{ dev.isVirtual ? '(Virtual)' : '' }}
         </option>
       </select>
+    </div>
+
+    <!-- Indicador e Seletor de Ficheiro de Vídeo -->
+    <div class="control-item" v-else-if="videoSourceMode === 'file'">
+      <label>Ficheiro de Vídeo</label>
+      <button type="button" class="btn-secondary" @click="triggerVideoFileInput">
+        📁 {{ uploadedVideoName ? `${uploadedVideoName} (${uploadedVideoSizeMb} MB)` : 'Carregar Vídeo...' }}
+      </button>
     </div>
 
     <!-- Estabilização de Ruído (Anti-Jitter) -->
@@ -233,6 +261,28 @@
     </div>
   </div>
 
+  <!-- Zona de Upload de Ficheiro de Vídeo (quando em modo Ficheiro e sem vídeo) -->
+  <div v-if="videoSourceMode === 'file' && !uploadedVideoFile" class="video-upload-box" @click="triggerVideoFileInput">
+    <div class="upload-icon">📁</div>
+    <div class="upload-title">{{ t('uploadVideoPrompt') }}</div>
+    <div class="upload-sub">Formatos suportados: MP4, MOV, WebM (H.264 / VP9)</div>
+    <input
+      ref="videoFileInput"
+      type="file"
+      accept="video/mp4,video/quicktime,video/webm,video/*"
+      style="display: none;"
+      @change="handleVideoFileUpload"
+    />
+  </div>
+  <input
+    v-else-if="videoSourceMode === 'file'"
+    ref="videoFileInput"
+    type="file"
+    accept="video/mp4,video/quicktime,video/webm,video/*"
+    style="display: none;"
+    @change="handleVideoFileUpload"
+  />
+
   <!-- Área Principal de Vídeo e Canvas Sobreposto -->
   <div class="viewport-wrapper">
     <div
@@ -325,6 +375,130 @@
           </button>
           <button class="btn-scrub" @click="stepFrame(1)">{{ t('nextFrame') }}</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Controlos de Reprodução do Ficheiro de Vídeo -->
+    <div v-if="videoSourceMode === 'file' && uploadedVideoFile" class="video-player-controls">
+      <div class="video-timeline-row">
+        <input
+          type="range"
+          class="video-slider"
+          min="0"
+          :max="videoDuration"
+          step="0.05"
+          :value="videoCurrentTime"
+          @input="seekVideo(Number($event.target.value))"
+        />
+        <span class="video-time-label">
+          {{ videoCurrentTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
+        </span>
+      </div>
+
+      <div class="video-buttons-row">
+        <div class="video-main-btns">
+          <button type="button" class="btn-video-ctrl" @click="toggleVideoPlay">
+            {{ isVideoPlaying ? '⏸ Pausa' : '▶ Reproduzir' }}
+          </button>
+          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(-1)">
+            ⏪ -1s
+          </button>
+          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(1)">
+            ⏩ +1s
+          </button>
+          <button type="button" class="btn-video-ctrl" @click="triggerVideoFileInput">
+            🔄 Trocar Vídeo
+          </button>
+        </div>
+
+        <div class="speed-selector">
+          <span style="font-size: 11px; color: #a1a1aa; margin-right: 4px;">Velocidade:</span>
+          <button
+            type="button"
+            class="btn-speed"
+            :class="{ active: videoPlaybackRate === 0.25 }"
+            @click="setVideoSpeed(0.25)"
+          >
+            0.25x
+          </button>
+          <button
+            type="button"
+            class="btn-speed"
+            :class="{ active: videoPlaybackRate === 0.5 }"
+            @click="setVideoSpeed(0.5)"
+          >
+            0.5x
+          </button>
+          <button
+            type="button"
+            class="btn-speed"
+            :class="{ active: videoPlaybackRate === 1.0 }"
+            @click="setVideoSpeed(1.0)"
+          >
+            1.0x
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráfico de Evolução dos Ângulos na Linha Temporal do Vídeo -->
+    <div v-if="videoSourceMode === 'file' && uploadedVideoFile" class="video-chart-card">
+      <div class="chart-header">
+        <h4>{{ t('anglesTimelineTitle') }}</h4>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-color" style="background-color: #38bdf8;"></span> Joelho</span>
+          <span class="legend-item"><span class="legend-color" style="background-color: #f59e0b;"></span> Costas</span>
+          <span class="legend-item"><span class="legend-color" style="background-color: #c084fc;"></span> Braço</span>
+          <span class="legend-item"><span class="legend-color" style="background-color: #f472b6;"></span> Cabeça</span>
+        </div>
+      </div>
+      <canvas
+        ref="chartCanvas"
+        class="chart-canvas"
+        @click="handleChartCanvasClick"
+      ></canvas>
+
+      <!-- Resumo dos Movimentos e Diagnóstico do Vídeo -->
+      <div class="video-summary-grid">
+        <div class="summary-stat-box">
+          <span class="stat-label">{{ t('pedalCycles') }}</span>
+          <span class="stat-val">{{ videoCyclesCount }}</span>
+        </div>
+        <div class="summary-stat-box">
+          <span class="stat-label">{{ t('avgBdc') }}</span>
+          <span class="stat-val">{{ averageBdcKneeAngle ? `${averageBdcKneeAngle}°` : '--' }}</span>
+        </div>
+        <div class="summary-stat-box">
+          <span class="stat-label">{{ t('torsoStability') }}</span>
+          <span class="stat-val">{{ torsoStabilityDegrees !== null ? `±${torsoStabilityDegrees}°` : '--' }}</span>
+        </div>
+        <div class="summary-stat-box">
+          <span class="stat-label">Corpo Inteiro:</span>
+          <span class="stat-val" :style="{ color: isFullBodyVisible ? '#10b981' : '#f59e0b', fontSize: '13px' }">
+            {{ isFullBodyVisible ? '100% OK' : 'Incompleto' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Ações de Exportação (GIF, Clipe) -->
+      <div class="video-export-actions">
+        <button
+          type="button"
+          class="btn-export-gif"
+          :disabled="isExportingGif"
+          @click="exportVideoGif"
+        >
+          {{ isExportingGif ? 'A compilar GIF...' : t('exportGifBtn') }}
+        </button>
+
+        <button
+          type="button"
+          class="btn-export-clip"
+          :disabled="isExportingClip"
+          @click="exportVideoClip"
+        >
+          {{ isExportingClip ? 'A gravar clipe...' : t('exportClipBtn') }}
+        </button>
       </div>
     </div>
 

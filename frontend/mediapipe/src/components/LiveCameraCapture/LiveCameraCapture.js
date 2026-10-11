@@ -36,6 +36,9 @@ import { BilateralWizard } from './modules/bilateralWizard';
 import { ScrubberController } from './modules/scrubberController';
 import { WheelCalibratorHandler } from './modules/wheelCalibratorHandler';
 import { DebugLogger } from './modules/debugLogger';
+import { VideoUploadManager } from './modules/videoUploadManager';
+import { AnglesTimelineChart } from './modules/anglesTimelineChart';
+import { GifExportService } from '../../services/gifExportService';
 
 export default {
   name: 'LiveCameraCapture',
@@ -119,6 +122,29 @@ export default {
       })
     );
 
+    this.videoUploadMgr = markRaw(
+      new VideoUploadManager({
+        onTimeUpdate: (cur, dur) => {
+          this.videoCurrentTime = cur;
+          this.videoDuration = dur;
+          this.renderTimelineChart();
+        },
+        onVideoLoaded: (dur) => {
+          this.videoDuration = dur;
+          this.showToast(`Vídeo carregado (${dur.toFixed(1)}s).`);
+          this.videoSamplesHistory = [];
+          this.videoCapturedFrames = [];
+          this.bdcAnglesHistory = [];
+        },
+        onEnded: () => {
+          this.isVideoPlaying = false;
+        },
+        onPlayStateChange: (playing) => {
+          this.isVideoPlaying = playing;
+        },
+      })
+    );
+
     this.ctx = null;
     this.lastSmoothedLandmarks = null;
     this.consecutiveWarnFrames = 0;
@@ -172,6 +198,19 @@ export default {
       missingBodyParts: [],
       wheelCalibrating: false,
       wheelPoints: [],
+      videoSourceMode: 'camera',
+      uploadedVideoFile: null,
+      uploadedVideoName: '',
+      uploadedVideoSizeMb: 0,
+      videoCurrentTime: 0,
+      videoDuration: 0,
+      isVideoPlaying: false,
+      videoPlaybackRate: 1.0,
+      videoSamplesHistory: [],
+      videoCapturedFrames: [],
+      isExportingGif: false,
+      isExportingClip: false,
+      bdcAnglesHistory: [],
     };
   },
   computed: {
@@ -257,13 +296,32 @@ export default {
     isPlayingSlowMo() {
       return this.scrubberCtrl.isPlaying;
     },
+    averageBdcKneeAngle() {
+      if (!this.bdcAnglesHistory.length) return this.lastBdcKneeAngle || null;
+      const sum = this.bdcAnglesHistory.reduce((acc, v) => acc + v, 0);
+      return Math.round(sum / this.bdcAnglesHistory.length);
+    },
+    torsoStabilityDegrees() {
+      const backSamples = this.videoSamplesHistory.map((s) => s.costas).filter((v) => typeof v === 'number');
+      if (backSamples.length < 5) return null;
+      const minB = Math.min(...backSamples);
+      const maxB = Math.max(...backSamples);
+      return Math.round((maxB - minB) * 10) / 10;
+    },
+    videoCyclesCount() {
+      return this.bdcAnglesHistory.length;
+    },
   },
   mounted() {
     this.configureModalityTargets();
     this.debugLogMgr.setup();
+    if (this.$refs.video) {
+      this.videoUploadMgr.attachVideo(this.$refs.video);
+    }
     this.$nextTick(() => this.initPipeline());
   },
   beforeUnmount() {
+    this.videoUploadMgr.cleanup();
     this.debugLogMgr.teardown();
     this.poseRunner.destroy();
     this.deviceMgr.stopStream();
@@ -383,6 +441,33 @@ export default {
       if (computed.points.kneePt) {
         this.polarPlotter.addSample(computed.joelho || 90, this.bleData.powerWatts || Math.max(100, this.currentRpm * 2.2));
         this.livePsi = this.polarPlotter.calculatePsi();
+      }
+
+      if (this.videoSourceMode === 'file' && this.videoDuration > 0) {
+        this.videoSamplesHistory.push({
+          time: this.videoCurrentTime,
+          joelho: computed.joelho,
+          costas: computed.costas,
+          braco: computed.braco,
+          tornozelo: computed.tornozelo,
+          cabeca: computed.cabeca,
+          isFullBody: computed.isFullBodyVisible,
+        });
+
+        // Captura fotogramas para o GIF animado a cada ~100ms
+        if (this.$refs.canvas && this.videoCapturedFrames.length < 60) {
+          const now = performance.now();
+          if (!this._lastGifCapTime || now - this._lastGifCapTime >= 100) {
+            this._lastGifCapTime = now;
+            try {
+              this.videoCapturedFrames.push(this.$refs.canvas.toDataURL('image/jpeg', 0.8));
+            } catch (e) {
+              // canvas temporariamente inacessível
+            }
+          }
+        }
+
+        this.renderTimelineChart();
       }
 
       this.handleAudioAlarms();
@@ -598,6 +683,119 @@ export default {
         apiService.recordSnapshot(this.sessionData.session.id, snap).catch(() => {});
       }
       this.showToast(`Snapshot guardado (#${this.recordedSnapshotsCount})`);
+    },
+    setVideoSourceMode(mode) {
+      if (this.videoSourceMode === mode) return;
+      this.videoSourceMode = mode;
+      if (mode === 'file') {
+        this.deviceMgr.stopStream();
+        if (this.$refs.video) {
+          this.$refs.video.srcObject = null;
+        }
+        this.showToast('Modo de leitura de vídeo ativado. Carregue um ficheiro.');
+      } else {
+        this.videoUploadMgr.pause();
+        if (this.$refs.video) {
+          this.$refs.video.src = '';
+        }
+        this.startPipeline();
+      }
+    },
+    triggerVideoFileInput() {
+      if (this.$refs.videoFileInput) {
+        this.$refs.videoFileInput.click();
+      }
+    },
+    handleVideoFileUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const loaded = this.videoUploadMgr.loadVideoFile(file);
+      if (loaded) {
+        this.uploadedVideoFile = file;
+        this.uploadedVideoName = file.name;
+        this.uploadedVideoSizeMb = Math.round((file.size / (1024 * 1024)) * 10) / 10;
+        this.videoSamplesHistory = [];
+        this.videoCapturedFrames = [];
+        this.bdcAnglesHistory = [];
+        const video = this.$refs.video;
+        if (video) {
+          this.poseRunner.startLoop(video, this.$refs.canvas, this.ctx, () => this.isAnalyzing);
+          this.videoUploadMgr.play();
+        }
+      }
+    },
+    toggleVideoPlay() {
+      this.videoUploadMgr.togglePlay();
+    },
+    seekVideo(seconds) {
+      this.videoUploadMgr.seekTo(seconds);
+    },
+    seekRelativeVideo(seconds) {
+      this.videoUploadMgr.seekRelative(seconds);
+    },
+    setVideoSpeed(rate) {
+      this.videoPlaybackRate = rate;
+      this.videoUploadMgr.setPlaybackRate(rate);
+      this.showToast(`Velocidade: ${rate}x`);
+    },
+    renderTimelineChart() {
+      if (!this.$refs.chartCanvas) return;
+      const chartCanvas = this.$refs.chartCanvas;
+      const chartCtx = chartCanvas.getContext('2d');
+      if (chartCanvas.width !== chartCanvas.clientWidth || chartCanvas.height !== chartCanvas.clientHeight) {
+        chartCanvas.width = chartCanvas.clientWidth || 600;
+        chartCanvas.height = chartCanvas.clientHeight || 160;
+      }
+      AnglesTimelineChart.render(
+        chartCtx,
+        chartCanvas.width,
+        chartCanvas.height,
+        this.videoSamplesHistory,
+        this.videoCurrentTime,
+        this.videoDuration,
+        this.targets
+      );
+    },
+    handleChartCanvasClick(event) {
+      if (!this.$refs.chartCanvas || !this.videoDuration) return;
+      const rect = this.$refs.chartCanvas.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const targetTime = AnglesTimelineChart.getTimeFromClick(clickX, rect.width, this.videoDuration);
+      this.seekVideo(targetTime);
+    },
+    async exportVideoGif() {
+      if (!this.videoCapturedFrames.length) {
+        if (this.$refs.canvas) {
+          this.videoCapturedFrames.push(this.$refs.canvas.toDataURL('image/jpeg', 0.85));
+        } else {
+          this.showToast('Nenhum fotograma capturado para GIF.');
+          return;
+        }
+      }
+      this.isExportingGif = true;
+      this.showToast('A compilar GIF animado...');
+      try {
+        await GifExportService.exportToGif(this.videoCapturedFrames, 100, `bikefit_${this.uploadedVideoName || 'video'}.gif`);
+        this.showToast('GIF exportado com sucesso!');
+      } catch (err) {
+        this.showToast(`Erro ao exportar GIF: ${err.message || err}`);
+      } finally {
+        this.isExportingGif = false;
+      }
+    },
+    async exportVideoClip() {
+      if (!this.$refs.canvas) return;
+      this.isExportingClip = true;
+      this.showToast('A gravar clipe do vídeo analisado...');
+      try {
+        const blob = await GifExportService.recordCanvasClip(this.$refs.canvas, 3500, 30);
+        GifExportService.triggerDownload(blob, `bikefit_clipe_${this.uploadedVideoName || 'analise'}.webm`);
+        this.showToast('Clipe descarregado com sucesso!');
+      } catch (err) {
+        this.showToast(`Erro ao gravar clipe: ${err.message || err}`);
+      } finally {
+        this.isExportingClip = false;
+      }
     },
     async completeSession() {
       this.deviceMgr.stopStream();

@@ -126,3 +126,27 @@ def test_process_frame_upload_security(client):
     invalid_bytes = io.BytesIO(b"Texto normal nao imagem")
     res_invalid = client.post("/process_frame", files={"file": ("test.jpg", invalid_bytes, "image/jpeg")})
     assert res_invalid.status_code == 415
+
+
+def test_export_gif_endpoint(client):
+    import base64
+    from PIL import Image
+
+    # Gerar 2 fotogramas de teste com Pillow
+    frames_b64 = []
+    for color in [(255, 0, 0), (0, 255, 0)]:
+        img = Image.new("RGB", (100, 100), color=color)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        b64 = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("utf-8")
+        frames_b64.append(b64)
+
+    payload = {
+        "frames": frames_b64,
+        "delay_ms": 100,
+        "loop": 0,
+    }
+    res = client.post("/api/v1/video/export-gif", json=payload)
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "image/gif"
+    assert res.content.startswith(b"GIF89a")
