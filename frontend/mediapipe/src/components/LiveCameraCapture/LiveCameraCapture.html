@@ -106,15 +106,15 @@
     </button>
   </div>
 
-  <!-- Menu de Seleção de Articulação para Calibração Manual -->
+  <!-- Menu de Seleção de Articulação para Calibração Manual e Bloqueio de Relevo Ótico -->
   <div v-if="showMarkerMenu" class="marker-menu">
-    <span>📍 {{ t('calibrateManualMarkerBtn') }}:</span>
-    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'knee' }" @click="startManualCalibrationFor('knee')">Joelho</button>
-    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'hip' }" @click="startManualCalibrationFor('hip')">Quadril</button>
-    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'ankle' }" @click="startManualCalibrationFor('ankle')">Tornozelo</button>
-    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'shoulder' }" @click="startManualCalibrationFor('shoulder')">Ombro</button>
-    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'elbow' }" @click="startManualCalibrationFor('elbow')">Cotovelo</button>
-    <button v-if="hasManualMarkers" type="button" class="btn-clear-markers" @click="clearAllManualMarkers">🗑 {{ t('clearManualMarkersBtn') }}</button>
+    <span>🎯 Bloquear Ponto (Relevo & Luz):</span>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'knee' }" @click="startManualCalibrationFor('knee')">🎯 Joelho</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'hip' }" @click="startManualCalibrationFor('hip')">🎯 Quadril</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'ankle' }" @click="startManualCalibrationFor('ankle')">🎯 Tornozelo</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'shoulder' }" @click="startManualCalibrationFor('shoulder')">🎯 Ombro</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'elbow' }" @click="startManualCalibrationFor('elbow')">🎯 Cotovelo</button>
+    <button v-if="hasManualMarkers" type="button" class="btn-clear-markers" @click="clearAllManualMarkers">🗑 Desbloquear Pontos</button>
   </div>
 
   <!-- Barra de Controlos Responsiva (PC / Telemóvel / Tablet) -->
@@ -141,10 +141,11 @@
     <div class="control-item">
       <label for="smoothing-select">{{ t('smoothingLabel') }}</label>
       <select id="smoothing-select" v-model="smoothingLevel" @change="onSmoothingChange">
-        <option value="off">{{ t('smoothingOff') }}</option>
-        <option value="low">{{ t('smoothingLow') }}</option>
-        <option value="medium">{{ t('smoothingMedium') }}</option>
+        <option value="ultra">🎯 Rigor Máximo (1€ Zero-Jitter)</option>
         <option value="high">{{ t('smoothingHigh') }}</option>
+        <option value="medium">{{ t('smoothingMedium') }}</option>
+        <option value="low">{{ t('smoothingLow') }}</option>
+        <option value="off">{{ t('smoothingOff') }}</option>
       </select>
     </div>
 

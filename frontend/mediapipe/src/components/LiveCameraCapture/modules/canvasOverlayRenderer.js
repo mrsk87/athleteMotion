@@ -241,4 +241,119 @@ export class CanvasOverlayRenderer {
     ctx.fillText(`📍 ${label}`, x + 18, y - 8);
     ctx.restore();
   }
+
+  /**
+   * Desenha retículo de bloqueio ótico de alta precisão (Zero-Jitter Optical Lock).
+   */
+  static drawOpticalLockReticle(ctx, pxX, pxY, label, confidence = 100, status = 'LOCKED') {
+    if (!ctx) return;
+    const isLocked = status === 'LOCKED';
+    const color = isLocked ? '#10b981' : '#f59e0b';
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+
+    // Círculo central com mira
+    ctx.beginPath();
+    ctx.arc(pxX, pxY, 10, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // 4 traços de mira ortogonais
+    const len = 6;
+    ctx.beginPath();
+    ctx.moveTo(pxX - 16, pxY);
+    ctx.lineTo(pxX - 16 + len, pxY);
+    ctx.moveTo(pxX + 16, pxY);
+    ctx.lineTo(pxX + 16 - len, pxY);
+    ctx.moveTo(pxX, pxY - 16);
+    ctx.lineTo(pxX, pxY - 16 + len);
+    ctx.moveTo(pxX, pxY + 16);
+    ctx.lineTo(pxX, pxY + 16 - len);
+    ctx.stroke();
+
+    // Ponto sub-pixel central
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(pxX, pxY, 3, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Etiqueta com percentual de confiança de relevo
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(`[🎯 ${label.toUpperCase()} (${confidence}%)]`, pxX + 16, pxY - 8);
+    ctx.restore();
+  }
+
+  /**
+   * Desenha a Lupa de Inspeção de Relevo e Luz em tempo real no canto do ecrã.
+   * Permite ver a forma ampliada (2.5x) do ponto anatómico acompanhado.
+   */
+  static drawMagnifyingLoupe(ctx, videoSource, pxX, pxY, label, confidence, w) {
+    if (!ctx || !videoSource || pxX <= 0 || pxY <= 0) return;
+
+    ctx.save();
+    const loupeRadius = 42; // Diâmetro de 84px
+    const margin = 14;
+    const loupeCenterX = w - loupeRadius - margin;
+    const loupeCenterY = loupeRadius + 50; // Abaixo dos badges HUD
+
+    // 1. Fundo e sombra da lupa
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#18181b';
+    ctx.beginPath();
+    ctx.arc(loupeCenterX, loupeCenterY, loupeRadius, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // 2. Recorte circular para desenho ampliado (2.5x)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(loupeCenterX, loupeCenterY, loupeRadius - 2, 0, 2 * Math.PI);
+    ctx.clip();
+
+    const sampleRadius = Math.round(loupeRadius / 2.5); // ~17px em redor do ponto
+    const srcX = Math.max(0, pxX - sampleRadius);
+    const srcY = Math.max(0, pxY - sampleRadius);
+    const srcW = sampleRadius * 2;
+    const srcH = sampleRadius * 2;
+
+    try {
+      ctx.drawImage(
+        videoSource,
+        srcX, srcY, srcW, srcH,
+        loupeCenterX - loupeRadius, loupeCenterY - loupeRadius,
+        loupeRadius * 2, loupeRadius * 2
+      );
+    } catch {
+      // caso o vídeo esteja indisponível momentaneamente
+    }
+
+    // 3. Mira central na lupa
+    ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(loupeCenterX - 12, loupeCenterY);
+    ctx.lineTo(loupeCenterX + 12, loupeCenterY);
+    ctx.moveTo(loupeCenterX, loupeCenterY - 12);
+    ctx.lineTo(loupeCenterX, loupeCenterY + 12);
+    ctx.stroke();
+    ctx.restore();
+
+    // 4. Bordo exterior brilhante e etiqueta
+    ctx.strokeStyle = confidence >= 60 ? '#10b981' : '#f59e0b';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(loupeCenterX, loupeCenterY, loupeRadius, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = '#10b981';
+    ctx.textAlign = 'center';
+    ctx.fillText(`🔍 LUPA RELEVO (${confidence}%)`, loupeCenterX, loupeCenterY + loupeRadius + 14);
+    ctx.fillText(`[${label.toUpperCase()}]`, loupeCenterX, loupeCenterY + loupeRadius + 26);
+    ctx.restore();
+  }
 }

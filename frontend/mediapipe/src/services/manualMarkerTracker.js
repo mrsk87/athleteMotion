@@ -10,10 +10,15 @@
  * - Gerir o modo de Foco Articular dedicado (isolamento visual com retículo e órbita).
  */
 
+import { OpticalFeatureTracker } from './opticalFeatureTracker';
+
 export class ManualMarkerTracker {
   constructor() {
     // Mapa de offsets manuais por articulação: jointName -> { deltaX, deltaY, calibratedAt }
     this.offsets = new Map();
+
+    // Rastreador ótico baseado em relevo, luz e formas
+    this.opticalTracker = new OpticalFeatureTracker();
 
     // Estado da calibração manual interativa
     this.activeCalibratingJoint = null; // 'knee' | 'hip' | 'ankle' | 'elbow' | 'shoulder' | null
@@ -48,22 +53,25 @@ export class ManualMarkerTracker {
   }
 
   /**
-   * Aplica o clique manual registado no canvas para calcular o deslocamento relativo.
+   * Aplica o clique manual registado no canvas para calcular o deslocamento relativo
+   * e bloqueia o patch visual de relevo/luz no OpticalFeatureTracker.
    * 
    * @param {number} clickNormX - Posição X normalizada [0.0 - 1.0]
    * @param {number} clickNormY - Posição Y normalizada [0.0 - 1.0]
    * @param {Object} detectedLandmark - { x, y } do MediaPipe
+   * @param {HTMLVideoElement | HTMLCanvasElement} [sourceImage] - Fonte de imagem para extrair relevo
    * @returns {boolean} True se a calibração foi gravada com sucesso
    */
-  applyCalibrationClick(clickNormX, clickNormY, detectedLandmark) {
+  applyCalibrationClick(clickNormX, clickNormY, detectedLandmark, sourceImage = null) {
     if (!this.activeCalibratingJoint) {
       return false;
     }
 
+    const joint = this.activeCalibratingJoint;
     const deltaX = detectedLandmark ? clickNormX - detectedLandmark.x : 0;
     const deltaY = detectedLandmark ? clickNormY - detectedLandmark.y : 0;
 
-    this.offsets.set(this.activeCalibratingJoint, {
+    this.offsets.set(joint, {
       deltaX,
       deltaY,
       staticX: clickNormX,
@@ -72,9 +80,24 @@ export class ManualMarkerTracker {
       calibratedAt: Date.now(),
     });
 
-    const joint = this.activeCalibratingJoint;
+    // Bloqueia as características óticas (luz, relevo e bordas) do ponto clicado
+    if (sourceImage) {
+      this.opticalTracker.lockMarker(joint, clickNormX, clickNormY, sourceImage);
+    }
+
     this.activeCalibratingJoint = null;
     return joint;
+  }
+
+  /**
+   * Atualiza o rastreio ótico de todos os marcadores bloqueados para o fotograma atual.
+   */
+  updateOpticalTracking(videoOrCanvas, rawLandmarksMap = {}) {
+    if (!videoOrCanvas) return;
+    for (const marker of this.opticalTracker.getAllMarkers()) {
+      const fallback = rawLandmarksMap[marker.jointKey] || { x: marker.normX, y: marker.normY };
+      this.opticalTracker.track(marker.jointKey, fallback.x, fallback.y, videoOrCanvas);
+    }
   }
 
   /**
@@ -85,6 +108,21 @@ export class ManualMarkerTracker {
    * @returns {Object} Objeto com { x, y } calibrado e flag isManual: true/false
    */
   getAdjustedPoint(jointName, landmark) {
+    // 1. Se existir ponto bloqueado por rastreio ótico de relevo, tem prioridade absoluta
+    const optical = this.opticalTracker.getMarker(jointName);
+    if (optical) {
+      return {
+        x: optical.normX,
+        y: optical.normY,
+        isManual: true,
+        isOptical: true,
+        confidence: optical.confidence,
+        status: optical.status,
+        jointName,
+      };
+    }
+
+    // 2. Se existir offset estático/relativo calibrado
     const offset = this.offsets.get(jointName);
     if (!offset) {
       if (!landmark) return null;
@@ -120,25 +158,27 @@ export class ManualMarkerTracker {
   }
 
   /**
-   * Verifica se uma articulação possui calibração manual ativa.
+   * Verifica se uma articulação possui calibração manual ou ótica ativa.
    * 
    * @param {string} jointName
    * @returns {boolean}
    */
   hasManualOffset(jointName) {
-    return this.offsets.has(jointName);
+    return this.offsets.has(jointName) || this.opticalTracker.isLocked(jointName);
   }
 
   /**
-   * Remove o offset manual de uma articulação ou de todas.
+   * Remove a calibração manual e o rastreio ótico de uma articulação ou de todas.
    * 
    * @param {string} [jointName]
    */
   clearCalibration(jointName) {
     if (jointName) {
       this.offsets.delete(jointName);
+      this.opticalTracker.unlock(jointName);
     } else {
       this.offsets.clear();
+      this.opticalTracker.clearAll();
     }
   }
 

@@ -10,75 +10,138 @@
 
 export class LandmarkSmoother {
   /**
-   * @param {number} defaultAlpha - Fator de suavização (0.0 = imóvel, 1.0 = sem filtro). Padrão: 0.35
+   * @param {string} defaultLevel - Nível de suavização ('ultra' | 'high' | 'medium' | 'low' | 'off')
    */
-  constructor(defaultAlpha = 0.35) {
-    this.alpha = defaultAlpha;
+  constructor(defaultLevel = 'ultra') {
+    this.level = defaultLevel;
+    this.minCutoff = 0.25; // Frequência de corte mínima (Hz) para eliminar jitter a baixa velocidade
+    this.beta = 0.003;     // Sensibilidade à velocidade para anular arrasto/lag a alta velocidade
+    this.dCutoff = 1.0;    // Frequência de corte da derivada
+
+    this.filters = [];     // Estado por articulação: { x, dx, y, dy, z, dz, t }
     this.previousLandmarks = null;
-    this.trajectories = new Map(); // jointIndex -> Array<{x, y}>
-    this.maxTrajectoryLength = 28; // ~1 segundo de pedalada a 30 FPS
+    this.trajectories = new Map();
+    this.maxTrajectoryLength = 32;
+
+    this.setSmoothingLevel(defaultLevel);
   }
 
   /**
-   * Define o nível de estabilização contra ruído visual da câmara.
+   * Define o nível de estabilização contra ruído visual e oscilações do MediaPipe.
    * 
-   * @param {'off' | 'low' | 'medium' | 'high'} level
+   * @param {'off' | 'low' | 'medium' | 'high' | 'ultra'} level
    */
   setSmoothingLevel(level) {
+    this.level = level;
     switch (level) {
       case 'off':
-        this.alpha = 1.0; // Sem filtro
+        this.minCutoff = 100.0;
+        this.beta = 0.0;
         break;
       case 'low':
-        this.alpha = 0.60; // Muito ágil, ligeiro tremor
-        break;
-      case 'high':
-        this.alpha = 0.18; // Estabilidade extrema de estúdio
+        this.minCutoff = 1.8;
+        this.beta = 0.020;
         break;
       case 'medium':
+        this.minCutoff = 1.0;
+        this.beta = 0.012;
+        break;
+      case 'high':
+        this.minCutoff = 0.55;
+        this.beta = 0.006;
+        break;
+      case 'ultra':
       default:
-        this.alpha = 0.35; // Equilíbrio ótimo entre precisão e fluidez
+        // Modo Estúdio / Rigor Máximo: estabilidade absoluta contra oscilações de iluminação e pose
+        this.minCutoff = 0.25;
+        this.beta = 0.003;
         break;
     }
   }
 
   /**
-   * Suaviza o array de 33 marcos anatómicos recebido do MediaPipe.
+   * Calcula o fator alpha do filtro passa-baixo exponencial.
+   */
+  getAlpha(dt, cutoff) {
+    const tau = 1.0 / (2.0 * Math.PI * cutoff);
+    return 1.0 / (1.0 + tau / dt);
+  }
+
+  /**
+   * Suaviza o array de 33 marcos anatómicos com o algoritmo One-Euro Filter (1€ Filter).
    * 
    * @param {Array<Object>} rawLandmarks - Array de {x, y, z, visibility}
-   * @returns {Array<Object>} Array com as coordenadas filtradas
+   * @returns {Array<Object>} Array com as coordenadas filtradas com rigor cirúrgico
    */
   smooth(rawLandmarks) {
     if (!rawLandmarks || rawLandmarks.length === 0) {
       return rawLandmarks;
     }
 
-    if (!this.previousLandmarks || this.alpha === 1.0) {
+    if (this.level === 'off') {
       this.previousLandmarks = rawLandmarks.map((lm) => ({ ...lm }));
       return rawLandmarks;
     }
 
-    const smoothed = rawLandmarks.map((curr, idx) => {
-      const prev = this.previousLandmarks[idx];
-      if (!prev) return { ...curr };
+    const now = performance.now();
 
-      // Se a visibilidade for muito baixa, manter a posição anterior em vez de saltar
-      const visibility = curr.visibility !== undefined ? curr.visibility : 1.0;
-      if (visibility < 0.35 && prev.visibility >= 0.35) {
-        return { ...prev };
+    const smoothed = rawLandmarks.map((curr, idx) => {
+      if (!this.filters[idx]) {
+        this.filters[idx] = {
+          x: curr.x,
+          dx: 0,
+          y: curr.y,
+          dy: 0,
+          z: curr.z || 0,
+          dz: 0,
+          t: now,
+        };
+        return { ...curr };
       }
 
-      // Média Móvel Exponencial (EMA)
-      const smoothedX = this.alpha * curr.x + (1 - this.alpha) * prev.x;
-      const smoothedY = this.alpha * curr.y + (1 - this.alpha) * prev.y;
-      const smoothedZ = curr.z !== undefined && prev.z !== undefined
-        ? this.alpha * curr.z + (1 - this.alpha) * prev.z
-        : curr.z;
+      const f = this.filters[idx];
+      const dt = Math.max(0.001, (now - f.t) / 1000.0);
+      f.t = now;
+
+      // Proteção contra marcos com visibilidade degradada
+      const visibility = curr.visibility !== undefined ? curr.visibility : 1.0;
+      if (visibility < 0.35) {
+        return {
+          x: f.x,
+          y: f.y,
+          z: f.z,
+          visibility,
+        };
+      }
+
+      // 1. Filtragem da velocidade (derivada dx/dt)
+      const rawDx = (curr.x - f.x) / dt;
+      const rawDy = (curr.y - f.y) / dt;
+      const aD = this.getAlpha(dt, this.dCutoff);
+      f.dx = aD * rawDx + (1.0 - aD) * f.dx;
+      f.dy = aD * rawDy + (1.0 - aD) * f.dy;
+
+      // 2. Frequência de corte adaptativa (elimina jitter a baixa velocidade e lag a alta velocidade)
+      const speed = Math.hypot(f.dx, f.dy);
+      const cutoff = this.minCutoff + this.beta * speed;
+      const a = this.getAlpha(dt, cutoff);
+
+      // 3. Suavização das posições X e Y
+      f.x = a * curr.x + (1.0 - a) * f.x;
+      f.y = a * curr.y + (1.0 - a) * f.y;
+
+      if (curr.z !== undefined) {
+        const rawDz = ((curr.z || 0) - f.z) / dt;
+        f.dz = aD * rawDz + (1.0 - aD) * f.dz;
+        const zCutoff = this.minCutoff + this.beta * Math.abs(f.dz);
+        const aZ = this.getAlpha(dt, zCutoff);
+        f.z = aZ * curr.z + (1.0 - aZ) * f.z;
+      }
 
       return {
-        x: smoothedX,
-        y: smoothedY,
-        z: smoothedZ,
+        x: f.x,
+        y: f.y,
+        z: f.z,
         visibility: curr.visibility,
       };
     });

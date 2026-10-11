@@ -54,7 +54,7 @@ export default {
   created() {
     // Gestores e hardware isolados da reatividade do Vue 3 para prevenir vazamento de memória Emscripten
     this.deviceMgr = markRaw(new CameraDeviceManager());
-    this.smoother = markRaw(new LandmarkSmoother(0.35));
+    this.smoother = markRaw(new LandmarkSmoother('ultra'));
     this.manualTracker = markRaw(new ManualMarkerTracker());
     this.pedalTracker = markRaw(new PedalStrokeTracker(15));
     this.kopsAnalyzer = markRaw(new KopsAnalyzer(5.0));
@@ -174,7 +174,7 @@ export default {
       mediaPipeStatusText: 'A aguardar câmara...',
       mediaPipeStatusClass: 'status-idle',
       hasDetectedPose: false,
-      smoothingLevel: 'medium',
+      smoothingLevel: 'ultra',
       focusTarget: 'all',
       showMarkerMenu: false,
       isManualCalibrating: false,
@@ -420,6 +420,19 @@ export default {
         ? results.poseLandmarks.map((lm) => ({ ...lm, x: 1.0 - lm.x }))
         : results.poseLandmarks;
       this.lastSmoothedLandmarks = this.smoother.smooth(rawLandmarks);
+
+      const isLeft = this.currentSide === 'left';
+      // Rastreio contínuo de características óticas (luz, relevo e bordas) nos fotogramas
+      if ((this.$refs.video || this.$refs.canvas) && this.hasManualMarkers) {
+        this.manualTracker.updateOpticalTracking(this.$refs.video || this.$refs.canvas, {
+          knee: this.lastSmoothedLandmarks[isLeft ? 26 : 25],
+          ankle: this.lastSmoothedLandmarks[isLeft ? 28 : 27],
+          hip: this.lastSmoothedLandmarks[isLeft ? 24 : 23],
+          shoulder: this.lastSmoothedLandmarks[isLeft ? 12 : 11],
+          elbow: this.lastSmoothedLandmarks[isLeft ? 14 : 13],
+        });
+      }
+
       const computed = BiomechanicsComputer.computeFrameAngles({
         lm: this.lastSmoothedLandmarks,
         side: this.currentSide,
@@ -536,9 +549,46 @@ export default {
       if (anklePt) CanvasOverlayRenderer.drawJointMarker(ctx, anklePt, this.liveAngles.tornozelo, this.targets.ankle, w, h);
       if (headPt) CanvasOverlayRenderer.drawJointMarker(ctx, headPt, this.liveAngles.cabeca, this.targets.head, w, h);
 
+      // Renderização de Retículos de Bloqueio Ótico e Lupa de Relevo em Tempo Real
+      const opticalJoints = [
+        { pt: kneePt, label: 'Joelho' },
+        { pt: anklePt, label: 'Tornozelo' },
+        { pt: shoulderPt, label: 'Ombro' },
+        { pt: elbowPt, label: 'Cotovelo' },
+      ];
+      const activeOptical = opticalJoints.find((j) => j.pt && j.pt.isOptical);
+
+      opticalJoints.forEach(({ pt, label }) => {
+        if (pt && pt.isOptical) {
+          CanvasOverlayRenderer.drawOpticalLockReticle(ctx, pt.x * w, pt.y * h, label, pt.confidence, pt.status);
+        }
+      });
+
+      if (activeOptical && activeOptical.pt && (this.$refs.video || this.$refs.canvas)) {
+        CanvasOverlayRenderer.drawMagnifyingLoupe(
+          ctx,
+          this.$refs.video || this.$refs.canvas,
+          activeOptical.pt.x * w,
+          activeOptical.pt.y * h,
+          activeOptical.label,
+          activeOptical.pt.confidence || 100,
+          w
+        );
+      }
+
       if (kneePt && anklePt) this.kopsAnalyzer.drawPlumbLine(ctx, kneePt, anklePt, w, h);
       if (this.isManualCalibrating && this.hoverCrosshair) {
-        CanvasOverlayRenderer.drawCalibrationCrosshair(ctx, this.hoverCrosshair.x, this.hoverCrosshair.y, w, h);
+        CanvasOverlayRenderer.drawCalibrationCrosshair(ctx, this.hoverCrosshair.x, this.hoverCrosshair.y, w, h, `FIXAR ${this.manualCalibratingJoint.toUpperCase()}`);
+      }
+    },
+    getJointIndexForName(name, isLeft) {
+      switch (name) {
+        case 'knee': return isLeft ? 26 : 25;
+        case 'hip': return isLeft ? 24 : 23;
+        case 'ankle': return isLeft ? 28 : 27;
+        case 'shoulder': return isLeft ? 12 : 11;
+        case 'elbow': return isLeft ? 14 : 13;
+        default: return isLeft ? 26 : 25;
       }
     },
     handleCanvasClick(event) {
@@ -548,10 +598,21 @@ export default {
       const y = ((event.clientY - rect.top) / rect.height) * (this.$refs.canvas.height || 480);
 
       if (this.isManualCalibrating) {
-        this.manualTracker.applyCalibrationClick(x / (this.$refs.canvas.width || 640), y / (this.$refs.canvas.height || 480));
+        const normX = x / (this.$refs.canvas.width || 640);
+        const normY = y / (this.$refs.canvas.height || 480);
+        const isLeft = this.currentSide === 'left';
+        const lmIdx = this.getJointIndexForName(this.manualCalibratingJoint, isLeft);
+        const refLm = this.lastSmoothedLandmarks ? this.lastSmoothedLandmarks[lmIdx] : null;
+
+        this.manualTracker.applyCalibrationClick(
+          normX,
+          normY,
+          refLm,
+          this.$refs.video || this.$refs.canvas
+        );
         this.hasManualMarkers = true;
         this.isManualCalibrating = false;
-        this.showToast('Marcador manual fixado com sucesso!');
+        this.showToast(`🎯 Ponto (${this.manualCalibratingJoint.toUpperCase()}) bloqueado no relevo e luz!`);
         return;
       }
       if (this.wheelCalibrating) {
