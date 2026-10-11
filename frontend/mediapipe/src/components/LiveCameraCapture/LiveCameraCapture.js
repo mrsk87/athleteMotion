@@ -140,9 +140,16 @@ export default {
         },
         onEnded: () => {
           this.isVideoPlaying = false;
+          this.isReversePlaying = false;
+          this.poseRunner.setReverseMode(false);
         },
         onPlayStateChange: (playing) => {
           this.isVideoPlaying = playing;
+          this.isReversePlaying = this.videoUploadMgr.isReversePlaying;
+          this.poseRunner.setReverseMode(this.isReversePlaying);
+        },
+        onDirectionChange: (dir) => {
+          this.playbackDirection = dir;
         },
       })
     );
@@ -208,6 +215,8 @@ export default {
       videoDuration: 0,
       isVideoPlaying: false,
       videoPlaybackRate: 1.0,
+      playbackDirection: 'forward',
+      isReversePlaying: false,
       videoSamplesHistory: [],
       videoCapturedFrames: [],
       isExportingGif: false,
@@ -1131,6 +1140,38 @@ export default {
     },
     toggleVideoPlay() {
       this.videoUploadMgr.togglePlay();
+      this.isReversePlaying = this.videoUploadMgr.isReversePlaying;
+      this.poseRunner.setReverseMode(this.isReversePlaying);
+    },
+    togglePlaybackDirection() {
+      this.videoUploadMgr.togglePlaybackDirection();
+      this.playbackDirection = this.videoUploadMgr.playbackDirection;
+      this.isReversePlaying = this.videoUploadMgr.isReversePlaying;
+      this.poseRunner.setReverseMode(this.isReversePlaying);
+      this.showToast(
+        this.playbackDirection === 'reverse'
+          ? 'Sentido oposto ativado (marcha-atrás)'
+          : 'Sentido normal ativado (para a frente)'
+      );
+    },
+    setPlaybackDirection(direction) {
+      this.videoUploadMgr.setPlaybackDirection(direction);
+      this.playbackDirection = this.videoUploadMgr.playbackDirection;
+      this.isReversePlaying = this.videoUploadMgr.isReversePlaying;
+      this.poseRunner.setReverseMode(this.isReversePlaying);
+      this.showToast(
+        direction === 'reverse'
+          ? 'Sentido oposto ativado (marcha-atrás)'
+          : 'Sentido normal ativado (para a frente)'
+      );
+    },
+    playReverseVideo() {
+      this.videoUploadMgr.playReverse();
+      this.playbackDirection = 'reverse';
+      this.isReversePlaying = true;
+      this.isVideoPlaying = true;
+      this.poseRunner.setReverseMode(true);
+      this.showToast('A reproduzir no sentido oposto (marcha-atrás)');
     },
     seekVideo(seconds) {
       this.videoUploadMgr.seekTo(seconds);
@@ -1233,8 +1274,8 @@ export default {
       this.poseRunner.setFlipped(this.isFlippedHorizontal);
       this.showToast(
         this.isFlippedHorizontal
-          ? 'Vídeo invertido horizontalmente (modo espelho)'
-          : 'Vídeo na orientação original'
+          ? 'Modo espelho horizontal ativado (reflexão ótica da imagem)'
+          : 'Orientação de imagem original ativada'
       );
     },
     setLoopPointA() {

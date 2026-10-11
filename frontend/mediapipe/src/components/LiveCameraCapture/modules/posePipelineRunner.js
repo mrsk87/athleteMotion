@@ -27,10 +27,15 @@ export class PosePipelineRunner {
     this.lastFpsCalcTime = performance.now();
     this.lastInferredTime = -1;
     this.isFlippedHorizontal = false;
+    this.isReverseActive = false;
   }
 
   setFlipped(flipped) {
     this.isFlippedHorizontal = Boolean(flipped);
+  }
+
+  setReverseMode(active) {
+    this.isReverseActive = Boolean(active);
   }
 
   /**
@@ -82,7 +87,7 @@ export class PosePipelineRunner {
       if (video.ended) return;
 
       // Cálculo de FPS
-      if (!video.paused) {
+      if (!video.paused || this.isReverseActive) {
         this.cameraFrameCount++;
       }
       const now = performance.now();
@@ -123,7 +128,7 @@ export class PosePipelineRunner {
         ctx.restore();
 
         // Disparo assíncrono ao MediaPipe com watchdog
-        const isPausedFile = !video.srcObject && video.paused;
+        const isPausedFile = !video.srcObject && video.paused && !this.isReverseActive;
         const shouldInfer = !isPausedFile || Math.abs((video.currentTime || 0) - this.lastInferredTime) > 0.01;
 
         if (this.poseInstance && getShouldAnalyze() && !this.isInferring && shouldInfer) {

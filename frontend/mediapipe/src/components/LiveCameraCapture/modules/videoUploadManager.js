@@ -3,12 +3,12 @@
  *
  * Responsabilidade:
  * - Gerir o upload de ficheiros de vídeo locais (MP4, MOV, WebM, etc.).
- * - Controlar a reprodução (play, pause, seek, velocidade lenta 0.25x / 0.5x).
- * - Sincronizar o progresso temporal para a inferência e análise biomecânica.
+ * - Controlar a reprodução no sentido normal (forward) e no sentido oposto / marcha-atrás (reverse).
+ * - Sincronizar o progresso temporal para a inferência e análise biomecânica com alta precisão.
  */
 
 export class VideoUploadManager {
-  constructor({ onTimeUpdate, onVideoLoaded, onEnded, onPlayStateChange }) {
+  constructor({ onTimeUpdate, onVideoLoaded, onEnded, onPlayStateChange, onDirectionChange }) {
     this.videoElement = null;
     this.videoFile = null;
     this.videoUrl = null;
@@ -24,10 +24,19 @@ export class VideoUploadManager {
     this.loopEnd = 0;
     this.loopEnabled = false;
 
+    // Sentido de reprodução temporal (Marcha-Atrás / Reverse)
+    this.playbackDirection = 'forward'; // 'forward' | 'reverse'
+    this.isReversePlaying = false;
+    this.reverseAnimFrameId = null;
+    this.lastReverseTime = null;
+    this.wasPlayingBeforeScrub = false;
+    this.wasReverseBeforeScrub = false;
+
     this.onTimeUpdate = onTimeUpdate;
     this.onVideoLoaded = onVideoLoaded;
     this.onEnded = onEnded;
     this.onPlayStateChange = onPlayStateChange;
+    this.onDirectionChange = onDirectionChange;
   }
 
   /**
@@ -43,9 +52,14 @@ export class VideoUploadManager {
     };
 
     this.videoElement.ontimeupdate = () => {
+      // Se a marcha-atrás manual estiver ativa, o tempo é orquestrado pelo loop rAF
+      if (this.isReversePlaying) {
+        return;
+      }
+
       this.currentTime = this.videoElement.currentTime || 0;
 
-      // Execução do Loop A-B automático no intervalo definido
+      // Execução do Loop A-B automático no intervalo definido (sentido normal)
       if (this.loopEnabled && this.loopEnd > this.loopStart) {
         if (this.currentTime >= this.loopEnd || this.currentTime < this.loopStart - 0.25) {
           this.seekTo(this.loopStart);
@@ -57,6 +71,7 @@ export class VideoUploadManager {
     };
 
     this.videoElement.onended = () => {
+      if (this.isReversePlaying) return;
       if (this.loopEnabled && this.loopEnd > this.loopStart) {
         this.seekTo(this.loopStart);
         this.play();
@@ -68,13 +83,17 @@ export class VideoUploadManager {
     };
 
     this.videoElement.onplay = () => {
-      this.isPlaying = true;
-      if (this.onPlayStateChange) this.onPlayStateChange(true);
+      if (!this.isReversePlaying) {
+        this.isPlaying = true;
+        if (this.onPlayStateChange) this.onPlayStateChange(true);
+      }
     };
 
     this.videoElement.onpause = () => {
-      this.isPlaying = false;
-      if (this.onPlayStateChange) this.onPlayStateChange(false);
+      if (!this.isReversePlaying) {
+        this.isPlaying = false;
+        if (this.onPlayStateChange) this.onPlayStateChange(false);
+      }
     };
   }
 
@@ -94,7 +113,7 @@ export class VideoUploadManager {
   toggleLoop(enabled) {
     this.loopEnabled = typeof enabled === 'boolean' ? enabled : !this.loopEnabled;
     if (this.loopEnabled && (this.currentTime < this.loopStart || this.currentTime >= this.loopEnd)) {
-      this.seekTo(this.loopStart);
+      this.seekTo(this.playbackDirection === 'reverse' ? this.loopEnd : this.loopStart);
     }
   }
 
@@ -109,6 +128,8 @@ export class VideoUploadManager {
    */
   loadVideoFile(file) {
     if (!file || !this.videoElement) return false;
+
+    this.pauseReverse();
 
     if (this.videoUrl) {
       URL.revokeObjectURL(this.videoUrl);
@@ -125,22 +146,163 @@ export class VideoUploadManager {
     return true;
   }
 
+  /**
+   * Inicia a reprodução reversa contínua (andar no sentido oposto no tempo).
+   */
+  playReverse() {
+    if (!this.videoElement) return;
+
+    // Se estiver a reproduzir para a frente, pausa nativamente
+    if (!this.videoElement.paused) {
+      this.videoElement.pause();
+    }
+
+    // Se estiver no início ou fora do loop, reposiciona no ponto final adequado
+    if (this.loopEnabled && this.loopEnd > this.loopStart) {
+      if (this.videoElement.currentTime <= this.loopStart + 0.05 || this.videoElement.currentTime > this.loopEnd) {
+        this.seekTo(this.loopEnd);
+      }
+    } else if ((this.videoElement.currentTime || 0) <= 0.05) {
+      this.seekTo(this.duration || 0);
+    }
+
+    this.isReversePlaying = true;
+    this.isPlaying = true;
+    this.playbackDirection = 'reverse';
+    this.lastReverseTime = performance.now();
+
+    if (this.onPlayStateChange) this.onPlayStateChange(true);
+    if (this.onDirectionChange) this.onDirectionChange('reverse');
+
+    if (this.reverseAnimFrameId) {
+      cancelAnimationFrame(this.reverseAnimFrameId);
+    }
+    this.reverseAnimFrameId = requestAnimationFrame(() => this._reverseTick());
+  }
+
+  /**
+   * Pausa a reprodução reversa.
+   */
+  pauseReverse() {
+    this.isReversePlaying = false;
+    this.isPlaying = false;
+    if (this.reverseAnimFrameId) {
+      cancelAnimationFrame(this.reverseAnimFrameId);
+      this.reverseAnimFrameId = null;
+    }
+    this.lastReverseTime = null;
+    if (this.onPlayStateChange) this.onPlayStateChange(false);
+  }
+
+  /**
+   * Ciclo contínuo de marcha-atrás via requestAnimationFrame e medição precisa de delta.
+   */
+  _reverseTick() {
+    if (!this.isReversePlaying || !this.videoElement) return;
+
+    const now = performance.now();
+    if (this.lastReverseTime === null) {
+      this.lastReverseTime = now;
+    }
+    const dt = (now - this.lastReverseTime) / 1000;
+    this.lastReverseTime = now;
+
+    // Passo temporal baseado na velocidade selecionada (0.25x, 0.5x, 1.0x)
+    const rate = Math.abs(this.playbackRate || 1.0);
+    const step = dt * rate;
+    const current = this.videoElement.currentTime || 0;
+    let target = current - step;
+
+    // Fronteira com Loop A-B ativo: ao atingir o ponto A, faz wrap para o ponto B
+    if (this.loopEnabled && this.loopEnd > this.loopStart) {
+      if (target <= this.loopStart) {
+        target = this.loopEnd;
+      }
+    } else {
+      // Sem loop: ao atingir o início do vídeo (0s), pausa e termina
+      if (target <= 0) {
+        target = 0;
+        this.videoElement.currentTime = 0;
+        this.currentTime = 0;
+        if (this.onTimeUpdate) this.onTimeUpdate(0, this.duration);
+        this.pauseReverse();
+        if (this.onEnded) this.onEnded();
+        return;
+      }
+    }
+
+    this.videoElement.currentTime = target;
+    this.currentTime = target;
+    if (this.onTimeUpdate) {
+      this.onTimeUpdate(target, this.duration);
+    }
+
+    this.reverseAnimFrameId = requestAnimationFrame(() => this._reverseTick());
+  }
+
+  /**
+   * Define o sentido de reprodução ('forward' | 'reverse').
+   */
+  setPlaybackDirection(direction) {
+    if (direction !== 'forward' && direction !== 'reverse') return;
+    if (this.playbackDirection === direction) return;
+
+    const wasPlaying = this.isPlaying;
+    if (wasPlaying) {
+      this.pause();
+    }
+    this.playbackDirection = direction;
+    if (this.onDirectionChange) this.onDirectionChange(direction);
+
+    if (wasPlaying) {
+      if (direction === 'reverse') {
+        this.playReverse();
+      } else {
+        this.play();
+      }
+    }
+  }
+
+  togglePlaybackDirection() {
+    this.setPlaybackDirection(this.playbackDirection === 'forward' ? 'reverse' : 'forward');
+  }
+
   togglePlay() {
     if (!this.videoElement) return;
-    if (this.videoElement.paused || this.videoElement.ended) {
-      this.videoElement.play().catch(() => {});
+
+    if (this.playbackDirection === 'reverse') {
+      if (this.isReversePlaying) {
+        this.pauseReverse();
+      } else {
+        this.playReverse();
+      }
     } else {
-      this.videoElement.pause();
+      if (this.isReversePlaying) {
+        this.pauseReverse();
+      }
+      if (this.videoElement.paused || this.videoElement.ended) {
+        this.videoElement.play().catch(() => {});
+      } else {
+        this.videoElement.pause();
+      }
     }
   }
 
   pause() {
+    if (this.isReversePlaying) {
+      this.pauseReverse();
+    }
     if (this.videoElement && !this.videoElement.paused) {
       this.videoElement.pause();
     }
   }
 
   play() {
+    if (this.isReversePlaying) {
+      this.pauseReverse();
+    }
+    this.playbackDirection = 'forward';
+    if (this.onDirectionChange) this.onDirectionChange('forward');
     if (this.videoElement && this.videoElement.paused) {
       this.videoElement.play().catch(() => {});
     }
@@ -160,12 +322,17 @@ export class VideoUploadManager {
 
   startScrubbing() {
     this.wasPlayingBeforeScrub = this.isPlaying;
+    this.wasReverseBeforeScrub = this.isReversePlaying;
     this.pause();
   }
 
   stopScrubbing(resume = false) {
-    if (resume && this.wasPlayingBeforeScrub) {
-      this.play();
+    if (resume) {
+      if (this.wasReverseBeforeScrub) {
+        this.playReverse();
+      } else if (this.wasPlayingBeforeScrub) {
+        this.play();
+      }
     }
   }
 
@@ -200,6 +367,7 @@ export class VideoUploadManager {
   }
 
   cleanup() {
+    this.pauseReverse();
     if (this.videoUrl) {
       URL.revokeObjectURL(this.videoUrl);
       this.videoUrl = null;
@@ -209,5 +377,8 @@ export class VideoUploadManager {
     this.duration = 0;
     this.currentTime = 0;
     this.isPlaying = false;
+    this.isReversePlaying = false;
+    this.playbackDirection = 'forward';
   }
 }
+

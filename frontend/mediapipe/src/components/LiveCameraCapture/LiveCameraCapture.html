@@ -45,9 +45,9 @@
       class="btn-source-mode btn-flip-mode"
       :class="{ active: isFlippedHorizontal }"
       @click="toggleFlipHorizontal"
-      title="Inverter / Espelhar vídeo horizontalmente"
+      title="Espelhar imagem horizontalmente (reflexão ótica)"
     >
-      🪞 {{ isFlippedHorizontal ? 'Vídeo Invertido' : 'Inverter Vídeo' }}
+      🪞 {{ isFlippedHorizontal ? 'Espelho Ativo' : 'Espelho Horizontal' }}
     </button>
   </div>
 
@@ -343,6 +343,11 @@
           ● {{ videoSourceMode === 'images' ? 'MODO FOTO' : (isAnalyzing ? 'LIVE TRACKING' : 'PAUSADO') }}
         </div>
 
+        <!-- Badge de Reprodução no Sentido Oposto (Marcha-Atrás) -->
+        <div v-if="videoSourceMode === 'file' && isReversePlaying" class="hud-item hud-reverse-badge">
+          ⏪ REVERSO ({{ videoPlaybackRate }}x)
+        </div>
+
         <!-- Etiqueta da foto ativa no modo fotos -->
         <div v-if="videoSourceMode === 'images' && activeImage" class="hud-item hud-photo-tag">
           📷 {{ activeImage.name }} [{{ imageAnalysisMgr.getPositionMeta(activeImage.crankPosition).shortLabel }}]
@@ -441,14 +446,55 @@
 
       <div class="video-buttons-row">
         <div class="video-main-btns">
-          <button type="button" class="btn-video-ctrl" @click="toggleVideoPlay">
-            {{ isVideoPlaying ? '⏸ Pausa' : '▶ Reproduzir' }}
+          <!-- Botão Principal de Reprodução / Pausa -->
+          <button
+            type="button"
+            class="btn-video-ctrl btn-play-main"
+            :class="{ 'btn-playing-reverse': isReversePlaying }"
+            @click="toggleVideoPlay"
+            :title="playbackDirection === 'reverse' ? 'Reproduzir / Pausar no sentido oposto (marcha-atrás)' : 'Reproduzir / Pausar no sentido normal'"
+          >
+            {{ isVideoPlaying ? (isReversePlaying ? '⏸ Pausa (Reverso)' : '⏸ Pausa') : (playbackDirection === 'reverse' ? '◀ Marcha-Atrás' : '▶ Reproduzir') }}
           </button>
-          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(-1)">
-            ⏪ -1s
+
+          <!-- Comutador de Sentido Temporal (Normal vs Sentido Oposto) -->
+          <div class="direction-toggle-group">
+            <button
+              type="button"
+              class="btn-direction"
+              :class="{ active: playbackDirection === 'forward' }"
+              @click="setPlaybackDirection('forward')"
+              title="Avançar no tempo (sentido normal)"
+            >
+              ▶ Normal
+            </button>
+            <button
+              type="button"
+              class="btn-direction btn-direction-rev"
+              :class="{ active: playbackDirection === 'reverse' }"
+              @click="setPlaybackDirection('reverse')"
+              title="Recuar no tempo (sentido oposto / marcha-atrás)"
+            >
+              ◀ Sentido Oposto
+            </button>
+          </div>
+
+          <!-- Botão Direto de Marcha-Atrás -->
+          <button
+            type="button"
+            class="btn-video-ctrl btn-rev-direct"
+            :class="{ active: isReversePlaying }"
+            @click="playReverseVideo"
+            title="Reproduzir diretamente no sentido oposto"
+          >
+            ⏪ Recuar
           </button>
-          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(1)">
-            ⏩ +1s
+
+          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(-1)" title="Saltar 1s atrás">
+            -1s
+          </button>
+          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(1)" title="Saltar 1s à frente">
+            +1s
           </button>
           <button type="button" class="btn-video-ctrl" @click="triggerVideoFileInput">
             🔄 Trocar Vídeo

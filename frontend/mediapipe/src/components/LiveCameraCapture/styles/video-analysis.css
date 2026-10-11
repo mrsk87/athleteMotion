@@ -1627,5 +1627,95 @@
   color: #a1a1aa;
 }
 
+/* =========================================================================
+   ESTILOS DE REPRODUÇÃO NO SENTIDO OPOSTO / MARCHA-ATRÁS (REVERSE PLAYBACK)
+   ========================================================================= */
+
+.direction-toggle-group {
+  display: inline-flex;
+  background-color: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+  vertical-align: middle;
+}
+
+.btn-direction {
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-direction:hover {
+  color: #ffffff;
+  background-color: #27272a;
+}
+
+.btn-direction.active {
+  background-color: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.4);
+}
+
+.btn-direction-rev.active {
+  background-color: #9333ea;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(147, 51, 234, 0.4);
+}
+
+.btn-play-main.btn-playing-reverse {
+  background-color: #9333ea;
+  border-color: #c084fc;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+  animation: pulse-reverse 2s infinite ease-in-out;
+}
+
+.btn-rev-direct {
+  background-color: #27272a;
+  border-color: #a855f7;
+  color: #d8b4fe;
+}
+
+.btn-rev-direct:hover {
+  background-color: #9333ea;
+  color: #ffffff;
+}
+
+.btn-rev-direct.active {
+  background-color: #9333ea;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+.hud-reverse-badge {
+  background-color: rgba(147, 51, 234, 0.9) !important;
+  color: #ffffff !important;
+  border-color: #c084fc !important;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+  letter-spacing: 0.5px;
+  animation: pulse-reverse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-reverse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
 
 
