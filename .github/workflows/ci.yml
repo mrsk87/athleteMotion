@@ -1,0 +1,64 @@
+name: CI Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend-quality:
+    name: Backend Tests & Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest httpx
+
+      - name: Validate SemVer Synchronization
+        shell: bash
+        run: |
+          python -c "
+          import json
+          from pathlib import Path
+          v_file = Path('VERSION').read_text().strip()
+          p_json = json.loads(Path('frontend/mediapipe/package.json').read_text())['version']
+          assert v_file == p_json, f'Inconsistência SemVer: VERSION ({v_file}) != package.json ({p_json})'
+          print(f'SemVer validado e sincronizado: v{v_file}')
+          "
+
+      - name: Run Pytest Test Suite
+        run: |
+          pytest tests/ -v --maxfail=1
+
+  frontend-quality:
+    name: Frontend Lint & Build Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/mediapipe/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend/mediapipe
+        run: npm ci
+
+      - name: Run Frontend Production Build
+        working-directory: frontend/mediapipe
+        run: npm run build
+

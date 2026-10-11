@@ -1,0 +1,213 @@
+<div class="onboarding-card">
+  <div class="card-header">
+    <h2>{{ t('onboardingTitle') }}</h2>
+    <p class="subtitle">{{ t('onboardingSubtitle') }}</p>
+  </div>
+
+  <form @submit.prevent="handleSubmit" class="onboarding-form">
+    <!-- Secção 1: Antropometria do Ciclista -->
+    <div class="form-section">
+      <h3 class="section-title">👤 {{ t('athleteSectionTitle') }}</h3>
+
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label for="name">{{ t('cyclistName') }} *</label>
+          <input
+            id="name"
+            v-model="form.name"
+            type="text"
+            required
+            :placeholder="t('cyclistNamePlaceholder')"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="height">{{ t('heightCm') }} *</label>
+          <input
+            id="height"
+            v-model.number="form.height_cm"
+            type="number"
+            step="0.5"
+            min="100"
+            max="240"
+            required
+            placeholder="Ex: 178"
+          />
+          <span class="help-text">{{ t('heightHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="inseam">{{ t('inseamCm') }} *</label>
+          <input
+            id="inseam"
+            v-model.number="form.inseam_cm"
+            type="number"
+            step="0.5"
+            min="40"
+            max="120"
+            required
+            placeholder="Ex: 84"
+          />
+          <span class="help-text highlight-help">{{ t('inseamHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="shoulder">{{ t('shoulderWidthCm') }}</label>
+          <input
+            id="shoulder"
+            v-model.number="form.shoulder_width_cm"
+            type="number"
+            step="0.5"
+            placeholder="Ex: 42"
+          />
+          <span class="help-text">{{ t('shoulderHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="flexibility">{{ t('flexibility') }}</label>
+          <select id="flexibility" v-model="form.flexibility">
+            <option value="low">{{ t('flexLow') }}</option>
+            <option value="medium">{{ t('flexMed') }}</option>
+            <option value="high">{{ t('flexHigh') }}</option>
+          </select>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="riding_style">{{ t('ridingStyle') }} *</label>
+          <select id="riding_style" v-model="form.riding_style" class="select-primary">
+            <option value="road">🚴 {{ t('roadBike') }}</option>
+            <option value="mtb">🚵 {{ t('mtbBike') }}</option>
+            <option value="tt">⏱️ {{ t('ttBike') }}</option>
+            <option value="gravel">🌲 {{ t('gravelBike') }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secção 2: Geometria da Bicicleta -->
+    <div class="form-section">
+      <h3 class="section-title">🚲 {{ t('bikeSectionTitle') }}</h3>
+
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label for="brand_model">{{ t('bikeBrandModel') }}</label>
+          <input
+            id="brand_model"
+            v-model="form.brand_model"
+            type="text"
+            :placeholder="t('bikeBrandModelPlaceholder')"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="current_saddle">{{ t('currentSaddleHeightCm') }}</label>
+          <input
+            id="current_saddle"
+            v-model.number="form.current_saddle_height_cm"
+            type="number"
+            step="0.1"
+            placeholder="Ex: 73.5"
+          />
+          <span class="help-text">{{ t('currentSaddleHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="frame_size">{{ t('frameSizeCm') }}</label>
+          <input
+            id="frame_size"
+            v-model.number="form.frame_size_cm"
+            type="number"
+            step="0.5"
+            placeholder="Ex: 54"
+          />
+          <span class="help-text">{{ t('frameHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="handlebar">{{ t('handlebarWidthMm') }}</label>
+          <input
+            id="handlebar"
+            v-model.number="form.handlebar_width_mm"
+            type="number"
+            step="10"
+            placeholder="Ex: 420"
+          />
+          <span class="help-text">{{ t('handlebarHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="stem">{{ t('stemLengthMm') }}</label>
+          <input
+            id="stem"
+            v-model.number="form.stem_length_mm"
+            type="number"
+            step="5"
+            placeholder="Ex: 100"
+          />
+          <span class="help-text">{{ t('stemHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="crank">{{ t('crankLengthMm') }}</label>
+          <input
+            id="crank"
+            v-model.number="form.crank_length_mm"
+            type="number"
+            step="2.5"
+            placeholder="Ex: 172.5"
+          />
+          <span class="help-text">{{ t('crankHelp') }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secção 3: Estimativas Teóricas Imediatas (Live Preview) -->
+    <div v-if="theoreticalEstimates" class="estimates-panel">
+      <h4>⚡ {{ t('theoreticalTitle') }}</h4>
+      <div class="estimates-grid">
+        <div class="estimate-item highlight">
+          <span class="estimate-label">{{ t('lemondSaddleHeight') }}</span>
+          <span class="estimate-value">{{ theoreticalEstimates.lemond_saddle_height_cm }} cm</span>
+        </div>
+        <div class="estimate-item">
+          <span class="estimate-label">{{ t('hamley109SaddleHeight') }}</span>
+          <span class="estimate-value">{{ theoreticalEstimates.hamley_109_saddle_height_cm }} cm</span>
+        </div>
+        <div
+          v-if="saddleDelta !== null"
+          class="estimate-item"
+          :class="{ 'delta-warning': Math.abs(saddleDelta) > 1.5, 'delta-ok': Math.abs(saddleDelta) <= 1.5 }"
+        >
+          <span class="estimate-label">{{ t('saddleComparison') }}</span>
+          <span class="estimate-value">
+            {{ saddleDelta > 0 ? `+${saddleDelta} cm (Selim atual mais alto)` : `${saddleDelta} cm (Selim atual mais baixo)` }}
+          </span>
+        </div>
+        <div class="estimate-item">
+          <span class="estimate-label">{{ t('estimatedFrameSize') }}</span>
+          <span class="estimate-value">{{ theoreticalEstimates.estimated_frame_size_cm }} cm</span>
+        </div>
+        <div class="estimate-item">
+          <span class="estimate-label">{{ t('recommendedHandlebarWidth') }}</span>
+          <span class="estimate-value">{{ theoreticalEstimates.recommended_handlebar_width_mm }} mm</span>
+        </div>
+        <div class="estimate-item">
+          <span class="estimate-label">{{ t('recommendedCrankLength') }}</span>
+          <span class="estimate-value">{{ theoreticalEstimates.recommended_crank_length_mm }} mm</span>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="errorMessage" class="error-banner">
+      ⚠️ {{ errorMessage }}
+    </div>
+
+    <!-- Botão de Submissão -->
+    <div class="form-actions">
+      <button type="submit" class="submit-btn" :disabled="isSubmitting">
+        {{ isSubmitting ? 'A inicializar sessão transacional (ACID)...' : t('proceedToCameraBtn') }}
+      </button>
+    </div>
+  </form>
+</div>
+

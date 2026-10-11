@@ -1,0 +1,26 @@
+[project]
+name = "athlete-motion"
+version = "0.3.0"
+description = "Plataforma Profissional de Análise Biomecânica de Postura e BikeFit em Tempo Real"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "numpy>=1.26.0",
+    "opencv-python>=4.8.0",
+    "reportlab>=4.0.0",
+    "httpx>=0.24.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

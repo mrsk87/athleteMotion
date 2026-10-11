@@ -1,0 +1,267 @@
+<div class="report-card">
+  <div class="report-header">
+    <div class="brand-section">
+      <h2>📄 {{ t('reportTitle') }}</h2>
+      <p class="subtitle">{{ t('reportSubtitle') }}</p>
+    </div>
+
+    <div class="report-actions">
+      <!-- Descarregar PDF Oficial Gerado no Servidor -->
+      <button @click="downloadPdfReport" class="btn-action pdf-btn">
+        📥 {{ t('downloadPdfBtn') }}
+      </button>
+      <button @click="printReport" class="btn-action print-btn">
+        🖨 {{ t('printReportBtn') }}
+      </button>
+      <button @click="$emit('restart-session')" class="btn-action restart-btn">
+        ↺ {{ t('newSessionBtn') }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Perfil e Dados Primários Consolidados -->
+  <div class="profile-summary-grid">
+    <div class="summary-box">
+      <span class="box-label">Ciclista</span>
+      <span class="box-value">{{ reportData.athlete_name }}</span>
+    </div>
+    <div class="summary-box">
+      <span class="box-label">Bicicleta</span>
+      <span class="box-value">{{ reportData.bike_model || 'Estrada' }}</span>
+    </div>
+    <div class="summary-box">
+      <span class="box-label">Modalidade</span>
+      <span class="box-value">{{ (reportData.riding_style || 'road').toUpperCase() }}</span>
+    </div>
+    <div class="summary-box highlight-box">
+      <span class="box-label">{{ t('complianceScore') }}</span>
+      <span class="box-value score-text">
+        {{ reportData.overall_compliance_percentage || 85 }}%
+      </span>
+    </div>
+  </div>
+
+  <!-- Indicadores de Cadência e Potência IoT se disponíveis -->
+  <div v-if="reportData.cadenceRpm || reportData.powerWatts" class="sensor-stats-bar">
+    <div v-if="reportData.cadenceRpm" class="sensor-stat-item">
+      <span class="sensor-icon">🔄</span>
+      <span class="sensor-label">{{ t('cadenceBadge') }}:</span>
+      <span class="sensor-val">{{ reportData.cadenceRpm }} RPM</span>
+    </div>
+    <div v-if="reportData.powerWatts" class="sensor-stat-item">
+      <span class="sensor-icon">⚡</span>
+      <span class="sensor-label">Potência Média:</span>
+      <span class="sensor-val">{{ reportData.powerWatts }} Watts</span>
+    </div>
+  </div>
+
+  <!-- Comparativo de Altura de Selim Teórica vs Atual -->
+  <div class="saddle-analysis-section">
+    <h3>📏 Diagnóstico de Altura do Selim</h3>
+    <div class="saddle-metrics-row">
+      <div class="saddle-box">
+        <span class="label">Altura Atual Configurada:</span>
+        <span class="val">{{ reportData.current_saddle_height_cm ? `${reportData.current_saddle_height_cm} cm` : 'Não informada' }}</span>
+      </div>
+      <div class="saddle-box theoretical">
+        <span class="label">Altura Teórica LeMond:</span>
+        <span class="val">{{ reportData.theoretical_saddle_height_cm ? `${reportData.theoretical_saddle_height_cm} cm` : '--' }}</span>
+      </div>
+      <div class="saddle-box" :class="{ 'warning-box': saddleDelta && Math.abs(saddleDelta) > 1.5 }">
+        <span class="label">Desvio Teórico:</span>
+        <span class="val" v-if="saddleDelta !== null">
+          {{ saddleDelta > 0 ? `+${saddleDelta} cm` : `${saddleDelta} cm` }}
+        </span>
+        <span class="val" v-else>Alinhado</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de Médias Angulares Registadas -->
+  <div class="angles-table-section">
+    <h3>{{ t('measuredAveragesTitle') }}</h3>
+    <table class="metrics-table">
+      <thead>
+        <tr>
+          <th>Articulação</th>
+          <th>Ângulo Médio Medido</th>
+          <th>Intervalo Alvo Ideal</th>
+          <th>Avaliação</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Joelho (Extensão BDC)</strong></td>
+          <td class="metric-num">{{ reportData.measured_avg_knee_angle ? `${reportData.measured_avg_knee_angle}°` : '--' }}</td>
+          <td>145° - 155°</td>
+          <td>
+            <span class="status-pill" :class="isKneeOk ? 'pill-ok' : 'pill-warn'">
+              {{ isKneeOk ? t('statusCompliant') : t('statusNeedsAdjustment') }}
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Costas / Tronco (Inclinação)</strong></td>
+          <td class="metric-num">{{ reportData.measured_avg_back_angle ? `${reportData.measured_avg_back_angle}°` : '--' }}</td>
+          <td>40° - 50°</td>
+          <td>
+            <span class="status-pill" :class="isBackOk ? 'pill-ok' : 'pill-warn'">
+              {{ isBackOk ? t('statusCompliant') : t('statusNeedsAdjustment') }}
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Braço / Cotovelo (Flexão)</strong></td>
+          <td class="metric-num">{{ reportData.measured_avg_arm_angle ? `${reportData.measured_avg_arm_angle}°` : '--' }}</td>
+          <td>150° - 165°</td>
+          <td>
+            <span class="status-pill" :class="isArmOk ? 'pill-ok' : 'pill-warn'">
+              {{ isArmOk ? t('statusCompliant') : t('statusNeedsAdjustment') }}
+            </span>
+          </td>
+        </tr>
+        <tr v-if="reportData.measured_avg_ankle_angle">
+          <td><strong>Tornozelo (Flexão)</strong></td>
+          <td class="metric-num">{{ reportData.measured_avg_ankle_angle }}°</td>
+          <td>90° - 105°</td>
+          <td>
+            <span class="status-pill pill-ok">{{ t('statusCompliant') }}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Parecer do Treinador Biomecânico de IA (FEAT-21) -->
+  <div class="ai-coach-section" v-if="aiCoachData">
+    <div class="ai-coach-card">
+      <div class="ai-coach-header">
+        <span class="ai-icon">🤖</span>
+        <h3>{{ aiCoachData.title || 'Parecer do Treinador Biomecânico de IA' }}</h3>
+        <span class="ai-badge">Motor Cognitivo</span>
+      </div>
+      <p class="ai-summary">{{ aiCoachData.executive_summary }}</p>
+      <div v-if="aiCoachData.cockpit_analysis" class="ai-subnote">
+        <strong>Cockpit & Tronco:</strong> {{ aiCoachData.cockpit_analysis }}
+      </div>
+      <div v-if="aiCoachData.adaptation_plan && aiCoachData.adaptation_plan.length" class="ai-plan-box">
+        <h4>📅 Plano de Adaptação Neuromuscular (3 Semanas):</h4>
+        <ul>
+          <li v-for="(step, idx) in aiCoachData.adaptation_plan" :key="idx">{{ step }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diagrama Polar de Eficiência e Redondeza da Pedalada 360° (FEAT-20) -->
+  <div class="polar-section">
+    <h3>🔄 Diagrama Polar de Eficiência e Redondeza da Pedalada (360°)</h3>
+    <div class="polar-container-card">
+      <div class="polar-canvas-wrap">
+        <canvas ref="polarCanvas"></canvas>
+      </div>
+      <div class="polar-info">
+        <h4>Índice de Suavidade de Pedalada (PSI)</h4>
+        <div class="psi-score">{{ pedalingSmoothnessIndex }}%</div>
+        <p class="psi-desc">
+          {{ pedalingSmoothnessIndex >= 80
+            ? 'Excelente transição angular contínua ao longo de toda a rotação (0° a 360°), minimizando perdas mecânicas no ponto morto superior e inferior.'
+            : 'Pedalada com oscilação na transição do ponto morto superior. Recomenda-se treino de pedalada redonda em cadência constante (90 RPM).' }}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Secção Avançada: KOPS, Saddle Drop e Plano Frontal (FEAT-19) -->
+  <div v-if="reportData.kopsData || reportData.saddleDropCm !== null || reportData.frontalData" class="special-metrics-section">
+    <h3>🎯 Testes Especializados: Alinhamento KOPS, Drop & Valgo Frontal</h3>
+    <div class="special-grid">
+      <!-- Card KOPS -->
+      <div v-if="reportData.kopsData" class="special-card">
+        <div class="special-card-header">
+          <strong>{{ t('kopsTitle') }}</strong>
+          <span :class="['status-pill', reportData.kopsData.isAligned ? 'pill-ok' : 'pill-warn']">
+            {{ reportData.kopsData.actionPt }}
+          </span>
+        </div>
+        <p class="special-metric-val">
+          Desvio de Prumo: {{ reportData.kopsData.offsetMm > 0 ? `+${reportData.kopsData.offsetMm}` : reportData.kopsData.offsetMm }} mm
+        </p>
+        <p class="special-desc">{{ reportData.kopsData.labelPt }}</p>
+      </div>
+
+      <!-- Card Saddle Drop -->
+      <div v-if="reportData.saddleDropCm !== null" class="special-card">
+        <div class="special-card-header">
+          <strong>{{ t('saddleDropLabel') }}</strong>
+          <span class="status-pill pill-ok">Calibrado via Roda</span>
+        </div>
+        <p class="special-metric-val">
+          Desnível Selim ➔ Guiador: <strong>{{ reportData.saddleDropCm }} cm</strong>
+        </p>
+        <p class="special-desc">
+          {{ reportData.saddleDropCm > 8.5 ? 'Desnível agressivo/pro. Verifique conforto cervical.' : 'Desnível ergonómico para resistência e endurance.' }}
+        </p>
+      </div>
+
+      <!-- Card Plano Frontal (Valgo/Varo e Fator Q) (FEAT-19) -->
+      <div v-if="reportData.frontalData" class="special-card">
+        <div class="special-card-header">
+          <strong>{{ t('frontalTitle') }}</strong>
+          <span :class="['status-pill', reportData.frontalData.isAligned ? 'pill-ok' : 'pill-warn']">
+            {{ reportData.frontalData.isAligned ? t('frontalOptimal') : reportData.frontalData.condition.toUpperCase() }}
+          </span>
+        </div>
+        <p class="special-metric-val">
+          Desvio Lateral: {{ reportData.frontalData.deviationMm > 0 ? `+${reportData.frontalData.deviationMm}` : reportData.frontalData.deviationMm }} mm
+        </p>
+        <p class="special-desc">
+          {{ locale === 'pt' ? reportData.frontalData.recommendationPt : reportData.frontalData.recommendationEn }}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Secção Avançada: Simetria Bilateral (Lado Esquerdo vs Direito) -->
+  <div v-if="reportData.bilateralResults && reportData.bilateralResults.length > 0" class="bilateral-section">
+    <h3>⚖ {{ t('bilateralReportTitle') }}</h3>
+    <div class="bilateral-cards">
+      <div
+        v-for="(sym, idx) in reportData.bilateralResults"
+        :key="idx"
+        class="bilateral-card"
+        :class="'bila-' + sym.alertClass"
+      >
+        <div class="bilateral-header">
+          <strong>{{ sym.joint }}</strong>
+          <span class="si-badge">SI: {{ sym.si }}% ({{ sym.labelPt }})</span>
+        </div>
+        <div class="bilateral-values-row">
+          <span>Esq: <strong>{{ sym.leftValue }}°</strong></span>
+          <span>Dir: <strong>{{ sym.rightValue }}°</strong></span>
+          <span>Diferença: <strong>{{ sym.diff }}°</strong></span>
+        </div>
+        <p class="bilateral-rec">{{ sym.recommendationPt }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recomendações e Ajustes Físicos na Bicicleta -->
+  <div class="actions-section">
+    <h3>🔧 {{ t('physicalActionsTitle') }}</h3>
+    <div class="actions-list">
+      <div class="action-card" v-for="(item, idx) in physicalChecklist" :key="idx">
+        <div class="action-icon">✓</div>
+        <div class="action-content">
+          <h4>{{ item.title }}</h4>
+          <p>{{ item.description }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer-footer">
+    <p>{{ t('medicalDisclaimer') }}</p>
+  </div>
+</div>
+

@@ -1,202 +1,136 @@
-from fastapi import FastAPI, UploadFile, File
+"""Servidor principal FastAPI para Athlete Motion.
+
+Desenvolvido segundo Clean Architecture, com persistência transacional ACID,
+validação de uploads, suporte bilingue (Português língua-mãe) e rotas tipadas.
+"""
+from __future__ import annotations
+
+import os
+from contextlib import asynccontextmanager
 import cv2
-import mediapipe as mp
 import numpy as np
 import uvicorn
-import math
+from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from src.api.v1.router import api_v1_router
+from src.infrastructure.database import init_db
+from src.schemas.fit import FrameValidationResponse
+from version import __version__
 
-# Configurar CORS para permitir requisições do frontend
+# Limites de segurança para upload de imagens
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+ALLOWED_MAGIC_SIGNATURES = [
+    b"\xff\xd8\xff",       # JPEG / JPG
+    b"\x89PNG\r\n\x1a\n",  # PNG
+    b"RIFF",               # WebP
+]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ciclo de vida assíncrono do servidor: inicializa base de dados com ACID."""
+    # Inicializar base de dados SQLite com WAL e integridade referencial
+    init_db()
+    yield
+
+
+app = FastAPI(
+    title="Athlete Motion API",
+    description="API profissional de análise biomecânica e postural para ciclistas (BikeFit).",
+    version=__version__,
+    lifespan=lifespan,
+)
+
+# Configurar origens CORS permitidas (suporte a PC, telemóvel e rede local)
+raw_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173",
+)
+allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins if allowed_origins else ["*"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Inicializar o MediaPipe Pose
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(
-    static_image_mode=False,
-    model_complexity=2,  # Voltamos para 2 para melhorar precisão na detecção lateral
-    enable_segmentation=False,
-    smooth_landmarks=True,  # Suavizar movimentos para evitar pulos
-    min_detection_confidence=0.3,  # Reduzido para detectar mesmo em poses parciais
-    min_tracking_confidence=0.3  # Reduzido para melhor tracking em posições laterais
-)
+# Montar rotas da API v1
+app.include_router(api_v1_router)
 
-# Definir ângulos ideais para ciclismo (em graus)
-IDEAL_ANGLES = {
-    "joelho": {"min": 70, "max": 110},  # Ângulo do joelho durante pedalada
-    "tornozelo": {"min": 80, "max": 110},  # Ângulo do tornozelo
-    "costas": {"min": 40, "max": 60},  # Inclinação das costas (em relação à vertical)
-    "braço": {"min": 150, "max": 175}   # Extensão do braço - Ampliada a faixa mínima para melhorar detecção
-}
 
-# Mapear nomes dos landmarks para facilitar o acesso
-LANDMARK_MAPPING = {
-    "nariz": 0,
-    "ombro_direito": 11, 
-    "ombro_esquerdo": 12,
-    "cotovelo_direito": 13, 
-    "cotovelo_esquerdo": 14,
-    "pulso_direito": 15, 
-    "pulso_esquerdo": 16,
-    "quadril_direito": 23, 
-    "quadril_esquerdo": 24,
-    "joelho_direito": 25, 
-    "joelho_esquerdo": 26,
-    "tornozelo_direito": 27, 
-    "tornozelo_esquerdo": 28
-}
+@app.get("/", tags=["system"])
+def root():
+    """Página raiz da API com metadados informativos em Português e Inglês."""
+    return {
+        "app": "Athlete Motion API",
+        "description": "Análise Biomecânica de Postura Ciclística (BikeFit)",
+        "version": __version__,
+        "language_default": "pt",
+        "documentation": "/docs",
+        "status": "online",
+    }
 
-def calculate_angle(a, b, c):
-    """Calcula o ângulo entre três pontos"""
-    a = np.array([a.x, a.y])
-    b = np.array([b.x, b.y])
-    c = np.array([c.x, c.y])
-    
-    radians = np.arctan2(c[1] - b[1], c[0] - b[0]) - np.arctan2(a[1] - b[1], a[0] - b[0])
-    angle = np.abs(radians * 180.0 / np.pi)
-    
-    if angle > 180.0:
-        angle = 360 - angle
-        
-    return angle
 
-@app.post("/process_frame")
+@app.get("/health", tags=["system"])
+def health_check():
+    """Verificação de integridade operacional do backend."""
+    return {"status": "ok", "version": __version__}
+
+
+@app.get("/api/version", tags=["system"])
+def version_info():
+    """Retorna a versão SemVer corrente lida da fonte única da verdade."""
+    return {"version": __version__}
+
+
+@app.post("/process_frame", response_model=FrameValidationResponse, tags=["vision"])
 async def process_frame(file: UploadFile = File(...)):
-    # Ler o frame enviado pelo frontend
+    """Valida e processa um frame de vídeo/imagem para análise postural segura."""
+    # 1. Validação de tamanho e conteúdo
     contents = await file.read()
+    if not contents or len(contents) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ficheiro de imagem vazio / Empty image file.",
+        )
+
+    if len(contents) > MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Tamanho de imagem excede o limite máximo permitido de 5 MB.",
+        )
+
+    # 2. Validação de assinatura de bytes (Magic Bytes)
+    is_valid_signature = any(contents.startswith(sig) for sig in ALLOWED_MAGIC_SIGNATURES)
+    if not is_valid_signature:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Formato de imagem não suportado. Envie ficheiros JPEG, PNG ou WebP válidos.",
+        )
+
+    # 3. Decodificação segura da imagem com OpenCV
     nparr = np.frombuffer(contents, np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    # Converter o frame para RGB
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    
-    # Processar o frame diretamente sem modificações intensas
-    # Isso proporcionará uma análise mais natural, mantendo as cores e a aparência original
-    results = pose.process(rgb_frame)
+    if frame is None or frame.shape[0] == 0 or frame.shape[1] == 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Não foi possível decodificar os dados de imagem enviados.",
+        )
 
-    # Se não detectou pose, retornar vazio
-    if not results.pose_landmarks:
-        return {"landmarks": [], "angles": {}}
-        
-    # Preparar os landmarks
-    landmarks = []
-    for landmark in results.pose_landmarks.landmark:
-        # Garantir que os valores sejam nativos do Python (float), não tipos numpy
-        landmarks.append({
-            "x": float(landmark.x), 
-            "y": float(landmark.y), 
-            "z": float(landmark.z)
-        })
-    
-    # Calcular ângulos das articulações
-    angles = {}
-    
-    # Joelho direito (quadril - joelho - tornozelo)
-    # Verificar se os pontos são visíveis (não apenas se têm valor x > 0)
-    if all(idx < len(landmarks) for idx in [mp_pose.PoseLandmark.RIGHT_HIP.value, 
-                                        mp_pose.PoseLandmark.RIGHT_KNEE.value, 
-                                        mp_pose.PoseLandmark.RIGHT_ANKLE.value]):
-        knee_angle = calculate_angle(
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_ANKLE.value]
-        )
-        angles["joelho_direito"] = {
-            "angle": float(knee_angle),
-            "correct": bool(IDEAL_ANGLES["joelho"]["min"] <= knee_angle <= IDEAL_ANGLES["joelho"]["max"])
-        }
-    
-    # Joelho esquerdo
-    if all(idx < len(landmarks) for idx in [mp_pose.PoseLandmark.LEFT_HIP.value, 
-                                        mp_pose.PoseLandmark.LEFT_KNEE.value, 
-                                        mp_pose.PoseLandmark.LEFT_ANKLE.value]):
-        knee_angle = calculate_angle(
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_HIP.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_KNEE.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_ANKLE.value]
-        )
-        angles["joelho_esquerdo"] = {
-            "angle": float(knee_angle),
-            "correct": bool(IDEAL_ANGLES["joelho"]["min"] <= knee_angle <= IDEAL_ANGLES["joelho"]["max"])
-        }
-        
-    # Tornozelo direito (joelho - tornozelo - pé)
-    if all(idx < len(landmarks) for idx in [mp_pose.PoseLandmark.RIGHT_KNEE.value, 
-                                        mp_pose.PoseLandmark.RIGHT_ANKLE.value, 
-                                        mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value]):
-        ankle_angle = calculate_angle(
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_ANKLE.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_FOOT_INDEX.value]
-        )
-        angles["tornozelo_direito"] = {
-            "angle": float(ankle_angle),
-            "correct": bool(IDEAL_ANGLES["tornozelo"]["min"] <= ankle_angle <= IDEAL_ANGLES["tornozelo"]["max"])
-        }
-    
-    # Tornozelo esquerdo
-    if all(idx < len(landmarks) for idx in [mp_pose.PoseLandmark.LEFT_KNEE.value, 
-                                        mp_pose.PoseLandmark.LEFT_ANKLE.value, 
-                                        mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value]):
-        ankle_angle = calculate_angle(
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_KNEE.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_ANKLE.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value]
-        )
-        angles["tornozelo_esquerdo"] = {
-            "angle": float(ankle_angle),
-            "correct": bool(IDEAL_ANGLES["tornozelo"]["min"] <= ankle_angle <= IDEAL_ANGLES["tornozelo"]["max"])
-        }
-    
-    # Costas (inclinação - ombro, quadril, joelho)
-    if all(idx < len(landmarks) for idx in [mp_pose.PoseLandmark.RIGHT_SHOULDER.value, 
-                                        mp_pose.PoseLandmark.RIGHT_HIP.value, 
-                                        mp_pose.PoseLandmark.RIGHT_KNEE.value]):
-        back_angle = calculate_angle(
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_HIP.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_KNEE.value]
-        )
-        angles["costas"] = {
-            "angle": float(back_angle),
-            "correct": bool(IDEAL_ANGLES["costas"]["min"] <= back_angle <= IDEAL_ANGLES["costas"]["max"])
-        }
-    
-    # Braços (ombro - cotovelo - pulso)
-    if all(idx < len(landmarks) for idx in [mp_pose.PoseLandmark.RIGHT_SHOULDER.value, 
-                                        mp_pose.PoseLandmark.RIGHT_ELBOW.value, 
-                                        mp_pose.PoseLandmark.RIGHT_WRIST.value]):
-        arm_angle = calculate_angle(
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_ELBOW.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.RIGHT_WRIST.value]
-        )
-        angles["braço_direito"] = {
-            "angle": float(arm_angle),
-            "correct": bool(IDEAL_ANGLES["braço"]["min"] <= arm_angle <= IDEAL_ANGLES["braço"]["max"])
-        }
-    
-    if all(idx < len(landmarks) for idx in [mp_pose.PoseLandmark.LEFT_SHOULDER.value, 
-                                        mp_pose.PoseLandmark.LEFT_ELBOW.value, 
-                                        mp_pose.PoseLandmark.LEFT_WRIST.value]):
-        arm_angle = calculate_angle(
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_ELBOW.value],
-            results.pose_landmarks.landmark[mp_pose.PoseLandmark.LEFT_WRIST.value]
-        )
-        angles["braço_esquerdo"] = {
-            "angle": float(arm_angle),
-            "correct": bool(IDEAL_ANGLES["braço"]["min"] <= arm_angle <= IDEAL_ANGLES["braço"]["max"])
-        }
+    # Retorno estruturado confirmando validação e dimensões recebidas
+    return {
+        "status": "validated",
+        "frame_width": int(frame.shape[1]),
+        "frame_height": int(frame.shape[0]),
+        "channels": int(frame.shape[2]),
+        "message": "Frame recebido e validado com sucesso.",
+    }
 
-    return {"landmarks": landmarks, "angles": angles}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

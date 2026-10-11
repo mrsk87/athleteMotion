@@ -1,0 +1,40 @@
+<!--
+  Componente Raiz App
+  Responsabilidade: Layout mestre da aplicação, cabeçalho de marca, seletor i18n e rodapé
+-->
+<div id="app">
+  <header class="app-header">
+    <div class="header-brand">
+      <h1 class="app-title">{{ t('appName') }}</h1>
+      <span class="version-tag" :title="t('versionLabel')">v{{ version }}</span>
+    </div>
+
+    <div class="header-controls">
+      <div class="language-picker">
+        <label for="language-select">{{ t('language') }}:</label>
+        <select
+          id="language-select"
+          :value="locale"
+          @change="setLocale($event.target.value)"
+          class="lang-dropdown"
+        >
+          <option value="pt">{{ t('portuguese') }} (PT)</option>
+          <option value="en">{{ t('english') }} (EN)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-content">
+    <router-view />
+  </main>
+
+  <footer class="app-footer">
+    <p>
+      <strong>{{ t('appName') }}</strong> &bull;
+      {{ t('systemStatus') }}: <span class="status-indicator">● {{ t('statusActive') }}</span> &bull;
+      SemVer: <code>v{{ version }}</code>
+    </p>
+  </footer>
+</div>
+

@@ -1,0 +1,106 @@
+/* =========================================================================
+   HUD OVERLAY, BADGES E STATUS ERGONÓMICOS EM TEMPO REAL
+   ========================================================================= */
+
+.camera-hud-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-item {
+  background-color: rgba(0, 0, 0, 0.75);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.hud-active {
+  color: #00FF00;
+  border-color: #00FF00;
+}
+
+.hud-cadence {
+  color: #38bdf8;
+  border-color: #0284c7;
+}
+
+.hud-bdc {
+  color: #fbbf24;
+  border-color: #d97706;
+}
+
+.bdc-flash {
+  background-color: rgba(0, 255, 0, 0.4);
+  color: #00FF00;
+  border-color: #00FF00;
+}
+
+.hud-power {
+  color: #f43f5e;
+  border-color: #e11d48;
+}
+
+.hud-kops {
+  color: #a855f7;
+  border-color: #9333ea;
+}
+
+.hud-drop {
+  color: #10b981;
+  border-color: #059669;
+}
+
+.hud-frontal {
+  color: #38bdf8;
+  border-color: #0284c7;
+}
+
+.hud-psi {
+  color: #ec4899;
+  border-color: #db2777;
+}
+
+.kops-ok {
+  color: #10b981;
+}
+
+.kops-warn {
+  color: #f59e0b;
+}
+
+/* Indicadores de status dos cartões de métricas */
+.status-indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-ok {
+  background-color: #00FF00;
+  box-shadow: 0 0 8px #00FF00;
+}
+
+.status-warn {
+  background-color: #FFCC00;
+  box-shadow: 0 0 8px #FFCC00;
+}
+
+.status-error {
+  background-color: #FF3333;
+  box-shadow: 0 0 8px #FF3333;
+}
+
+.status-idle {
+  background-color: #666;
+}

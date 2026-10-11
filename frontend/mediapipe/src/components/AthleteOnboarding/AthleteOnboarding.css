@@ -1,0 +1,207 @@
+/* =========================================================================
+   ESTILOS DE ONBOARDING E MEDIÇÕES ANTROPOMÉTRICAS (AthleteOnboarding)
+   ========================================================================= */
+
+.onboarding-card {
+  max-width: 900px;
+  margin: 0 auto;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.card-header {
+  text-align: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 16px;
+}
+
+h2 {
+  color: #00FF00;
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.form-section {
+  background-color: #222;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 8px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ccc;
+  margin-bottom: 6px;
+}
+
+input, select {
+  background-color: #181818;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: #00FF00;
+  box-shadow: 0 0 6px rgba(0, 255, 0, 0.3);
+}
+
+.select-primary {
+  font-weight: 600;
+  border-color: #00AA00;
+}
+
+.help-text {
+  font-size: 11px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.highlight-help {
+  color: #00FF00;
+}
+
+/* Painel de Estimativas Teóricas Imediatas */
+.estimates-panel {
+  background: linear-gradient(135deg, #1b281b 0%, #151d15 100%);
+  border: 1px solid #00AA00;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.estimates-panel h4 {
+  color: #00FF00;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.estimates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.estimate-item {
+  background-color: rgba(0, 0, 0, 0.4);
+  border: 1px solid #2a3a2a;
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.estimate-item.highlight {
+  border-color: #00FF00;
+  background-color: rgba(0, 255, 0, 0.08);
+}
+
+.estimate-label {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 4px;
+}
+
+.estimate-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #00FF00;
+}
+
+.delta-warning {
+  border-color: #ffaa00;
+}
+.delta-warning .estimate-value {
+  color: #ffaa00;
+}
+
+.delta-ok {
+  border-color: #00FF00;
+}
+
+.error-banner {
+  background-color: rgba(255, 0, 0, 0.15);
+  border: 1px solid #ff4444;
+  color: #ff6666;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.form-actions {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.submit-btn {
+  background-color: #00FF00;
+  color: #000;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  max-width: 480px;
+  transition: transform 0.1s, background-color 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #00DD00;
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .onboarding-card {
+    padding: 16px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

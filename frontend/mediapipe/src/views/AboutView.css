@@ -1,0 +1,23 @@
+/**
+ * Estilos da Vista Sobre (AboutView)
+ */
+.about-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 24px;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  border: 1px solid #333;
+  text-align: center;
+}
+
+.about-container h1 {
+  color: #00FF00;
+  margin-bottom: 16px;
+}
+
+.about-container p {
+  color: #aaa;
+  font-size: 16px;
+}
+

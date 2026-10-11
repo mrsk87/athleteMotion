@@ -1,0 +1,117 @@
+/**
+ * Estilos Globais e do Layout Raiz (App)
+ */
+
+/* Reset e estilos globais */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #121212;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, sans-serif;
+  min-height: 100vh;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background-color: #1a1a1a;
+  border-bottom: 2px solid #00FF00;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #00FF00;
+  letter-spacing: 0.5px;
+}
+
+.version-tag {
+  background-color: #2a2a2a;
+  color: #00FF00;
+  border: 1px solid #00FF00;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+}
+
+.language-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.language-picker label {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.lang-dropdown {
+  background-color: #242424;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.lang-dropdown:hover,
+.lang-dropdown:focus {
+  border-color: #00FF00;
+}
+
+.app-content {
+  flex: 1;
+  padding: 16px;
+}
+
+.app-footer {
+  padding: 14px 20px;
+  background-color: #181818;
+  border-top: 1px solid #2a2a2a;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+}
+
+.app-footer code {
+  color: #00FF00;
+  background-color: #222;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.status-indicator {
+  color: #00FF00;
+  font-weight: 600;
+}
+

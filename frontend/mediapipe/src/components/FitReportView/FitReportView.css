@@ -1,0 +1,554 @@
+/* =========================================================================
+   ESTILOS DO RELATÓRIO FINAL DE BIKEFIT (FitReportView)
+   ========================================================================= */
+
+.report-card {
+  max-width: 1000px;
+  margin: 0 auto;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  color: #eee;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-bottom: 1px solid #2a2a2a;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+h2 {
+  color: #00FF00;
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: #aaa;
+  font-size: 13px;
+}
+
+.report-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.pdf-btn {
+  background-color: #2563eb;
+  color: white;
+}
+
+.pdf-btn:hover {
+  background-color: #1d4ed8;
+}
+
+.print-btn {
+  background-color: #333;
+  color: #fff;
+}
+
+.restart-btn {
+  background-color: #00FF00;
+  color: #000;
+}
+
+.profile-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summary-box {
+  background-color: #222;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.box-label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.box-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.highlight-box {
+  background-color: rgba(0, 255, 0, 0.08);
+  border: 1px solid #00FF00;
+}
+
+.score-text {
+  color: #00FF00;
+  font-size: 20px;
+}
+
+/* Sensor Bar */
+.sensor-stats-bar {
+  display: flex;
+  gap: 20px;
+  background-color: #202020;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.sensor-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.sensor-val {
+  font-weight: bold;
+  color: #38bdf8;
+}
+
+/* Selim */
+.saddle-analysis-section {
+  background-color: #222;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.saddle-analysis-section h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.saddle-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.saddle-box {
+  background-color: #181818;
+  padding: 10px 14px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saddle-box.theoretical {
+  border-left: 3px solid #00FF00;
+}
+
+.warning-box {
+  border-left: 3px solid #f59e0b;
+}
+
+.saddle-box .label {
+  font-size: 11px;
+  color: #888;
+}
+
+.saddle-box .val {
+  font-size: 15px;
+  font-weight: bold;
+  color: #fff;
+}
+
+/* Tabela de Ângulos */
+.angles-table-section {
+  margin-bottom: 20px;
+}
+
+.angles-table-section h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #222;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.metrics-table th,
+.metrics-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #2e2e2e;
+  font-size: 13px;
+}
+
+.metrics-table th {
+  background-color: #292929;
+  color: #aaa;
+  font-weight: 600;
+}
+
+.metric-num {
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: bold;
+  color: #00FF00;
+}
+
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  display: inline-block;
+}
+
+.pill-ok {
+  background-color: rgba(0, 255, 0, 0.15);
+  color: #00FF00;
+}
+
+.pill-warn {
+  background-color: rgba(255, 68, 68, 0.15);
+  color: #FF4444;
+}
+
+/* Secções Especiais: KOPS, Drop, Bilateral */
+.special-metrics-section,
+.bilateral-section {
+  background-color: #222;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.special-metrics-section h3,
+.bilateral-section h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.special-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.special-card {
+  background-color: #181818;
+  padding: 12px 14px;
+  border-radius: 6px;
+}
+
+.special-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.special-metric-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+
+.special-desc {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.bilateral-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bilateral-card {
+  background-color: #181818;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border-left: 4px solid #3b82f6;
+}
+
+.bila-danger {
+  border-left-color: #ef4444;
+}
+
+.bila-warning {
+  border-left-color: #f59e0b;
+}
+
+.bila-success {
+  border-left-color: #10b981;
+}
+
+.bilateral-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.si-badge {
+  font-size: 11px;
+  font-weight: bold;
+  color: #fbbf24;
+}
+
+.bilateral-values-row {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #ccc;
+  margin-bottom: 6px;
+}
+
+.bilateral-rec {
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* Checklist de Ações */
+.actions-section {
+  background-color: #222;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.actions-section h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action-card {
+  background-color: #181818;
+  border-left: 3px solid #00FF00;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.action-icon {
+  background-color: rgba(0, 255, 0, 0.15);
+  color: #00FF00;
+  font-weight: bold;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.action-content h4 {
+  font-size: 13px;
+  margin-bottom: 3px;
+  color: #fff;
+}
+
+.action-content p {
+  font-size: 12px;
+  color: #aaa;
+  margin: 0;
+}
+
+.disclaimer-footer {
+  text-align: center;
+  color: #666;
+  font-size: 11px;
+  padding-top: 12px;
+}
+
+/* AI Coach Card */
+.ai-coach-section {
+  margin-bottom: 20px;
+}
+
+.ai-coach-card {
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  border: 1px solid #6366f1;
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.ai-coach-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ai-icon {
+  font-size: 20px;
+}
+
+.ai-coach-header h3 {
+  color: #a5b4fc;
+  font-size: 16px;
+  margin: 0;
+  flex: 1;
+}
+
+.ai-badge {
+  background: #4f46e5;
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+.ai-summary {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+}
+
+.ai-subnote {
+  font-size: 12.5px;
+  color: #cbd5e1;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.ai-plan-box {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.ai-plan-box h4 {
+  font-size: 12.5px;
+  color: #818cf8;
+  margin-bottom: 6px;
+}
+
+.ai-plan-box ul {
+  padding-left: 20px;
+  margin: 0;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.ai-plan-box li {
+  margin-bottom: 4px;
+}
+
+/* Polar Section */
+.polar-section {
+  background-color: #222;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.polar-section h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: #fff;
+}
+
+.polar-container-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background-color: #181818;
+  border-radius: 8px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+
+.polar-canvas-wrap {
+  width: 200px;
+  height: 200px;
+  background: #0f172a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.polar-info {
+  flex: 1;
+  min-width: 240px;
+}
+
+.polar-info h4 {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.psi-score {
+  font-size: 28px;
+  font-weight: 800;
+  color: #38bdf8;
+  margin-bottom: 6px;
+}
+
+.psi-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+@media print {
+  body {
+    background-color: #fff;
+    color: #000;
+  }
+  .report-actions,
+  .report-header .report-actions {
+    display: none !important;
+  }
+  .report-card {
+    border: none;
+    box-shadow: none;
+    background: #fff;
+    color: #000;
+    max-width: 100%;
+  }
+}
+

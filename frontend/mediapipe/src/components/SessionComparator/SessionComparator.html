@@ -1,0 +1,150 @@
+<div class="comparator-container">
+  <div class="header-card">
+    <div class="header-titles">
+      <h2>{{ t('comparatorTitle') }}</h2>
+      <p class="subtitle">{{ t('comparatorSubtitle') }}</p>
+    </div>
+    <button class="btn btn-secondary" @click="$emit('backToReport')">
+      ← {{ t('tabReport') }}
+    </button>
+  </div>
+
+  <!-- Seleção de Sessões para Comparação -->
+  <div class="selection-card">
+    <div class="session-selector-group">
+      <label><strong>{{ t('sessionA') }}:</strong></label>
+      <select v-model="selectedSessionAId" class="form-select" @change="onSessionChange">
+        <option v-for="s in availableSessions" :key="'a-' + s.id" :value="s.id">
+          {{ formatSessionOption(s) }}
+        </option>
+      </select>
+    </div>
+
+    <div class="comparator-vs-badge">VS</div>
+
+    <div class="session-selector-group">
+      <label><strong>{{ t('sessionB') }}:</strong></label>
+      <select v-model="selectedSessionBId" class="form-select" @change="onSessionChange">
+        <option v-for="s in availableSessions" :key="'b-' + s.id" :value="s.id">
+          {{ formatSessionOption(s) }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Ecrã Dividido Lado a Lado (Split-Screen) -->
+  <div v-if="sessionA && sessionB" class="split-screen-grid">
+    <!-- Coluna Antes (Sessão A) -->
+    <div class="comparison-column column-before">
+      <div class="column-header">
+        <span class="badge badge-before">{{ t('sessionA') }}</span>
+        <span class="session-date">{{ formatDate(sessionA.started_at) }}</span>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('kneeAngleLabel') }}</div>
+        <div class="metric-value">{{ sessionA.measured_avg_knee_angle ? `${sessionA.measured_avg_knee_angle}°` : '-' }}</div>
+        <div class="metric-range">{{ t('targetRange') }} {{ sessionA.target_knee_min }}° - {{ sessionA.target_knee_max }}°</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('backAngleLabel') }}</div>
+        <div class="metric-value">{{ sessionA.measured_avg_back_angle ? `${sessionA.measured_avg_back_angle}°` : '-' }}</div>
+        <div class="metric-range">{{ t('targetRange') }} {{ sessionA.target_back_min }}° - {{ sessionA.target_back_max }}°</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('armAngleLabel') }}</div>
+        <div class="metric-value">{{ sessionA.measured_avg_arm_angle ? `${sessionA.measured_avg_arm_angle}°` : '-' }}</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('currentSaddleHeightCm') }}</div>
+        <div class="metric-value">{{ sessionA.theoretical_saddle_height_cm ? `${sessionA.theoretical_saddle_height_cm} cm` : '-' }}</div>
+      </div>
+    </div>
+
+    <!-- Coluna Depois (Sessão B) -->
+    <div class="comparison-column column-after">
+      <div class="column-header">
+        <span class="badge badge-after">{{ t('sessionB') }}</span>
+        <span class="session-date">{{ formatDate(sessionB.started_at) }}</span>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('kneeAngleLabel') }}</div>
+        <div class="metric-value">{{ sessionB.measured_avg_knee_angle ? `${sessionB.measured_avg_knee_angle}°` : '-' }}</div>
+        <div class="metric-range">{{ t('targetRange') }} {{ sessionB.target_knee_min }}° - {{ sessionB.target_knee_max }}°</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('backAngleLabel') }}</div>
+        <div class="metric-value">{{ sessionB.measured_avg_back_angle ? `${sessionB.measured_avg_back_angle}°` : '-' }}</div>
+        <div class="metric-range">{{ t('targetRange') }} {{ sessionB.target_back_min }}° - {{ sessionB.target_back_max }}°</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('armAngleLabel') }}</div>
+        <div class="metric-value">{{ sessionB.measured_avg_arm_angle ? `${sessionB.measured_avg_arm_angle}°` : '-' }}</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">{{ t('currentSaddleHeightCm') }}</div>
+        <div class="metric-value">{{ sessionB.theoretical_saddle_height_cm ? `${sessionB.theoretical_saddle_height_cm} cm` : '-' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de Deltas de Melhoria -->
+  <div v-if="deltas" class="deltas-card">
+    <h3>{{ t('evolutionDeltas') }}</h3>
+    <table class="deltas-table">
+      <thead>
+        <tr>
+          <th>Parâmetro</th>
+          <th>Antes</th>
+          <th>Depois</th>
+          <th>Delta (&Delta;)</th>
+          <th>Impacto Biomecânico</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Extensão do Joelho</strong></td>
+          <td>{{ sessionA.measured_avg_knee_angle }}°</td>
+          <td>{{ sessionB.measured_avg_knee_angle }}°</td>
+          <td>
+            <span :class="['delta-badge', deltas.kneeDelta >= 0 ? 'delta-pos' : 'delta-neg']">
+              {{ deltas.kneeDelta > 0 ? '+' : '' }}{{ deltas.kneeDelta }}°
+            </span>
+          </td>
+          <td>
+            <span class="status-pill status-opt">
+              {{ deltas.kneeVerdict }}
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>Inclinação do Tronco</strong></td>
+          <td>{{ sessionA.measured_avg_back_angle }}°</td>
+          <td>{{ sessionB.measured_avg_back_angle }}°</td>
+          <td>
+            <span :class="['delta-badge', Math.abs(deltas.backDelta) <= 5 ? 'delta-pos' : 'delta-neg']">
+              {{ deltas.backDelta > 0 ? '+' : '' }}{{ deltas.backDelta }}°
+            </span>
+          </td>
+          <td>
+            <span class="status-pill status-opt">
+              {{ deltas.backVerdict }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div v-else class="notice-card">
+    <p>{{ t('selectSessionPrompt') }}</p>
+  </div>
+</div>
+

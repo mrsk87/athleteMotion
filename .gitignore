@@ -55,3 +55,25 @@ docs/_build/
 # Local Python library folders
 lib/
 lib64/
+bin/
+share/
+pyvenv.cfg
+
+# Databases / SQLite
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Local cache and temporary metadata
+.freebuff/
+test_*.db
+test_*.db-wal
+test_*.db-shm
+
+# Frontend dependencies and builds
+node_modules/
+frontend/mediapipe/node_modules/
+frontend/mediapipe/dist/
+

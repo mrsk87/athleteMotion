@@ -1,0 +1,480 @@
+<div class="live-capture-card">
+  <div class="capture-header">
+    <div class="header-info">
+      <h2>📹 {{ t('liveAnalysisTitle') }}</h2>
+      <p class="subtitle">{{ t('liveAnalysisSubtitle') }}</p>
+    </div>
+
+    <div class="athlete-badge" v-if="sessionData">
+      <span class="badge-name">{{ sessionData.athlete.name }}</span>
+      <span class="badge-mode">{{ sessionData.athlete.riding_style.toUpperCase() }}</span>
+      <span class="badge-saddle" v-if="sessionData.theoreticalEstimates">
+        LeMond: {{ sessionData.theoreticalEstimates.lemond_saddle_height_cm }} cm
+      </span>
+    </div>
+  </div>
+
+  <!-- Barra de Ferramentas Avançadas (BLE, Calibração, Câmara Lenta, Bilateral) -->
+  <div class="advanced-tools-bar">
+    <!-- Conectar BLE -->
+    <button
+      type="button"
+      class="tool-btn"
+      :class="{ 'tool-btn-active': bleData.connected }"
+      @click="connectBluetoothSensor"
+    >
+      ⚡ {{ bleData.connected ? `${bleData.deviceName} (${bleData.powerWatts || 0}W)` : t('connectBleBtn') }}
+    </button>
+
+    <!-- Calibração da Roda -->
+    <button
+      type="button"
+      class="tool-btn"
+      :class="{ 'tool-btn-active': wheelCalibrating || spatialCalibrator.isCalibrated }"
+      @click="startWheelCalibration"
+    >
+      🎯 {{ spatialCalibrator.isCalibrated ? `Escala OK (${saddleDropCm !== null ? saddleDropCm + 'cm Drop' : 'Roda'})` : t('wheelCalibBtn') }}
+    </button>
+
+    <!-- Gravar Rajada / Clipe em Câmara Lenta -->
+    <button
+      type="button"
+      class="tool-btn"
+      :class="{ 'tool-btn-active': isRecordingClip || slowMoScrubberActive }"
+      @click="triggerClipRecording"
+    >
+      ⏱ {{ isRecordingClip ? t('recordingClip') : (clipRecorder.hasClip ? t('scrubberTitle') : t('recordClipBtn')) }}
+    </button>
+
+    <!-- Teste Bilateral Guiado -->
+    <button
+      type="button"
+      class="tool-btn"
+      :class="{ 'tool-btn-active': bilateralTesting }"
+      @click="startBilateralTest"
+    >
+      ⚖ {{ t('bilateralMode') }}
+    </button>
+
+    <!-- Calibração de Marcadores Manuais / Foco -->
+    <button
+      type="button"
+      class="tool-btn"
+      :class="{ 'tool-btn-active': isManualCalibrating || hasManualMarkers }"
+      @click="toggleManualCalibrationMenu"
+    >
+      📍 {{ hasManualMarkers ? 'Marcadores Fixos (Ativos)' : t('calibrateManualMarkerBtn') }}
+    </button>
+
+    <!-- Diagnóstico e Consola de Logs no Ecrã -->
+    <button
+      type="button"
+      class="tool-btn"
+      :class="{ 'tool-btn-active': showDebugModal || diagnosticErrorsCount > 0, 'tool-btn-error': diagnosticErrorsCount > 0 }"
+      @click="toggleDebugModal"
+    >
+      🐞 {{ diagnosticErrorsCount > 0 ? `Erros (${diagnosticErrorsCount})` : 'Diagnóstico & Logs' }}
+    </button>
+  </div>
+
+  <!-- Menu de Seleção de Articulação para Calibração Manual -->
+  <div v-if="showMarkerMenu" class="marker-menu">
+    <span>📍 {{ t('calibrateManualMarkerBtn') }}:</span>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'knee' }" @click="startManualCalibrationFor('knee')">Joelho</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'hip' }" @click="startManualCalibrationFor('hip')">Quadril</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'ankle' }" @click="startManualCalibrationFor('ankle')">Tornozelo</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'shoulder' }" @click="startManualCalibrationFor('shoulder')">Ombro</button>
+    <button type="button" class="btn-marker-joint" :class="{ active: manualCalibratingJoint === 'elbow' }" @click="startManualCalibrationFor('elbow')">Cotovelo</button>
+    <button v-if="hasManualMarkers" type="button" class="btn-clear-markers" @click="clearAllManualMarkers">🗑 {{ t('clearManualMarkersBtn') }}</button>
+  </div>
+
+  <!-- Barra de Controlos Responsiva (PC / Telemóvel / Tablet) -->
+  <div class="controls-bar">
+    <!-- Seletor de Câmara para Dispositivos Móveis e PC -->
+    <div class="control-item">
+      <label for="camera-select">{{ t('selectCamera') }}</label>
+      <select id="camera-select" v-model="selectedDeviceId" @change="restartCamera">
+        <option v-for="dev in videoDevices" :key="dev.deviceId" :value="dev.deviceId">
+          {{ dev.label }} {{ dev.isVirtual ? '(Virtual)' : '' }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Estabilização de Ruído (Anti-Jitter) -->
+    <div class="control-item">
+      <label for="smoothing-select">{{ t('smoothingLabel') }}</label>
+      <select id="smoothing-select" v-model="smoothingLevel" @change="onSmoothingChange">
+        <option value="off">{{ t('smoothingOff') }}</option>
+        <option value="low">{{ t('smoothingLow') }}</option>
+        <option value="medium">{{ t('smoothingMedium') }}</option>
+        <option value="high">{{ t('smoothingHigh') }}</option>
+      </select>
+    </div>
+
+    <!-- Foco Articular Dedicado & Órbita -->
+    <div class="control-item">
+      <label for="focus-select">{{ t('focusLabel') }}</label>
+      <select id="focus-select" v-model="focusTarget" @change="onFocusChange">
+        <option value="all">{{ t('focusAll') }}</option>
+        <option value="knee">{{ t('focusKnee') }}</option>
+        <option value="hip">{{ t('focusHip') }}</option>
+        <option value="ankle">{{ t('focusAnkle') }}</option>
+        <option value="cockpit">{{ t('focusCockpit') }}</option>
+        <option value="kops">{{ t('focusKops') }}</option>
+      </select>
+    </div>
+
+    <!-- Alternar Câmara Frontal / Traseira em Telemóveis -->
+    <div class="control-item" v-if="videoDevices.length > 1">
+      <button type="button" @click="toggleFacingMode" class="btn-secondary">
+        🔄 {{ facingMode === 'environment' ? t('cameraFacingUser') : t('cameraFacingEnvironment') }}
+      </button>
+    </div>
+
+    <!-- Seletor de Plano de Visão (Sagital vs Frontal) (FEAT-19) -->
+    <div class="control-item">
+      <label>{{ t('viewPlaneLabel') }}</label>
+      <div class="toggle-group">
+        <button
+          type="button"
+          :class="{ active: viewPlane === 'sagittal' }"
+          @click="setViewPlane('sagittal')"
+        >
+          📐 {{ t('sagittalPlane') }}
+        </button>
+        <button
+          type="button"
+          :class="{ active: viewPlane === 'frontal' }"
+          @click="setViewPlane('frontal')"
+        >
+          👤 {{ t('frontalPlane') }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Seletor de Perfil (Esquerdo / Direito) -->
+    <div class="control-item">
+      <label>{{ t('profileSide') }}</label>
+      <div class="toggle-group">
+        <button
+          type="button"
+          :class="{ active: currentSide === 'left' }"
+          @click="setProfileSide('left')"
+        >
+          {{ t('leftProfile') }}
+        </button>
+        <button
+          type="button"
+          :class="{ active: currentSide === 'right' }"
+          @click="setProfileSide('right')"
+        >
+          {{ t('rightProfile') }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Toggle Alertas Sonoros -->
+    <div class="control-item">
+      <label class="checkbox-label">
+        <input type="checkbox" v-model="audioEnabled" @change="toggleAudio" />
+        🔊 {{ t('audioAlertsToggle') }}
+      </label>
+    </div>
+
+    <!-- Toggle Avisos por Voz -->
+    <div class="control-item">
+      <label class="checkbox-label">
+        <input type="checkbox" v-model="voiceEnabled" @change="toggleVoice" />
+        🗣 {{ t('voiceAlertsToggle') }}
+      </label>
+    </div>
+  </div>
+
+  <!-- Prompt de Instrução de Calibração Manual -->
+  <div v-if="isManualCalibrating" class="calibration-prompt marker-prompt">
+    <p>📍 <strong>{{ t('manualCalibPrompt') }} (Articulação: {{ manualCalibratingJoint.toUpperCase() }})</strong></p>
+    <button class="btn-sm btn-secondary" @click="cancelManualCalibration">{{ t('cancelManualCalib') }}</button>
+  </div>
+
+  <!-- Banner Informativo de Bloqueio/Erro de Câmara -->
+  <div v-if="cameraError" class="camera-error-banner">
+    <span class="error-icon">⚠️</span>
+    <div class="error-text">
+      <strong>Aviso de Câmara:</strong> {{ cameraError }}
+    </div>
+    <button class="btn-retry" @click="restartCamera">Tentar Ligar</button>
+  </div>
+
+  <!-- Prompt de Instrução de Calibração -->
+  <div v-if="wheelCalibrating" class="calibration-prompt">
+    <p>🎯 <strong>{{ t('wheelCalibPrompt') }}</strong> (Cliques registados: {{ wheelPoints.length }}/2)</p>
+    <button class="btn-sm btn-secondary" @click="cancelWheelCalibration">Cancelar</button>
+  </div>
+
+  <!-- Modal Guiado de Teste Bilateral -->
+  <div v-if="bilateralTesting" class="bilateral-overlay-modal">
+    <div class="modal-box">
+      <h3>⚖ {{ t('bilateralReportTitle') }}</h3>
+      <p v-if="bilateralStep === 'left'" class="step-desc">
+        <strong>{{ t('stepLeftProfile') }}</strong> ({{ bilateralCountdown }}s restantes)
+      </p>
+      <p v-else-if="bilateralStep === 'pause'" class="step-desc turn-prompt">
+        🚴‍♂️ <strong>{{ t('turnBikePrompt') }}</strong>
+      </p>
+      <p v-else-if="bilateralStep === 'right'" class="step-desc">
+        <strong>{{ t('stepRightProfile') }}</strong> ({{ bilateralCountdown }}s restantes)
+      </p>
+      <div class="countdown-bar">
+        <div class="countdown-progress" :style="{ width: `${(bilateralCountdown / 20) * 100}%` }"></div>
+      </div>
+      <div v-if="bilateralStep === 'pause'" class="mt-3">
+        <button class="btn btn-primary" @click="resumeBilateralRightStep">Continuar Perfil Direito →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Área Principal de Vídeo e Canvas Sobreposto -->
+  <div class="viewport-wrapper">
+    <div
+      class="video-canvas-container"
+      :class="{ 'is-calibrating': isManualCalibrating }"
+      ref="container"
+      @click="handleCanvasClick"
+      @mousemove="handleCanvasMouseMove"
+      @mouseleave="handleCanvasMouseLeave"
+    >
+      <!-- Vídeo oculto que alimenta o MediaPipe -->
+      <video ref="video" autoplay muted playsinline></video>
+      <!-- Canvas interativo onde o esqueleto e ângulos são desenhados -->
+      <canvas ref="canvas"></canvas>
+
+      <!-- Indicador de Status Overlay na Câmara (HUD) -->
+      <div class="camera-hud-overlay">
+        <div class="hud-item hud-status" :class="{ 'hud-active': isAnalyzing }">
+          ● {{ isAnalyzing ? 'LIVE TRACKING' : 'PAUSADO' }}
+        </div>
+
+        <!-- Badge de Cadência RPM Dinâmica -->
+        <div class="hud-item hud-cadence">
+          🔄 {{ currentRpm > 0 ? `${currentRpm} RPM` : '-- RPM' }}
+        </div>
+
+        <!-- Extensão no Ponto Morto Inferior (BDC) -->
+        <div class="hud-item hud-bdc" :class="{ 'bdc-flash': bdcFlashActive }">
+          🦵 BDC: {{ lastBdcKneeAngle ? `${lastBdcKneeAngle}°` : '--' }}
+        </div>
+
+        <!-- Potência BLE (se conectado) -->
+        <div v-if="bleData.connected" class="hud-item hud-power">
+          ⚡ {{ bleData.powerWatts ? `${bleData.powerWatts} W` : '-- W' }}
+        </div>
+
+        <!-- Alinhamento KOPS Dinâmico -->
+        <div v-if="kopsResult" class="hud-item hud-kops" :class="kopsResult.isAligned ? 'kops-ok' : 'kops-warn'">
+          🎯 KOPS: {{ kopsResult.offsetMm > 0 ? `+${kopsResult.offsetMm}` : kopsResult.offsetMm }}mm
+        </div>
+
+        <!-- Desnível Saddle Drop (se medido) -->
+        <div v-if="saddleDropCm !== null" class="hud-item hud-drop">
+          📏 Drop: {{ saddleDropCm }} cm
+        </div>
+
+        <!-- Alinhamento Frontal do Joelho (Valgo/Varo) (FEAT-19) -->
+        <div v-if="viewPlane === 'frontal' && frontalResult" class="hud-item hud-frontal" :class="frontalResult.isAligned ? 'kops-ok' : 'kops-warn'">
+          👤 {{ frontalResult.deviationMm > 0 ? `+${frontalResult.deviationMm}` : frontalResult.deviationMm }}mm ({{ frontalResult.condition }})
+        </div>
+
+        <!-- Índice de Suavidade de Pedalada (PSI) (FEAT-20) -->
+        <div class="hud-item hud-psi">
+          🔄 PSI: {{ livePsi }}%
+        </div>
+
+        <div class="hud-item hud-side">
+          {{ currentSide === 'left' ? 'ESQUERDO' : 'DIREITO' }}
+        </div>
+
+        <!-- Taxa de Atualização de Vídeo e IA em Tempo Real -->
+        <div class="hud-item hud-fps">
+          🎥 {{ cameraFps }} FPS | 🤖 {{ aiFps }} FPS
+        </div>
+      </div>
+
+      <!-- Controlo Timeline Scrubber de Câmara Lenta -->
+      <div v-if="slowMoScrubberActive && clipRecorder.hasClip" class="scrubber-panel">
+        <div class="scrubber-header">
+          <span>⏱ {{ t('scrubberTitle') }} (Frame {{ scrubberCurrentIndex + 1 }} / {{ clipRecorder.totalFrames }})</span>
+          <button class="btn-close-scrubber" @click="closeSlowMoScrubber">✕ {{ t('exitSlowMo') }}</button>
+        </div>
+        <input
+          type="range"
+          class="scrubber-slider"
+          min="0"
+          :max="clipRecorder.totalFrames - 1"
+          v-model.number="scrubberCurrentIndex"
+          @input="seekToFrame(scrubberCurrentIndex)"
+        />
+        <div class="scrubber-controls">
+          <button class="btn-scrub" @click="stepFrame(-1)">{{ t('prevFrame') }}</button>
+          <button class="btn-scrub" @click="toggleSlowMoPlayback">
+            {{ isPlayingSlowMo ? t('pauseClip') : t('playSlow') }}
+          </button>
+          <button class="btn-scrub" @click="stepFrame(1)">{{ t('nextFrame') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Painel Lateral de Leituras Articulares em Tempo Real -->
+    <div class="live-metrics-panel">
+      <h3>📊 Leituras em Direto</h3>
+
+      <!-- Joelho (com ênfase no BDC) -->
+      <div class="metric-row" :class="getComplianceClass(liveAngles.joelho, targets.knee)">
+        <div class="metric-header">
+          <span class="joint-title">🦵 {{ t('kneeAngleLabel') }}</span>
+          <span class="angle-badge">
+            {{ liveAngles.joelho ? `${Math.round(liveAngles.joelho)}°` : '--' }}
+          </span>
+        </div>
+        <div class="metric-target">
+          {{ t('targetRange') }} {{ targets.knee[0] }}° - {{ targets.knee[1] }}°
+          <span v-if="lastBdcKneeAngle" class="bdc-sublabel">
+            (BDC: <strong>{{ lastBdcKneeAngle }}°</strong>)
+          </span>
+        </div>
+      </div>
+
+      <!-- Costas / Tronco -->
+      <div class="metric-row" :class="getComplianceClass(liveAngles.costas, targets.back)">
+        <div class="metric-header">
+          <span class="joint-title">📐 {{ t('backAngleLabel') }}</span>
+          <span class="angle-badge">
+            {{ liveAngles.costas ? `${Math.round(liveAngles.costas)}°` : '--' }}
+          </span>
+        </div>
+        <div class="metric-target">
+          {{ t('targetRange') }} {{ targets.back[0] }}° - {{ targets.back[1] }}°
+        </div>
+      </div>
+
+      <!-- Cotovelo / Braço -->
+      <div class="metric-row" :class="getComplianceClass(liveAngles.braco, targets.elbow)">
+        <div class="metric-header">
+          <span class="joint-title">💪 {{ t('armAngleLabel') }}</span>
+          <span class="angle-badge">
+            {{ liveAngles.braco ? `${Math.round(liveAngles.braco)}°` : '--' }}
+          </span>
+        </div>
+        <div class="metric-target">
+          {{ t('targetRange') }} {{ targets.elbow[0] }}° - {{ targets.elbow[1] }}°
+        </div>
+      </div>
+
+      <!-- Tornozelo -->
+      <div class="metric-row" :class="getComplianceClass(liveAngles.tornozelo, targets.ankle)">
+        <div class="metric-header">
+          <span class="joint-title">🦶 {{ t('ankleAngleLabel') }}</span>
+          <span class="angle-badge">
+            {{ liveAngles.tornozelo ? `${Math.round(liveAngles.tornozelo)}°` : '--' }}
+          </span>
+        </div>
+        <div class="metric-target">
+          {{ t('targetRange') }} {{ targets.ankle[0] }}° - {{ targets.ankle[1] }}°
+        </div>
+      </div>
+
+      <!-- KOPS Veredito -->
+      <div v-if="kopsResult" class="kops-panel-box">
+        <div class="kops-panel-header">
+          <strong>🎯 {{ t('kopsTitle') }}</strong>
+          <span :class="['badge', kopsResult.isAligned ? 'badge-success' : 'badge-warning']">
+            {{ kopsResult.actionPt }}
+          </span>
+        </div>
+        <p class="kops-text">{{ kopsResult.labelPt }}</p>
+      </div>
+
+      <!-- Diagnóstico e Recomendações Dinâmicas ao Vivo -->
+      <div class="live-guidance-box" v-if="activeRecommendations && activeRecommendations.length">
+        <h4>💡 {{ t('liveGuidanceTitle') }}</h4>
+        <ul class="guidance-list">
+          <li v-for="(rec, idx) in activeRecommendations" :key="idx" class="guidance-item">
+            {{ rec }}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de Ações Inferior -->
+  <div class="bottom-actions">
+    <button @click="toggleAnalysis" class="btn-action primary-btn">
+      {{ isAnalyzing ? t('pauseLiveBtn') : t('startLiveBtn') }}
+    </button>
+
+    <button @click="captureSnapshot" :disabled="!isAnalyzing" class="btn-action snapshot-btn">
+      {{ t('captureSnapshotBtn') }} ({{ recordedSnapshotsCount }})
+    </button>
+
+    <button @click="completeSession" class="btn-action finish-btn">
+      {{ t('completeSessionBtn') }} →
+    </button>
+  </div>
+
+  <!-- Modal Flutuante de Diagnóstico e Consola de Logs -->
+  <div v-if="showDebugModal" class="debug-overlay-modal" @click.self="toggleDebugModal">
+    <div class="debug-modal-box">
+      <div class="debug-header">
+        <h3>🐞 Diagnóstico do Sistema & Consola de Logs</h3>
+        <button type="button" class="btn-close-debug" @click="toggleDebugModal">✕</button>
+      </div>
+
+      <div class="debug-stats-grid">
+        <div class="stat-box">
+          <span class="stat-label">Câmara Ativa:</span>
+          <span class="stat-val">{{ activeDeviceLabel || 'Nenhuma' }}</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Resolução:</span>
+          <span class="stat-val">{{ videoResolution || '--' }}</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Taxa da Câmara:</span>
+          <span class="stat-val">{{ cameraFps }} FPS</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Taxa MediaPipe (AI):</span>
+          <span class="stat-val">{{ aiFps }} FPS</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Estado MediaPipe:</span>
+          <span class="stat-val" :class="mediaPipeStatusClass">{{ mediaPipeStatusText }}</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Pose no Ecrã:</span>
+          <span class="stat-val">{{ hasDetectedPose ? 'SIM (33 pontos)' : 'NÃO' }}</span>
+        </div>
+      </div>
+
+      <div class="debug-log-console">
+        <div class="log-console-header">
+          <span>Registo de Eventos e Erros (últimos {{ debugLogs.length }} registos):</span>
+          <div class="log-actions">
+            <button type="button" class="btn-copy-logs" @click="copyDebugLogs">📋 Copiar Logs</button>
+            <button type="button" class="btn-clear-logs" @click="clearDebugLogs">Limpar</button>
+          </div>
+        </div>
+        <pre class="log-console-body">{{ formattedDebugLogs }}</pre>
+      </div>
+
+      <div class="debug-footer">
+        <p class="debug-tip">💡 <strong>Dica de Programador:</strong> Também pode abrir a consola nativa do browser pressionando <code>F12</code> (ou <code>Ctrl + Shift + I</code>) e clicando no separador <strong>Console</strong>.</p>
+        <button type="button" class="btn btn-secondary" @click="toggleDebugModal">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="toastMessage" class="toast-notification">
+    {{ toastMessage }}
+  </div>
+</div>
+

@@ -1,15 +1,3 @@
-<template>
-  <div id="app">
-    <Camera />
-  </div>
-</template>
-
-<script>
-import Camera from "./components/Camera.vue";
-
-export default {
-  components: {
-    Camera,
-  },
-};
-</script>
+<template src="./App.html"></template>
+<script src="./App.js"></script>
+<style src="./App.css"></style>

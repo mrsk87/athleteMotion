@@ -1,0 +1,62 @@
+name: Release & SemVer Auto-Increment
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Determine SemVer Increment
+        id: bump
+        shell: bash
+        run: |
+          commit_msg="${{ github.event.head_commit.message }}"
+          echo "Commit message: $commit_msg"
+          
+          if echo "$commit_msg" | grep -qE "(#major|BREAKING CHANGE:|^[a-z]+(\([^\)]+\))?!:)"; then
+            echo "part=major" >> "$GITHUB_OUTPUT"
+          elif echo "$commit_msg" | grep -qE "(#minor|^feat(\([^\)]+\))?:)"; then
+            echo "part=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "part=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Increment Version
+        run: |
+          python scripts/bump_version.py "${{ steps.bump.outputs.part }}"
+
+      - name: Commit, Tag and Release
+        shell: bash
+        run: |
+          new_version=$(cat VERSION | tr -d '[:space:]')
+          echo "New release version: v${new_version}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add VERSION frontend/mediapipe/package.json
+          git commit -m "chore(release): v${new_version} [skip ci]"
+          git tag "v${new_version}"
+          git push origin main --tags
+          
+          gh release create "v${new_version}" \
+            --title "Athlete Motion v${new_version}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,81 @@
+<!--
+  Vista Principal (HomeView)
+  Responsabilidade: Apresentar a barra de navegação pelas 4 etapas do BikeFit
+  (1. Onboarding, 2. Análise ao Vivo, 3. Relatório, 4. Comparador)
+-->
+<div class="home-container">
+  <!-- Barra de Navegação em Etapas do BikeFit -->
+  <nav class="steps-nav">
+    <button
+      class="step-tab"
+      :class="{ active: currentTab === 'onboarding', completed: !!sessionData }"
+      @click="currentTab = 'onboarding'"
+    >
+      <span class="step-num">1</span>
+      <span class="step-text">{{ t('tabOnboarding') }}</span>
+    </button>
+
+    <button
+      class="step-tab"
+      :class="{ active: currentTab === 'camera', completed: !!reportData }"
+      :disabled="!sessionData"
+      @click="currentTab = 'camera'"
+    >
+      <span class="step-num">2</span>
+      <span class="step-text">{{ t('tabLiveAnalysis') }}</span>
+    </button>
+
+    <button
+      class="step-tab"
+      :class="{ active: currentTab === 'report' }"
+      :disabled="!reportData"
+      @click="currentTab = 'report'"
+    >
+      <span class="step-num">3</span>
+      <span class="step-text">{{ t('tabReport') }}</span>
+    </button>
+
+    <!-- Etapa 4: Comparador Antes vs Depois -->
+    <button
+      class="step-tab"
+      :class="{ active: currentTab === 'comparator' }"
+      :disabled="!reportData"
+      @click="currentTab = 'comparator'"
+    >
+      <span class="step-num">4</span>
+      <span class="step-text">{{ t('tabComparator') }}</span>
+    </button>
+  </nav>
+
+  <!-- Conteúdo Dinâmico por Etapa -->
+  <div class="tab-content">
+    <!-- Etapa 1: Medidas Iniciais e Geometria da Bicicleta -->
+    <AthleteOnboarding
+      v-if="currentTab === 'onboarding'"
+      @session-created="handleSessionCreated"
+    />
+
+    <!-- Etapa 2: Análise ao Vivo por Câmara (PC / Mobile / Tablet) -->
+    <LiveCameraCapture
+      v-else-if="currentTab === 'camera'"
+      :session-data="sessionData"
+      @session-completed="handleSessionCompleted"
+    />
+
+    <!-- Etapa 3: Relatório Final e Recomendações de Ajuste Físico -->
+    <FitReportView
+      v-else-if="currentTab === 'report'"
+      :report-data="reportData"
+      @restart-session="handleRestartSession"
+    />
+
+    <!-- Etapa 4: Comparador Visual Antes vs Depois (Split-Screen) -->
+    <SessionComparator
+      v-else-if="currentTab === 'comparator'"
+      :athlete-id="sessionData?.athlete?.id"
+      :current-session="reportData"
+      @back-to-report="currentTab = 'report'"
+    />
+  </div>
+</div>
+
