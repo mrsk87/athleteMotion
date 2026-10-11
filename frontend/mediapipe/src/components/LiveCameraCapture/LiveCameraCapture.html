@@ -348,6 +348,11 @@
           ⏪ REVERSO ({{ videoPlaybackRate }}x)
         </div>
 
+        <!-- Badge de Auto-Slowdown Ativo (Câmara Lenta em Movimento) -->
+        <div v-if="videoSourceMode === 'file' && isAutoSlowedDown" class="hud-item hud-slowdown-badge">
+          🎯 CÂMARA LENTA ({{ videoPlaybackRate }}x - RIGOR AI)
+        </div>
+
         <!-- Etiqueta da foto ativa no modo fotos -->
         <div v-if="videoSourceMode === 'images' && activeImage" class="hud-item hud-photo-tag">
           📷 {{ activeImage.name }} [{{ imageAnalysisMgr.getPositionMeta(activeImage.crankPosition).shortLabel }}]
@@ -526,6 +531,17 @@
             @click="setVideoSpeed(1.0)"
           >
             1.0x
+          </button>
+
+          <!-- Toggle Inteligente de Auto-Slowdown para Análise Rigorosa no Movimento -->
+          <button
+            type="button"
+            class="btn-auto-slowdown"
+            :class="{ active: autoSlowdownEnabled, 'in-slowdown': isAutoSlowedDown }"
+            @click="toggleAutoSlowdown"
+            title="Abranda o vídeo automaticamente em câmara lenta (0.25x) durante o movimento para o MediaPipe analisar todos os fotogramas com máximo rigor"
+          >
+            🎯 {{ isAutoSlowedDown ? 'Câmara Lenta Ativa (0.25x)' : (autoSlowdownEnabled ? 'Auto-Slowdown Ligado' : 'Auto-Slowdown') }}
           </button>
         </div>
       </div>

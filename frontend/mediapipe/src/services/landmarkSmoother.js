@@ -40,21 +40,26 @@ export class LandmarkSmoother {
         break;
       case 'low':
         this.minCutoff = 1.8;
-        this.beta = 0.020;
+        this.beta = 0.080;
         break;
       case 'medium':
         this.minCutoff = 1.0;
-        this.beta = 0.012;
+        this.beta = 0.060;
         break;
       case 'high':
         this.minCutoff = 0.55;
-        this.beta = 0.006;
+        this.beta = 0.045;
+        break;
+      case 'fast_motion':
+      case 'responsive':
+        this.minCutoff = 0.80;
+        this.beta = 0.085;
         break;
       case 'ultra':
       default:
-        // Modo Estúdio / Rigor Máximo: estabilidade absoluta contra oscilações de iluminação e pose
-        this.minCutoff = 0.25;
-        this.beta = 0.003;
+        // Modo Estúdio / Rigor Máximo: estabilidade a baixa velocidade e zero arrasto em movimento
+        this.minCutoff = 0.35;
+        this.beta = 0.055;
         break;
     }
   }
@@ -123,7 +128,8 @@ export class LandmarkSmoother {
 
       // 2. Frequência de corte adaptativa (elimina jitter a baixa velocidade e lag a alta velocidade)
       const speed = Math.hypot(f.dx, f.dy);
-      const cutoff = this.minCutoff + this.beta * speed;
+      const dynamicBeta = speed > 0.25 ? this.beta * 1.5 : this.beta;
+      const cutoff = this.minCutoff + dynamicBeta * speed;
       const a = this.getAlpha(dt, cutoff);
 
       // 3. Suavização das posições X e Y

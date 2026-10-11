@@ -8,7 +8,7 @@
  */
 
 export class VideoUploadManager {
-  constructor({ onTimeUpdate, onVideoLoaded, onEnded, onPlayStateChange, onDirectionChange }) {
+  constructor({ onTimeUpdate, onVideoLoaded, onEnded, onPlayStateChange, onDirectionChange, onAutoSlowdownChange }) {
     this.videoElement = null;
     this.videoFile = null;
     this.videoUrl = null;
@@ -32,11 +32,18 @@ export class VideoUploadManager {
     this.wasPlayingBeforeScrub = false;
     this.wasReverseBeforeScrub = false;
 
+    // Auto-Slowdown Inteligente para Análise Rigorosa no Movimento
+    this.autoSlowdownEnabled = false;
+    this.autoSlowdownSpeed = 0.25;
+    this.isSlowedDownByMotion = false;
+    this.userBasePlaybackRate = 1.0;
+
     this.onTimeUpdate = onTimeUpdate;
     this.onVideoLoaded = onVideoLoaded;
     this.onEnded = onEnded;
     this.onPlayStateChange = onPlayStateChange;
     this.onDirectionChange = onDirectionChange;
+    this.onAutoSlowdownChange = onAutoSlowdownChange;
   }
 
   /**
@@ -359,14 +366,46 @@ export class VideoUploadManager {
     this.seekTo(next);
   }
 
+  setAutoSlowdown(enabled, speed = 0.25) {
+    this.autoSlowdownEnabled = Boolean(enabled);
+    if (speed) this.autoSlowdownSpeed = speed;
+    if (!this.autoSlowdownEnabled && this.isSlowedDownByMotion) {
+      this.releaseMotionSlowdown();
+    }
+  }
+
+  triggerMotionSlowdown() {
+    if (!this.autoSlowdownEnabled || this.isSlowedDownByMotion || !this.isPlaying) return;
+    this.userBasePlaybackRate = this.playbackRate;
+    this.isSlowedDownByMotion = true;
+    this.setPlaybackRate(this.autoSlowdownSpeed);
+    if (this.onAutoSlowdownChange) {
+      this.onAutoSlowdownChange(true, this.autoSlowdownSpeed);
+    }
+  }
+
+  releaseMotionSlowdown() {
+    if (!this.isSlowedDownByMotion) return;
+    this.isSlowedDownByMotion = false;
+    const restored = this.userBasePlaybackRate || 1.0;
+    this.setPlaybackRate(restored);
+    if (this.onAutoSlowdownChange) {
+      this.onAutoSlowdownChange(false, restored);
+    }
+  }
+
   setPlaybackRate(rate) {
     this.playbackRate = rate;
+    if (!this.isSlowedDownByMotion) {
+      this.userBasePlaybackRate = rate;
+    }
     if (this.videoElement) {
       this.videoElement.playbackRate = rate;
     }
   }
 
   cleanup() {
+    this.releaseMotionSlowdown();
     this.pauseReverse();
     if (this.videoUrl) {
       URL.revokeObjectURL(this.videoUrl);

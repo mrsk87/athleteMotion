@@ -50,7 +50,7 @@ export class PosePipelineRunner {
 
     rawPose.setOptions({
       modelComplexity: 1,
-      smoothLandmarks: true,
+      smoothLandmarks: false, // Desativado para eliminar o amortecimento interno e latência (~50ms)
       enableSegmentation: false,
       minDetectionConfidence: 0.65,
       minTrackingConfidence: 0.65,

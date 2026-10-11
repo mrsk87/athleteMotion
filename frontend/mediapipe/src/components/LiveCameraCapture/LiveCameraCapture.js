@@ -151,6 +151,10 @@ export default {
         onDirectionChange: (dir) => {
           this.playbackDirection = dir;
         },
+        onAutoSlowdownChange: (active, rate) => {
+          this.isAutoSlowedDown = active;
+          this.videoPlaybackRate = rate;
+        },
       })
     );
 
@@ -217,6 +221,9 @@ export default {
       videoPlaybackRate: 1.0,
       playbackDirection: 'forward',
       isReversePlaying: false,
+      autoSlowdownEnabled: true,
+      autoSlowdownSpeed: 0.25,
+      isAutoSlowedDown: false,
       videoSamplesHistory: [],
       videoCapturedFrames: [],
       isExportingGif: false,
@@ -528,6 +535,29 @@ export default {
       }
 
       if (this.videoSourceMode === 'file' && this.videoDuration > 0) {
+        // Deteção Dinâmica de Movimento para Auto-Slowdown Inteligente (Análise Rigorosa no Movimento)
+        if (this.autoSlowdownEnabled && this.isVideoPlaying) {
+          const currentKnee = computed.joelho;
+          const now = performance.now();
+          if (this._lastMotionCheckTime && currentKnee) {
+            const dt = Math.max(0.016, (now - this._lastMotionCheckTime) / 1000);
+            const angularSpeed = Math.abs((currentKnee - (this._lastKneeAngle || currentKnee)) / dt);
+            const isMovingFast = angularSpeed > 22 || this.currentRpm > 8;
+
+            if (isMovingFast) {
+              this._motionStillFrames = 0;
+              this.videoUploadMgr.triggerMotionSlowdown();
+            } else {
+              this._motionStillFrames = (this._motionStillFrames || 0) + 1;
+              if (this._motionStillFrames > 20) {
+                this.videoUploadMgr.releaseMotionSlowdown();
+              }
+            }
+          }
+          this._lastMotionCheckTime = now;
+          this._lastKneeAngle = currentKnee;
+        }
+
         this.videoSamplesHistory.push({
           time: this.videoCurrentTime,
           joelho: computed.joelho,
@@ -1183,6 +1213,23 @@ export default {
       this.videoPlaybackRate = rate;
       this.videoUploadMgr.setPlaybackRate(rate);
       this.showToast(`Velocidade: ${rate}x`);
+    },
+    toggleAutoSlowdown() {
+      this.autoSlowdownEnabled = !this.autoSlowdownEnabled;
+      this.videoUploadMgr.setAutoSlowdown(this.autoSlowdownEnabled, this.autoSlowdownSpeed);
+      if (!this.autoSlowdownEnabled) {
+        this.videoUploadMgr.releaseMotionSlowdown();
+      }
+      this.showToast(
+        this.autoSlowdownEnabled
+          ? '🎯 Auto-Slowdown Rigoroso ativado (câmara lenta automática no movimento)'
+          : 'Auto-Slowdown desativado (velocidade contínua normal)'
+      );
+    },
+    setAutoSlowdownSpeed(speed) {
+      this.autoSlowdownSpeed = speed;
+      this.videoUploadMgr.setAutoSlowdown(this.autoSlowdownEnabled, speed);
+      this.showToast(`Velocidade de rigor: ${speed}x`);
     },
     renderTimelineChart() {
       if (!this.$refs.chartCanvas) return;
