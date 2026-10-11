@@ -229,6 +229,10 @@ export default {
         psi: this.livePsi,
       });
     },
+    nonCompliantItems() {
+      if (!this.activeTuningReport || !this.activeTuningReport.items) return [];
+      return this.activeTuningReport.items.filter((item) => item.status !== 'ok');
+    },
     liveKneeStatus() {
       if (!this.liveAngles.joelho) return 'status-idle';
       const [minK, maxK] = this.targets.knee;
@@ -527,6 +531,17 @@ export default {
     renderOverlayGraphics(ctx, w, h) {
       if (!this.lastSmoothedLandmarks) return;
       CanvasOverlayRenderer.drawSkeleton(
+        ctx,
+        this.lastSmoothedLandmarks,
+        w,
+        h,
+        this.liveAngles,
+        this.targets,
+        this.currentSide
+      );
+
+      // Renderização do traçado fantasma com cor fraca e setas indicadoras de correção
+      CanvasOverlayRenderer.drawTargetGhostAndGuides(
         ctx,
         this.lastSmoothedLandmarks,
         w,

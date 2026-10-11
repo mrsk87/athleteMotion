@@ -356,4 +356,283 @@ export class CanvasOverlayRenderer {
     ctx.fillText(`[${label.toUpperCase()}]`, loupeCenterX, loupeCenterY + loupeRadius + 26);
     ctx.restore();
   }
+
+  /**
+   * Desenha uma seta de deslocamento da posição atual para a posição alvo recomendada.
+   */
+  static drawDisplacementArrow(ctx, fromX, fromY, toX, toY, color = '#10b981') {
+    if (!ctx) return;
+    const dist = Math.hypot(toX - fromX, toY - fromY);
+    if (dist < 8) return; // Se a diferença for insignificante, não poluir o ecrã
+    const headLen = Math.min(12, Math.max(7, dist * 0.28));
+    const angle = Math.atan2(toY - fromY, toX - fromX);
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+
+    // Linha de deslocamento
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+
+    // Seta orientada
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
+   * Desenha um badge informativo elegante sobreposto no canvas com texto e cor de destaque.
+   */
+  static drawCanvasBadge(ctx, text, x, y, borderColor = '#10b981', textColor = '#ffffff') {
+    if (!ctx || !text) return;
+    ctx.save();
+    ctx.font = 'bold 11px sans-serif';
+    const textWidth = ctx.measureText(text).width;
+    const paddingX = 8;
+    const boxW = textWidth + paddingX * 2;
+    const boxH = 22;
+
+    const boxX = Math.max(8, x - boxW / 2);
+    const boxY = Math.max(8, y - boxH / 2);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+    } else {
+      ctx.rect(boxX, boxY, boxW, boxH);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 3;
+    ctx.fillText(text, boxX + paddingX, boxY + boxH / 2);
+    ctx.restore();
+  }
+
+  /**
+   * Desenha linhas-guia fantasma (ghost trace) com cor suave e setas de deslocamento
+   * indicando exatamente para onde o membro deve ser ajustado para atingir a meta ergonómica.
+   */
+  static drawTargetGhostAndGuides(ctx, landmarks, w, h, liveAngles = {}, targets = {}, side = 'left') {
+    if (!ctx || !landmarks || landmarks.length < 33) return;
+
+    const isLeft = side === 'left';
+    const hipIdx = isLeft ? 24 : 23;
+    const kneeIdx = isLeft ? 26 : 25;
+    const ankleIdx = isLeft ? 28 : 27;
+    const shoulderIdx = isLeft ? 12 : 11;
+    const elbowIdx = isLeft ? 14 : 13;
+    const wristIdx = isLeft ? 16 : 15;
+
+    // 1. GUIA PARA EXTENSÃO DO JOELHO (Altura do Selim)
+    const kneeTarget = targets.knee || [145, 155];
+    const kneeAngle = liveAngles.joelho;
+    if (
+      kneeAngle !== null &&
+      kneeAngle !== undefined &&
+      (kneeAngle < kneeTarget[0] || kneeAngle > kneeTarget[1])
+    ) {
+      const pKnee = landmarks[kneeIdx];
+      const pAnkle = landmarks[ankleIdx];
+      const pHip = landmarks[hipIdx];
+
+      if (pKnee && pAnkle && pHip) {
+        const Hx = pHip.x * w;
+        const Hy = pHip.y * h;
+        const Kx = pKnee.x * w;
+        const Ky = pKnee.y * h;
+        const Ax = pAnkle.x * w;
+        const Ay = pAnkle.y * h;
+
+        const Lshank = Math.hypot(Ax - Kx, Ay - Ky);
+        if (Lshank > 15) {
+          const VthighX = Kx - Hx;
+          const VthighY = Ky - Hy;
+          const VshankX = Ax - Kx;
+          const VshankY = Ay - Ky;
+          const cp = VthighX * VshankY - VthighY * VshankX;
+          const phiCurr = Math.atan2(VshankY, VshankX);
+          const targetAngle = 150; // Meta ideal média (145°-155°)
+          const deltaRad = (targetAngle - kneeAngle) * (Math.PI / 180);
+          const sign = cp >= 0 ? 1 : -1;
+          const phiTarget = phiCurr - sign * deltaRad;
+
+          const targetAx = Kx + Lshank * Math.cos(phiTarget);
+          const targetAy = Ky + Lshank * Math.sin(phiTarget);
+
+          // Traço com cor fraca / semi-transparente do membro alvo
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([6, 5]);
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.7)';
+          ctx.shadowColor = '#10b981';
+          ctx.shadowBlur = 8;
+          ctx.moveTo(Kx, Ky);
+          ctx.lineTo(targetAx, targetAy);
+          ctx.stroke();
+
+          // Marcador do alvo ideal
+          ctx.beginPath();
+          ctx.arc(targetAx, targetAy, 7, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
+          ctx.fill();
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+
+          // Seta de deslocamento da posição errada para a certa
+          this.drawDisplacementArrow(ctx, Ax, Ay, targetAx, targetAy, '#10b981');
+
+          // Indicação textual no ecrã
+          const kneeBadge = kneeAngle < kneeTarget[0]
+            ? `⬆ Subir Selim (Alvo: 150° | Atual: ${Math.round(kneeAngle)}°)`
+            : `⬇ Descer Selim (Alvo: 150° | Atual: ${Math.round(kneeAngle)}°)`;
+          this.drawCanvasBadge(ctx, kneeBadge, Kx, Ky - 24, '#10b981');
+        }
+      }
+    }
+
+    // 2. GUIA PARA INCLINAÇÃO DO TRONCO (Stack & Reach)
+    const backTarget = targets.back || [40, 50];
+    const backAngle = liveAngles.costas;
+    if (
+      backAngle !== null &&
+      backAngle !== undefined &&
+      (backAngle < backTarget[0] || backAngle > backTarget[1])
+    ) {
+      const pHip = landmarks[hipIdx];
+      const pShoulder = landmarks[shoulderIdx];
+
+      if (pHip && pShoulder) {
+        const Hx = pHip.x * w;
+        const Hy = pHip.y * h;
+        const Sx = pShoulder.x * w;
+        const Sy = pShoulder.y * h;
+        const Ltorso = Math.hypot(Sx - Hx, Sy - Hy);
+
+        if (Ltorso > 20) {
+          const facingLeft = Sx < Hx;
+          // Tronco ideal a 45° de elevação
+          const targetTorsoRad = facingLeft
+            ? -Math.PI + (45 * Math.PI) / 180
+            : (-45 * Math.PI) / 180;
+          const targetSx = Hx + Ltorso * Math.cos(targetTorsoRad);
+          const targetSy = Hy + Ltorso * Math.sin(targetTorsoRad);
+
+          // Traço fantasma com cor suave
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([6, 5]);
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 8;
+          ctx.moveTo(Hx, Hy);
+          ctx.lineTo(targetSx, targetSy);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(targetSx, targetSy, 7, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+          ctx.fill();
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+
+          this.drawDisplacementArrow(ctx, Sx, Sy, targetSx, targetSy, '#38bdf8');
+
+          const backBadge = backAngle < backTarget[0]
+            ? `⬆ Elevar Tronco (Alvo: 45° | Atual: ${Math.round(backAngle)}°)`
+            : `⬇ Inclinar Tronco (Alvo: 45° | Atual: ${Math.round(backAngle)}°)`;
+          this.drawCanvasBadge(ctx, backBadge, Sx, Sy - 24, '#38bdf8');
+        }
+      }
+    }
+
+    // 3. GUIA PARA ALCANCE / FLEXÃO DO BRAÇO (Cockpit / Cotovelo)
+    const armTarget = targets.elbow || [150, 165];
+    const armAngle = liveAngles.braco;
+    if (
+      armAngle !== null &&
+      armAngle !== undefined &&
+      (armAngle < armTarget[0] || armAngle > armTarget[1])
+    ) {
+      const pShoulder = landmarks[shoulderIdx];
+      const pElbow = landmarks[elbowIdx];
+      const pWrist = landmarks[wristIdx];
+
+      if (pShoulder && pElbow && pWrist) {
+        const Sx = pShoulder.x * w;
+        const Sy = pShoulder.y * h;
+        const Ex = pElbow.x * w;
+        const Ey = pElbow.y * h;
+        const Wx = pWrist.x * w;
+        const Wy = pWrist.y * h;
+        const Lforearm = Math.hypot(Wx - Ex, Wy - Ey);
+
+        if (Lforearm > 15) {
+          const VarmX = Ex - Sx;
+          const VarmY = Ey - Sy;
+          const VforearmX = Wx - Ex;
+          const VforearmY = Wy - Ey;
+          const cp = VarmX * VforearmY - VarmY * VforearmX;
+          const phiCurr = Math.atan2(VforearmY, VforearmX);
+          const targetAngle = 155; // Flexão protetora de 155°
+          const deltaRad = (targetAngle - armAngle) * (Math.PI / 180);
+          const sign = cp >= 0 ? 1 : -1;
+          const phiTarget = phiCurr - sign * deltaRad;
+
+          const targetWx = Ex + Lforearm * Math.cos(phiTarget);
+          const targetWy = Ey + Lforearm * Math.sin(phiTarget);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([6, 5]);
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(192, 132, 252, 0.7)';
+          ctx.shadowColor = '#c084fc';
+          ctx.shadowBlur = 8;
+          ctx.moveTo(Ex, Ey);
+          ctx.lineTo(targetWx, targetWy);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(targetWx, targetWy, 6, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(192, 132, 252, 0.3)';
+          ctx.fill();
+          ctx.strokeStyle = '#c084fc';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+
+          this.drawDisplacementArrow(ctx, Wx, Wy, targetWx, targetWy, '#c084fc');
+
+          const armBadge = armAngle > armTarget[1]
+            ? `↩ Fletir Braço (Alvo: 155° | Atual: ${Math.round(armAngle)}°)`
+            : `↪ Abrir Cockpit (Alvo: 155° | Atual: ${Math.round(armAngle)}°)`;
+          this.drawCanvasBadge(ctx, armBadge, Ex, Ey - 20, '#c084fc');
+        }
+      }
+    }
+  }
 }

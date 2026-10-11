@@ -766,3 +766,223 @@
     display: none !important;
   }
 }
+
+/* =========================================================================
+   PAINEL DE CORREÇÃO POSTURAL & DIAGNÓSTICO CLÍNICO (Abaixo do Vídeo)
+   ========================================================================= */
+.clinical-corrections-panel {
+  background: linear-gradient(145deg, #18181b 0%, #1c1c21 100%);
+  border: 1px solid #3f3f46;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.clinical-panel-header {
+  margin-bottom: 16px;
+  border-bottom: 1px solid #27272a;
+  padding-bottom: 12px;
+}
+
+.clinical-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.clinical-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clinical-icon {
+  font-size: 20px;
+}
+
+.clinical-title-group h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.clinical-subtitle {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+.tuning-score-pill {
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #000000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.body-incomp-banner {
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.clinical-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.clinical-card {
+  background-color: #202024;
+  border: 1px solid #333338;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clinical-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.clinical-card.status-danger {
+  border-left: 5px solid #ef4444;
+}
+
+.clinical-card.status-warning {
+  border-left: 5px solid #f59e0b;
+}
+
+.clinical-card.status-ok {
+  border-left: 5px solid #10b981;
+}
+
+.clinical-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #2a2a30;
+  padding-bottom: 8px;
+}
+
+.card-joint-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.card-status-badge {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.clinical-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.field-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #a1a1aa;
+}
+
+.field-val {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #e4e4e7;
+}
+
+.highlight-action {
+  color: #38bdf8;
+  font-weight: 700;
+  background-color: rgba(56, 189, 248, 0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.field-degrees .field-val {
+  font-family: monospace;
+  font-weight: 600;
+  color: #fef08a;
+}
+
+.field-why .field-val {
+  color: #cbd5e1;
+}
+
+.highlight-harm {
+  color: #fca5a5;
+  background-color: rgba(239, 68, 68, 0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  font-weight: 500;
+}
+
+.clinical-all-good-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 16px 20px;
+  border-radius: 10px;
+}
+
+.all-good-icon {
+  font-size: 32px;
+}
+
+.all-good-content h4 {
+  margin: 0 0 4px 0;
+  color: #10b981;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.all-good-content p {
+  margin: 0;
+  color: #d1fae5;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Modal Enriquecido com 4 Dimensões */
+.modal-item-field {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #d4d4d8;
+  margin-top: 5px;
+}
+
+.modal-field-tag {
+  font-weight: 700;
+  color: #a1a1aa;
+}
+
+.modal-field-harm {
+  background-color: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid #ef4444;
+  padding: 5px 8px;
+  border-radius: 4px;
+  color: #fca5a5;
+}
+

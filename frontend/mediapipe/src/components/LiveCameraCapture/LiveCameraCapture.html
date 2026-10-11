@@ -647,6 +647,73 @@
     </div>
   </div>
 
+  <!-- Painel de Correção Postural & Diagnóstico Clínico (Diretamente abaixo do vídeo) -->
+  <div class="clinical-corrections-panel" v-if="activeTuningReport && activeTuningReport.items">
+    <div class="clinical-panel-header">
+      <div class="clinical-title-row">
+        <div class="clinical-title-group">
+          <span class="clinical-icon">🩺</span>
+          <h3>Guia Clínico de Correção Postural & Afinações Mecânicas</h3>
+        </div>
+        <span class="tuning-score-pill" :style="{ backgroundColor: activeTuningReport.verdictColor }">
+          {{ activeTuningReport.score }}% Conformidade
+        </span>
+      </div>
+      <p class="clinical-subtitle">
+        Diagnóstico detalhado: Ações práticas passo a passo, graus ideais com desvio, fundamentação biomecânica e prevenção de lesões.
+      </p>
+    </div>
+
+    <!-- Alerta quando o enquadramento não inclui o corpo todo -->
+    <div v-if="!isFullBodyVisible" class="body-incomp-banner">
+      ⚠️ <strong>Enquadramento Parcial:</strong> Para orientações clínicas seguras da perna aos braços e cabeça, posicione a câmara para visualizar o atleta na totalidade (em falta: {{ missingBodyPartsText }}). Recomendações em pausa.
+    </div>
+
+    <!-- Lista de Articulações Fora da Posição Ideal -->
+    <div class="clinical-cards-grid" v-if="isFullBodyVisible && nonCompliantItems.length">
+      <div
+        v-for="(item, idx) in nonCompliantItems"
+        :key="idx"
+        class="clinical-card"
+        :class="`status-${item.status}`"
+      >
+        <div class="clinical-card-header">
+          <span class="card-joint-title">📍 {{ item.component }}</span>
+          <span class="card-status-badge">{{ item.badge }}</span>
+        </div>
+
+        <div class="clinical-field field-action">
+          <div class="field-label">🔧 O QUE FAZER:</div>
+          <div class="field-val highlight-action">{{ item.whatToDo || item.action }}</div>
+        </div>
+
+        <div class="clinical-field field-degrees">
+          <div class="field-label">📐 GRAUS RECOMENDADOS:</div>
+          <div class="field-val">{{ item.degreesInfo }}</div>
+        </div>
+
+        <div class="clinical-field field-why">
+          <div class="field-label">💡 PORQUÊ:</div>
+          <div class="field-val">{{ item.why }}</div>
+        </div>
+
+        <div class="clinical-field field-harm">
+          <div class="field-label">⚠️ O MAL QUE ESTÁ A FAZER ESTANDO ASSIM:</div>
+          <div class="field-val highlight-harm">{{ item.harmDone }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado quando todos os ângulos estão em perfeita harmonia -->
+    <div v-else-if="isFullBodyVisible && !nonCompliantItems.length" class="clinical-all-good-box">
+      <span class="all-good-icon">🎯</span>
+      <div class="all-good-content">
+        <h4>Postura Ergonómica Ideal!</h4>
+        <p>Todos os ângulos do corpo (joelho no BDC, bacia/KOPS, inclinação do tronco, braços e cabeça) encontram-se dentro das margens recomendadas pelos protocolos biomecânicos. Não são necessárias alterações imediatas na bicicleta.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Barra de Ações Inferior -->
   <div class="bottom-actions">
     <button @click="toggleAnalysis" class="btn-action primary-btn">
@@ -754,14 +821,27 @@
             <span class="item-component-name">{{ item.component }}</span>
             <span class="item-status-badge">{{ item.badge }}</span>
           </div>
+
           <div class="item-action-highlight">
-            🔧 {{ item.action }}
+            🔧 <strong>O Que Fazer:</strong> {{ item.whatToDo || item.action }}
           </div>
+
           <div class="item-measurements-row">
             <span>Medido: <strong>{{ item.measured }}</strong></span>
             <span>Meta: <strong>{{ item.target }}</strong></span>
           </div>
-          <p class="item-detail-text">{{ item.detail }}</p>
+
+          <div class="modal-item-field" v-if="item.degreesInfo">
+            <span class="modal-field-tag">📐 Graus:</span> {{ item.degreesInfo }}
+          </div>
+
+          <div class="modal-item-field" v-if="item.why">
+            <span class="modal-field-tag">💡 Porquê:</span> {{ item.why }}
+          </div>
+
+          <div class="modal-item-field modal-field-harm" v-if="item.status !== 'ok' && item.harmDone">
+            <span class="modal-field-tag">⚠️ O Mal Que Está a Fazer:</span> {{ item.harmDone }}
+          </div>
         </div>
       </div>
 
