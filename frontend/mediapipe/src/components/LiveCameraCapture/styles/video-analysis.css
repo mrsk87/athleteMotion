@@ -41,7 +41,66 @@
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
 }
 
-/* Zona de Carregamento de Vídeo (Dropzone) */
+/* Zona de Carregamento de Vídeo Embutida no Canvas */
+.video-canvas-upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #121214;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  cursor: pointer;
+  border: 2px dashed #3f3f46;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.video-canvas-upload-overlay:hover {
+  border-color: #38bdf8;
+  background-color: rgba(56, 189, 248, 0.04);
+}
+
+.video-canvas-upload-overlay .upload-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.video-canvas-upload-overlay h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 6px 0;
+}
+
+.video-canvas-upload-overlay p {
+  font-size: 13px;
+  color: #a1a1aa;
+  margin: 0 0 14px 0;
+}
+
+.btn-video-choose {
+  background-color: #0284c7;
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-video-choose:hover {
+  background-color: #0369a1;
+}
+
+/* Zona de Carregamento de Vídeo (Dropzone alternativa) */
 .video-upload-box {
   background-color: #18181b;
   border: 2px dashed #3f3f46;
@@ -209,11 +268,15 @@
 }
 
 .chart-canvas {
-  width: 100%;
-  height: 160px;
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  height: 160px !important;
   border-radius: 6px;
   border: 1px solid #27272a;
+  background-color: #18181b;
   cursor: crosshair;
+  z-index: 1 !important;
 }
 
 /* Painel de Movimentos e Resumo do Vídeo */

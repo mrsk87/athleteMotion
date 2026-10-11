@@ -186,7 +186,7 @@ select {
   cursor: crosshair;
 }
 
-video {
+.video-canvas-container > video {
   position: absolute;
   top: 0;
   left: 0;
@@ -197,7 +197,7 @@ video {
   z-index: 1;
 }
 
-canvas {
+.video-canvas-container > canvas {
   position: absolute;
   top: 0;
   left: 0;

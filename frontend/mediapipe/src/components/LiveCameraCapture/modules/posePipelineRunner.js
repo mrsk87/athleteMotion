@@ -25,6 +25,7 @@ export class PosePipelineRunner {
     this.cameraFrameCount = 0;
     this.aiFrameCount = 0;
     this.lastFpsCalcTime = performance.now();
+    this.lastInferredTime = -1;
   }
 
   /**
@@ -64,18 +65,21 @@ export class PosePipelineRunner {
     }
 
     const processLoop = () => {
-      if (!video.srcObject) return;
+      const hasSource = Boolean(video.srcObject || video.src || video.currentSrc);
+      if (!hasSource) return;
 
       this.animationFrameId = requestAnimationFrame(processLoop);
 
-      if (video.paused && !video.ended) {
+      if (video.srcObject && video.paused && !video.ended) {
         video.play().catch(() => {});
         return;
       }
       if (video.ended) return;
 
       // Cálculo de FPS
-      this.cameraFrameCount++;
+      if (!video.paused) {
+        this.cameraFrameCount++;
+      }
       const now = performance.now();
       if (now - this.lastFpsCalcTime >= 1000) {
         const camFps = Math.round((this.cameraFrameCount * 1000) / (now - this.lastFpsCalcTime));
@@ -106,7 +110,11 @@ export class PosePipelineRunner {
         ctx.restore();
 
         // Disparo assíncrono ao MediaPipe com watchdog
-        if (this.poseInstance && getShouldAnalyze() && !this.isInferring) {
+        const isPausedFile = !video.srcObject && video.paused;
+        const shouldInfer = !isPausedFile || Math.abs((video.currentTime || 0) - this.lastInferredTime) > 0.01;
+
+        if (this.poseInstance && getShouldAnalyze() && !this.isInferring && shouldInfer) {
+          this.lastInferredTime = video.currentTime || 0;
           this.triggerInference(video);
         }
       }

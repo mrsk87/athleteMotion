@@ -425,6 +425,9 @@ export default {
         this.currentRpm = this.bleData.connected && this.bleData.cadenceRpm ? this.bleData.cadenceRpm : bdc.rpm;
         if (bdc.isBdc) {
           this.lastBdcKneeAngle = bdc.bdcKneeAngle;
+          if (bdc.bdcKneeAngle) {
+            this.bdcAnglesHistory.push(bdc.bdcKneeAngle);
+          }
           this.triggerBdcFlash();
         }
       }
@@ -689,26 +692,58 @@ export default {
       this.videoSourceMode = mode;
       if (mode === 'file') {
         this.deviceMgr.stopStream();
-        if (this.$refs.video) {
-          this.$refs.video.srcObject = null;
+        this.poseRunner.stopLoop();
+        this.cameraLoading = false;
+        this.cameraError = '';
+        this.hasDetectedPose = false;
+
+        const video = this.$refs.video;
+        if (video) {
+          video.pause();
+          video.srcObject = null;
+          if (this.uploadedVideoFile) {
+            this.videoUploadMgr.loadVideoFile(this.uploadedVideoFile);
+            this.poseRunner.startLoop(video, this.$refs.canvas, this.ctx, () => this.isAnalyzing);
+            this.videoUploadMgr.play();
+          } else {
+            video.removeAttribute('src');
+            video.load();
+          }
         }
-        this.showToast('Modo de leitura de vídeo ativado. Carregue um ficheiro.');
+        if (this.ctx && this.$refs.canvas) {
+          this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
+        }
+
+        if (!this.uploadedVideoFile) {
+          this.$nextTick(() => this.triggerVideoFileInput());
+        }
+        this.showToast('Modo de leitura de vídeo ativado.');
       } else {
         this.videoUploadMgr.pause();
-        if (this.$refs.video) {
-          this.$refs.video.src = '';
+        const video = this.$refs.video;
+        if (video) {
+          video.removeAttribute('src');
+          video.load();
+        }
+        if (this.ctx && this.$refs.canvas) {
+          this.ctx.clearRect(0, 0, this.$refs.canvas.width, this.$refs.canvas.height);
         }
         this.startPipeline();
       }
     },
     triggerVideoFileInput() {
       if (this.$refs.videoFileInput) {
+        this.$refs.videoFileInput.value = '';
         this.$refs.videoFileInput.click();
       }
     },
     handleVideoFileUpload(event) {
       const file = event.target.files?.[0];
       if (!file) return;
+
+      this.deviceMgr.stopStream();
+      this.poseRunner.stopLoop();
+
       const loaded = this.videoUploadMgr.loadVideoFile(file);
       if (loaded) {
         this.uploadedVideoFile = file;
@@ -717,11 +752,23 @@ export default {
         this.videoSamplesHistory = [];
         this.videoCapturedFrames = [];
         this.bdcAnglesHistory = [];
+        this.hasDetectedPose = false;
+
         const video = this.$refs.video;
         if (video) {
-          this.poseRunner.startLoop(video, this.$refs.canvas, this.ctx, () => this.isAnalyzing);
-          this.videoUploadMgr.play();
+          video.srcObject = null;
+          const startPlayback = () => {
+            video.oncanplay = null;
+            this.poseRunner.startLoop(video, this.$refs.canvas, this.ctx, () => this.isAnalyzing);
+            this.videoUploadMgr.play();
+          };
+          if (video.readyState >= 2) {
+            startPlayback();
+          } else {
+            video.oncanplay = startPlayback;
+          }
         }
+        this.showToast(`Vídeo carregado: ${file.name}`);
       }
     },
     toggleVideoPlay() {
