@@ -19,6 +19,11 @@ export class VideoUploadManager {
     this.isPlaying = false;
     this.playbackRate = 1.0;
 
+    // Intervalo de repetição contínua (Loop A-B)
+    this.loopStart = 0;
+    this.loopEnd = 0;
+    this.loopEnabled = false;
+
     this.onTimeUpdate = onTimeUpdate;
     this.onVideoLoaded = onVideoLoaded;
     this.onEnded = onEnded;
@@ -39,10 +44,24 @@ export class VideoUploadManager {
 
     this.videoElement.ontimeupdate = () => {
       this.currentTime = this.videoElement.currentTime || 0;
+
+      // Execução do Loop A-B automático no intervalo definido
+      if (this.loopEnabled && this.loopEnd > this.loopStart) {
+        if (this.currentTime >= this.loopEnd || this.currentTime < this.loopStart - 0.25) {
+          this.seekTo(this.loopStart);
+          return;
+        }
+      }
+
       if (this.onTimeUpdate) this.onTimeUpdate(this.currentTime, this.duration);
     };
 
     this.videoElement.onended = () => {
+      if (this.loopEnabled && this.loopEnd > this.loopStart) {
+        this.seekTo(this.loopStart);
+        this.play();
+        return;
+      }
       this.isPlaying = false;
       if (this.onPlayStateChange) this.onPlayStateChange(false);
       if (this.onEnded) this.onEnded();
@@ -57,6 +76,32 @@ export class VideoUploadManager {
       this.isPlaying = false;
       if (this.onPlayStateChange) this.onPlayStateChange(false);
     };
+  }
+
+  setLoopPointA(timeSeconds) {
+    this.loopStart = Math.max(0, Math.min(timeSeconds, this.duration));
+    if (this.loopEnd <= this.loopStart) {
+      this.loopEnd = Math.min(this.duration, this.loopStart + 2.0);
+    }
+    this.loopEnabled = true;
+  }
+
+  setLoopPointB(timeSeconds) {
+    this.loopEnd = Math.max(this.loopStart + 0.2, Math.min(timeSeconds, this.duration));
+    this.loopEnabled = true;
+  }
+
+  toggleLoop(enabled) {
+    this.loopEnabled = typeof enabled === 'boolean' ? enabled : !this.loopEnabled;
+    if (this.loopEnabled && (this.currentTime < this.loopStart || this.currentTime >= this.loopEnd)) {
+      this.seekTo(this.loopStart);
+    }
+  }
+
+  clearLoop() {
+    this.loopEnabled = false;
+    this.loopStart = 0;
+    this.loopEnd = 0;
   }
 
   /**

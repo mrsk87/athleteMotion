@@ -32,6 +32,15 @@
     >
       {{ t('tabVideoMode') }}
     </button>
+    <button
+      type="button"
+      class="btn-source-mode btn-flip-mode"
+      :class="{ active: isFlippedHorizontal }"
+      @click="toggleFlipHorizontal"
+      title="Inverter / Espelhar vídeo horizontalmente"
+    >
+      🪞 {{ isFlippedHorizontal ? 'Vídeo Invertido' : 'Inverter Vídeo' }}
+    </button>
   </div>
 
   <!-- Barra de Ferramentas Avançadas (BLE, Calibração, Câmara Lenta, Bilateral) -->
@@ -438,6 +447,33 @@
           </button>
         </div>
       </div>
+
+      <!-- Controlos de Loop A-B por Intervalo de Tempo -->
+      <div class="video-loop-row">
+        <div class="loop-buttons-group">
+          <button
+            type="button"
+            class="btn-loop-ctrl"
+            :class="{ active: loopRange.enabled }"
+            @click="toggleLoop"
+            title="Ativar/Desativar repetição contínua no intervalo definido"
+          >
+            🔁 {{ loopRange.enabled ? 'Loop A-B Ativo' : 'Loop A-B' }}
+          </button>
+          <button type="button" class="btn-loop-ctrl" @click="setLoopPointA" title="Definir ponto A no segundo atual">
+            [A] Início: {{ loopRange.start > 0 ? `${loopRange.start.toFixed(1)}s` : 'Definir' }}
+          </button>
+          <button type="button" class="btn-loop-ctrl" @click="setLoopPointB" title="Definir ponto B no segundo atual">
+            [B] Fim: {{ loopRange.end > 0 ? `${loopRange.end.toFixed(1)}s` : 'Definir' }}
+          </button>
+          <button v-if="loopRange.start > 0 || loopRange.end > 0" type="button" class="btn-loop-clear" @click="clearLoop" title="Limpar intervalo">
+            ✕ Limpar
+          </button>
+        </div>
+        <span v-if="loopRange.enabled" class="loop-status-pill">
+          Intervalo: {{ loopRange.start.toFixed(1) }}s → {{ loopRange.end.toFixed(1) }}s ({{ (loopRange.end - loopRange.start).toFixed(1) }}s)
+        </span>
+      </div>
     </div>
 
     <!-- Gráfico de Evolução dos Ângulos na Linha Temporal do Vídeo -->
@@ -584,6 +620,20 @@
         <p class="kops-text">{{ kopsResult.labelPt }}</p>
       </div>
 
+      <!-- Card Resumo do Relatório de Afinações em Tempo Real -->
+      <div class="tuning-summary-card" @click="toggleTuningReportModal">
+        <div class="tuning-card-header">
+          <h4>📋 Afinações Mecânicas</h4>
+          <span class="tuning-score-badge" :style="{ backgroundColor: activeTuningReport.verdictColor }">
+            {{ activeTuningReport.score }}%
+          </span>
+        </div>
+        <p class="tuning-verdict-text">{{ activeTuningReport.verdict }}</p>
+        <button type="button" class="btn-open-tuning-modal">
+          🔍 Ver Relatório de Afinações
+        </button>
+      </div>
+
       <!-- Diagnóstico e Recomendações Dinâmicas ao Vivo -->
       <div class="live-guidance-box" v-if="activeRecommendations && activeRecommendations.length">
         <h4>💡 {{ t('liveGuidanceTitle') }}</h4>
@@ -660,6 +710,71 @@
       <div class="debug-footer">
         <p class="debug-tip">💡 <strong>Dica de Programador:</strong> Também pode abrir a consola nativa do browser pressionando <code>F12</code> (ou <code>Ctrl + Shift + I</code>) e clicando no separador <strong>Console</strong>.</p>
         <button type="button" class="btn btn-secondary" @click="toggleDebugModal">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Flutuante do Relatório Completo de Afinações em Tempo Real -->
+  <div v-if="showTuningReportModal" class="tuning-overlay-modal" @click.self="toggleTuningReportModal">
+    <div class="tuning-modal-box">
+      <div class="tuning-modal-header">
+        <div class="tuning-header-title">
+          <h3>📋 Relatório de Afinações Mecânicas ao Vivo</h3>
+          <span class="tuning-timestamp">Atualizado às {{ activeTuningReport.timestamp }}</span>
+        </div>
+        <button type="button" class="btn-close-tuning" @click="toggleTuningReportModal">✕</button>
+      </div>
+
+      <!-- Resumo do Score e Condição Geral -->
+      <div class="tuning-overview-banner" :style="{ borderColor: activeTuningReport.verdictColor }">
+        <div class="overview-score-circle" :style="{ color: activeTuningReport.verdictColor }">
+          {{ activeTuningReport.score }}%
+        </div>
+        <div class="overview-info">
+          <h4>{{ activeTuningReport.verdict }}</h4>
+          <p v-if="!isFullBodyVisible" class="text-warn">
+            ⚠️ O atleta não está enquadrado na totalidade (em falta: {{ missingBodyPartsText }}). Recomenda-se enquadramento de corpo inteiro para máxima precisão.
+          </p>
+          <p v-else class="text-ok">
+            ✅ Análise com corpo inteiro calibrado (Pernas, Tronco, Braços e Cabeça).
+          </p>
+        </div>
+      </div>
+
+      <!-- Grelha de Componentes e Afinações Recomendadas -->
+      <div class="tuning-items-list">
+        <div
+          v-for="(item, idx) in activeTuningReport.items"
+          :key="idx"
+          class="tuning-item-card"
+          :class="`status-${item.status}`"
+        >
+          <div class="item-card-top">
+            <span class="item-component-name">{{ item.component }}</span>
+            <span class="item-status-badge">{{ item.badge }}</span>
+          </div>
+          <div class="item-action-highlight">
+            🔧 {{ item.action }}
+          </div>
+          <div class="item-measurements-row">
+            <span>Medido: <strong>{{ item.measured }}</strong></span>
+            <span>Meta: <strong>{{ item.target }}</strong></span>
+          </div>
+          <p class="item-detail-text">{{ item.detail }}</p>
+        </div>
+      </div>
+
+      <!-- Ações do Relatório (Copiar, Imprimir, Fechar) -->
+      <div class="tuning-modal-actions">
+        <button type="button" class="btn-tuning-act btn-copy-report" @click="copyTuningReport">
+          📋 Copiar Resumo
+        </button>
+        <button type="button" class="btn-tuning-act btn-print-report" @click="printTuningReport">
+          🖨 Imprimir / PDF
+        </button>
+        <button type="button" class="btn-tuning-act btn-close-modal" @click="toggleTuningReportModal">
+          Fechar
+        </button>
       </div>
     </div>
   </div>

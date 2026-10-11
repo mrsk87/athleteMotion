@@ -38,6 +38,7 @@ import { WheelCalibratorHandler } from './modules/wheelCalibratorHandler';
 import { DebugLogger } from './modules/debugLogger';
 import { VideoUploadManager } from './modules/videoUploadManager';
 import { AnglesTimelineChart } from './modules/anglesTimelineChart';
+import { LiveTuningReportManager } from './modules/liveTuningReportManager';
 import { GifExportService } from '../../services/gifExportService';
 
 export default {
@@ -211,9 +212,23 @@ export default {
       isExportingGif: false,
       isExportingClip: false,
       bdcAnglesHistory: [],
+      isFlippedHorizontal: false,
+      loopRange: { start: 0, end: 0, enabled: false },
+      showTuningReportModal: false,
     };
   },
   computed: {
+    activeTuningReport() {
+      return LiveTuningReportManager.generateReport({
+        bdcKneeAngle: this.lastBdcKneeAngle,
+        liveAngles: this.liveAngles,
+        kopsResult: this.kopsResult,
+        targets: this.targets,
+        isFullBody: this.isFullBodyVisible,
+        rpm: this.currentRpm,
+        psi: this.livePsi,
+      });
+    },
     liveKneeStatus() {
       if (!this.liveAngles.joelho) return 'status-idle';
       const [minK, maxK] = this.targets.knee;
@@ -401,7 +416,10 @@ export default {
       this.mediaPipeStatusText = 'A analisar pose...';
       this.mediaPipeStatusClass = 'status-ok';
 
-      this.lastSmoothedLandmarks = this.smoother.smooth(results.poseLandmarks);
+      const rawLandmarks = this.isFlippedHorizontal
+        ? results.poseLandmarks.map((lm) => ({ ...lm, x: 1.0 - lm.x }))
+        : results.poseLandmarks;
+      this.lastSmoothedLandmarks = this.smoother.smooth(rawLandmarks);
       const computed = BiomechanicsComputer.computeFrameAngles({
         lm: this.lastSmoothedLandmarks,
         side: this.currentSide,
@@ -800,7 +818,8 @@ export default {
         this.videoSamplesHistory,
         this.videoCurrentTime,
         this.videoDuration,
-        this.targets
+        this.targets,
+        this.loopRange
       );
     },
     handleChartCanvasClick(event) {
@@ -868,6 +887,70 @@ export default {
         };
       }
       this.$emit('session-completed', rep);
+    },
+    toggleFlipHorizontal() {
+      this.isFlippedHorizontal = !this.isFlippedHorizontal;
+      this.poseRunner.setFlipped(this.isFlippedHorizontal);
+      this.showToast(
+        this.isFlippedHorizontal
+          ? 'Vídeo invertido horizontalmente (modo espelho)'
+          : 'Vídeo na orientação original'
+      );
+    },
+    setLoopPointA() {
+      const cur = this.videoCurrentTime || 0;
+      this.videoUploadMgr.setLoopPointA(cur);
+      this.loopRange = {
+        start: this.videoUploadMgr.loopStart,
+        end: this.videoUploadMgr.loopEnd,
+        enabled: true,
+      };
+      this.renderTimelineChart();
+      this.showToast(`Loop Ponto A fixado em ${cur.toFixed(1)}s`);
+    },
+    setLoopPointB() {
+      const cur = this.videoCurrentTime || 0;
+      this.videoUploadMgr.setLoopPointB(cur);
+      this.loopRange = {
+        start: this.videoUploadMgr.loopStart,
+        end: this.videoUploadMgr.loopEnd,
+        enabled: true,
+      };
+      this.renderTimelineChart();
+      this.showToast(`Loop Ponto B fixado em ${cur.toFixed(1)}s`);
+    },
+    toggleLoop() {
+      this.videoUploadMgr.toggleLoop();
+      this.loopRange.enabled = this.videoUploadMgr.loopEnabled;
+      this.renderTimelineChart();
+      this.showToast(this.loopRange.enabled ? 'Repetição de Loop A-B ativada' : 'Loop A-B desativado');
+    },
+    clearLoop() {
+      this.videoUploadMgr.clearLoop();
+      this.loopRange = { start: 0, end: 0, enabled: false };
+      this.renderTimelineChart();
+      this.showToast('Intervalo de Loop A-B limpo');
+    },
+    toggleTuningReportModal() {
+      this.showTuningReportModal = !this.showTuningReportModal;
+    },
+    copyTuningReport() {
+      const athleteName = this.sessionData?.athlete?.name || 'Ciclista';
+      const bikeModel = this.sessionData?.bike?.model || 'Bicicleta';
+      const text = LiveTuningReportManager.formatTextSummary(
+        this.activeTuningReport,
+        athleteName,
+        bikeModel
+      );
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        this.showToast('📋 Relatório copiado para a área de transferência!');
+      } else {
+        this.showToast('Área de transferência indisponível.');
+      }
+    },
+    printTuningReport() {
+      window.print();
     },
   },
 };

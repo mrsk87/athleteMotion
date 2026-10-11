@@ -350,3 +350,419 @@
   align-items: center;
   gap: 6px;
 }
+
+.btn-export-clip:hover {
+  background-color: #0369a1;
+}
+
+/* =========================================================================
+   CONTROLOS DE LOOP A-B (INTERVALO TEMPORAL)
+   ========================================================================= */
+.video-loop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #27272a;
+  flex-wrap: wrap;
+}
+
+.loop-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-loop-ctrl {
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  color: #d4d4d8;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-loop-ctrl:hover {
+  color: #fff;
+  background-color: #38bdf8;
+  color: #000;
+}
+
+.btn-loop-ctrl.active {
+  background-color: #0284c7;
+  border-color: #38bdf8;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+.btn-loop-clear {
+  background-color: transparent;
+  border: 1px solid #52525b;
+  color: #a1a1aa;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn-loop-clear:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+.loop-status-pill {
+  font-family: monospace;
+  font-size: 11px;
+  color: #38bdf8;
+  background-color: rgba(56, 189, 248, 0.1);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Botão de Inversão Horizontal no Modo de Entrada */
+.btn-flip-mode.active {
+  background-color: #8b5cf6;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+/* =========================================================================
+   RELATÓRIO DE AFINAÇÕES EM TEMPO REAL (LIVE TUNING REPORT)
+   ========================================================================= */
+.tuning-summary-card {
+  background: linear-gradient(145deg, #18181b 0%, #202024 100%);
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tuning-summary-card:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
+}
+
+.tuning-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.tuning-card-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.tuning-score-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #000;
+}
+
+.tuning-verdict-text {
+  font-size: 12px;
+  color: #a1a1aa;
+  margin: 0 0 8px 0;
+}
+
+.btn-open-tuning-modal {
+  width: 100%;
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  color: #38bdf8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.btn-open-tuning-modal:hover {
+  background-color: #38bdf8;
+  color: #000;
+}
+
+/* Modal Flutuante do Relatório de Afinações */
+.tuning-overlay-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.tuning-modal-box {
+  background-color: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+.tuning-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #27272a;
+  background-color: #202024;
+}
+
+.tuning-header-title h3 {
+  margin: 0 0 2px 0;
+  font-size: 16px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.tuning-timestamp {
+  font-size: 11px;
+  color: #71717a;
+}
+
+.btn-close-tuning {
+  background: transparent;
+  border: none;
+  color: #a1a1aa;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.btn-close-tuning:hover {
+  color: #fff;
+}
+
+.tuning-overview-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background-color: #121214;
+  border-left: 4px solid #10b981;
+  border-bottom: 1px solid #27272a;
+}
+
+.overview-score-circle {
+  font-size: 26px;
+  font-weight: 800;
+  min-width: 65px;
+  height: 65px;
+  border-radius: 50%;
+  border: 3px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.overview-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  color: #fff;
+}
+
+.overview-info p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.text-warn {
+  color: #f59e0b;
+}
+
+.text-ok {
+  color: #10b981;
+}
+
+.tuning-items-list {
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tuning-item-card {
+  background-color: #202024;
+  border: 1px solid #2e2e34;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.tuning-item-card.status-ok {
+  border-left: 4px solid #10b981;
+}
+
+.tuning-item-card.status-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.tuning-item-card.status-danger {
+  border-left: 4px solid #ef4444;
+}
+
+.item-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.item-component-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.item-status-badge {
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.item-action-highlight {
+  font-size: 14px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 6px;
+}
+
+.item-measurements-row {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #a1a1aa;
+  margin-bottom: 6px;
+}
+
+.item-measurements-row strong {
+  color: #fff;
+}
+
+.item-detail-text {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.tuning-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid #27272a;
+  background-color: #202024;
+}
+
+.btn-tuning-act {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.btn-copy-report {
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  color: #fff;
+}
+
+.btn-copy-report:hover {
+  background-color: #3f3f46;
+}
+
+.btn-print-report {
+  background-color: #0284c7;
+  color: #fff;
+}
+
+.btn-print-report:hover {
+  background-color: #0369a1;
+}
+
+.btn-close-modal {
+  background-color: #3f3f46;
+  color: #fff;
+}
+
+.btn-close-modal:hover {
+  background-color: #52525b;
+}
+
+/* =========================================================================
+   ESTILOS DE IMPRESSÃO / PDF
+   ========================================================================= */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .tuning-modal-box,
+  .tuning-modal-box * {
+    visibility: visible;
+  }
+  .tuning-overlay-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    background: #fff;
+    padding: 0;
+  }
+  .tuning-modal-box {
+    box-shadow: none;
+    border: none;
+    background: #fff;
+    color: #000;
+    max-width: 100%;
+  }
+  .tuning-modal-header,
+  .tuning-overview-banner,
+  .tuning-item-card,
+  .tuning-modal-actions {
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #ccc !important;
+  }
+  .tuning-header-title h3,
+  .item-component-name,
+  .overview-info h4 {
+    color: #000 !important;
+  }
+  .item-action-highlight {
+    color: #0284c7 !important;
+  }
+  .btn-tuning-act,
+  .btn-close-tuning {
+    display: none !important;
+  }
+}

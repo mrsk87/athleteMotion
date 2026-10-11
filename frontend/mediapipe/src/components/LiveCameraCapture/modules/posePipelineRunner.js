@@ -26,6 +26,11 @@ export class PosePipelineRunner {
     this.aiFrameCount = 0;
     this.lastFpsCalcTime = performance.now();
     this.lastInferredTime = -1;
+    this.isFlippedHorizontal = false;
+  }
+
+  setFlipped(flipped) {
+    this.isFlippedHorizontal = Boolean(flipped);
   }
 
   /**
@@ -102,7 +107,15 @@ export class PosePipelineRunner {
 
         ctx.save();
         ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(video, 0, 0, w, h);
+        if (this.isFlippedHorizontal) {
+          ctx.translate(w, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, w, h);
+          ctx.restore();
+          ctx.save();
+        } else {
+          ctx.drawImage(video, 0, 0, w, h);
+        }
 
         if (this.onRenderOverlay) {
           this.onRenderOverlay(ctx, w, h);

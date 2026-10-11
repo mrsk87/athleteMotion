@@ -18,8 +18,9 @@ export class AnglesTimelineChart {
    * @param {number} currentTime - Segundo atual do vídeo
    * @param {number} duration - Duração total do vídeo
    * @param {Object} targets - Metas angulares
+   * @param {Object} loopRange - Intervalo de loop { start, end, enabled }
    */
-  static render(ctx, width, height, samples = [], currentTime = 0, duration = 1, targets = {}) {
+  static render(ctx, width, height, samples = [], currentTime = 0, duration = 1, targets = {}, loopRange = null) {
     if (!ctx || width <= 0 || height <= 0) return;
 
     ctx.save();
@@ -94,7 +95,29 @@ export class AnglesTimelineChart {
       ctx.textAlign = 'left';
     }
 
-    // 4. Cursor temporal do vídeo em reprodução
+    // 4. Destaque do Intervalo de Loop A-B (se ativo)
+    if (loopRange && loopRange.enabled && loopRange.end > loopRange.start) {
+      const loopX1 = getX(loopRange.start);
+      const loopX2 = getX(loopRange.end);
+      const loopW = Math.max(2, loopX2 - loopX1);
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+      ctx.fillRect(loopX1, padding.top, loopW, chartH);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 2]);
+      ctx.strokeRect(loopX1, padding.top, loopW, chartH);
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText(`[A: ${loopRange.start.toFixed(1)}s]`, Math.max(padding.left, loopX1 - 8), padding.top + 12);
+      ctx.fillText(`[B: ${loopRange.end.toFixed(1)}s]`, Math.max(padding.left, loopX2 - 25), padding.top + 12);
+      ctx.restore();
+    }
+
+    // 5. Cursor temporal do vídeo em reprodução
     const cursorX = getX(currentTime);
     ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 2;
