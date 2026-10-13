@@ -1,11 +1,34 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="pt" data-theme="dark">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta name="theme-color" content="#1b1f27">
     <link rel="icon" href="<%= BASE_URL %>favicon.ico">
-    <title><%= htmlWebpackPlugin.options.title %></title>
+    <title>Athlete Motion — Bike fit e análise biomecânica</title>
+    <script>
+      /*
+        O tema é aplicado antes do primeiro desenho (evita o "flash" de tema
+        errado). A chave e os identificadores são os mesmos de
+        `src/services/themeManager.js`.
+      */
+      (function () {
+        try {
+          var key = 'athleteMotion.theme';
+          var valid = ['light', 'dark', 'sober'];
+          var stored = window.localStorage.getItem(key);
+          var theme = valid.indexOf(stored) !== -1
+            ? stored
+            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          document.documentElement.setAttribute('data-theme', theme);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'light' ? '#eef2f7' : '#1b1f27');
+        } catch (error) {
+          /* Sem localStorage (modo privado): fica o tema por omissão do HTML. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>

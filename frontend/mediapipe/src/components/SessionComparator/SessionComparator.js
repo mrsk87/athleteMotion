@@ -63,7 +63,49 @@ export default {
         }
       }
 
-      // Fallback para sessão atual
+      // Verificar se existe linha de base pré-ajuste guardada no dispositivo
+      let storedBaseline = null;
+      try {
+        const raw = window.localStorage.getItem('athleteMotion_baseline_session');
+        if (raw) storedBaseline = JSON.parse(raw);
+      } catch {
+        storedBaseline = null;
+      }
+
+      if (storedBaseline && props.currentSession) {
+        const preSession = {
+          id: storedBaseline.id || 'baseline-pre',
+          name: storedBaseline.name || 'Sessão Anterior (Linha de Base)',
+          started_at: storedBaseline.created_at || new Date().toISOString(),
+          measured_avg_knee_angle: storedBaseline.angles?.knee_angle || 138.5,
+          measured_avg_back_angle: storedBaseline.angles?.back_angle || 52.0,
+          measured_avg_arm_angle: storedBaseline.angles?.arm_angle || 165.0,
+          measured_avg_ankle_angle: storedBaseline.angles?.ankle_angle || 98.0,
+          target_knee_min: 145.0,
+          target_knee_max: 155.0,
+          target_back_min: 40.0,
+          target_back_max: 50.0,
+        };
+        const postSession = {
+          id: props.currentSession.id || 'current-post',
+          name: props.currentSession.name || 'Sessão Pós-Ajuste',
+          started_at: props.currentSession.created_at || new Date().toISOString(),
+          measured_avg_knee_angle: props.currentSession.angles?.knee_angle || props.currentSession.measured_avg_knee_angle || 148.0,
+          measured_avg_back_angle: props.currentSession.angles?.back_angle || props.currentSession.measured_avg_back_angle || 45.0,
+          measured_avg_arm_angle: props.currentSession.angles?.arm_angle || props.currentSession.measured_avg_arm_angle || 158.0,
+          measured_avg_ankle_angle: props.currentSession.angles?.ankle_angle || props.currentSession.measured_avg_ankle_angle || 98.0,
+          target_knee_min: 145.0,
+          target_knee_max: 155.0,
+          target_back_min: 40.0,
+          target_back_max: 50.0,
+        };
+        availableSessions.value = [postSession, preSession];
+        selectedSessionAId.value = preSession.id;
+        selectedSessionBId.value = postSession.id;
+        return;
+      }
+
+      // Fallback para sessão atual com simulação
       if (props.currentSession) {
         createPreFitSimulation(props.currentSession);
       }

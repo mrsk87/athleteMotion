@@ -90,11 +90,18 @@ class BikeModel(Base):
     athlete_id = Column(String(36), ForeignKey("athletes.id", ondelete="CASCADE"), nullable=False)
     bike_type = Column(String(20), default="road", nullable=False)
     brand_model = Column(String(100), default="Minha Bicicleta", nullable=False)
+    # Tamanho do quadro = tubo do selim (C-T). O tubo superior efetivo (ETT) é outra medida: é ele
+    # que define o comprimento do cockpit sentido pelo atleta (ETT + avanço + reach do guiador).
     frame_size_cm = Column(Float, nullable=True)
+    top_tube_mm = Column(Float, nullable=True)
     handlebar_width_mm = Column(Float, nullable=True)
+    handlebar_reach_mm = Column(Float, nullable=True)  # Reach do guiador (curva)
+    handlebar_drop_mm = Column(Float, nullable=True)  # Drop do guiador (curva)
     stem_length_mm = Column(Float, nullable=True)
     crank_length_mm = Column(Float, nullable=True)
     current_saddle_height_cm = Column(Float, nullable=True)
+    # Posição opcional dos travessões/cleats na sapatilha (ex: rearward, neutral, forward)
+    cleat_position = Column(String(30), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), nullable=False)
 
     athlete = relationship("AthleteModel", back_populates="bikes")
@@ -151,9 +158,38 @@ class PostureSnapshotModel(Base):
     session = relationship("FitSessionModel", back_populates="snapshots")
 
 
+# Colunas acrescentadas depois de a base de dados já existir. `create_all` cria tabelas em falta,
+# mas nunca altera uma tabela existente: sem esta lista, quem já tem o ficheiro SQLite veria a
+# aplicação falhar ao gravar/carregar o guiador do atleta.
+_ADDED_COLUMNS = {
+    "bikes": [
+        ("handlebar_reach_mm", "FLOAT"),
+        ("handlebar_drop_mm", "FLOAT"),
+        ("top_tube_mm", "FLOAT"),
+        ("cleat_position", "VARCHAR(30)"),
+    ],
+}
+
+
+def _ensure_added_columns() -> None:
+    """Adiciona colunas novas a tabelas já existentes (migração idempotente e aditiva)."""
+    with engine.begin() as connection:
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {
+                row[1]
+                for row in connection.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+            }
+            if not existing:
+                continue  # tabela ainda não existe: `create_all` trata dela por inteiro
+            for name, sql_type in columns:
+                if name not in existing:
+                    connection.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}")
+
+
 def init_db() -> None:
     """Inicializa as tabelas da base de dados com as restrições ACID."""
     Base.metadata.create_all(bind=engine)
+    _ensure_added_columns()
 
 
 def get_db():

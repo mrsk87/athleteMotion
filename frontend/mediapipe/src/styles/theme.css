@@ -1,0 +1,303 @@
+/* =========================================================================
+   SISTEMA DE TEMAS — Tokens semânticos (fonte única de verdade)
+   -------------------------------------------------------------------------
+   Três temas: `light` (claro), `dark` (escuro, aspeto da aplicação) e
+   `sober` (sóbrio: cinzentos e azuis escuros, nunca preto puro, sem *glow*).
+
+   Regras deste ficheiro:
+   1. NUNCA se escreve um nome de cor no CSS dos componentes — só tokens.
+   2. As transparências ficam em RGB (`--accent-rgb`) para que a MESMA alpha
+      do CSS mude de cor com o tema sem reescrever cada declaração.
+   3. Os *glow* (brilhos) são a COR de uma sombra: o tema sóbrio define-os
+      como `transparent`, o que apaga todos os brilhos com uma linha.
+   ========================================================================= */
+
+:root {
+  /* --- Raios e ritmo (não mudam com o tema) --- */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+}
+
+/* =========================================================================
+   TEMA ESCURO (`dark`) — o aspeto da aplicação, agora coerente
+   É também o tema de partida: `public/index.html` já traz `data-theme="dark"`,
+   pelo que o primeiro desenho nunca sai sem tema definido.
+   ========================================================================= */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Veús em RGB: a MESMA alpha no CSS muda de cor com o tema */
+  --accent-rgb: 56, 189, 248;
+  --ok-rgb: 16, 185, 129;
+  --warn-rgb: 245, 158, 11;
+  --danger-rgb: 239, 68, 68;
+  --info-rgb: 168, 85, 247;
+  --scrim-rgb: 0, 0, 0;
+  --tint-rgb: 255, 255, 255;
+  --overlay-rgb: 0, 0, 0;
+
+  /* Brilhos: a cor de uma sombra "0 0 Npx <glow>" */
+  --glow-accent: rgba(56, 189, 248, 0.55);
+  --glow-ok: rgba(16, 185, 129, 0.55);
+  --glow-warn: rgba(245, 158, 11, 0.55);
+  --glow-danger: rgba(239, 68, 68, 0.55);
+  --glow-info: rgba(168, 85, 247, 0.55);
+  --glow-text: rgba(255, 255, 255, 0.7);
+
+  --bg-app: #121214;
+  --bg-surface: #18181b;
+  --bg-surface-2: #202024;
+  --bg-inset: #27272a;
+  --bg-elevated: #1c1c20;
+  --bg-hover: #2a2a30;
+  --bg-stage: #000000;
+  --control-knob: #ffffff;
+
+  --border-subtle: #2a2a30;
+  --border: #3f3f46;
+  --border-strong: #52525b;
+
+  --text-1: #f4f4f5;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+  --text-inverse: #0b0b0d;
+
+  --accent: #38bdf8;
+  --accent-text: #38bdf8;
+  --accent-hover: #0284c7;
+  --accent-contrast: #06121b;
+  --accent-border: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.12);
+  --accent-strong: #0284c7;
+
+  --ok: #10b981;
+  --ok-text: #34d399;
+  --ok-soft: rgba(16, 185, 129, 0.12);
+  --ok-border: rgba(16, 185, 129, 0.5);
+
+  --warn: #f59e0b;
+  --warn-text: #fbbf24;
+  --warn-soft: rgba(245, 158, 11, 0.12);
+  --warn-border: rgba(245, 158, 11, 0.45);
+
+  --danger: #ef4444;
+  --danger-text: #fca5a5;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+  --danger-border: rgba(239, 68, 68, 0.45);
+
+  --info: #a855f7;
+  --info-text: #c084fc;
+  --info-soft: rgba(168, 85, 247, 0.12);
+  --info-border: rgba(168, 85, 247, 0.45);
+
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 20px rgba(0, 0, 0, 0.6);
+  --shadow-3: 0 12px 40px rgba(0, 0, 0, 0.75);
+  --focus-ring: 0 0 0 2px rgba(56, 189, 248, 0.45);
+
+  /* --- Gráficos em canvas --- */
+  --chart-bg: #18181b;
+  --chart-grid: #27272a;
+  --chart-axis: #71717a;
+  --chart-band-fill: rgba(16, 185, 129, 0.12);
+  --chart-band-stroke: rgba(16, 185, 129, 0.4);
+  --chart-threshold: #ef4444;
+  --chart-playhead: #38bdf8;
+  --chart-playhead-fill: rgba(56, 189, 248, 0.18);
+  --chart-series-knee: #38bdf8;
+  --chart-series-torso: #f59e0b;
+  --chart-series-arm: #c084fc;
+  --chart-series-head: #f472b6;
+}
+
+/* =========================================================================
+   TEMA CLARO (`light`) — cartões brancos, cinza-azulado, azul legível
+   ========================================================================= */
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-app: #eef2f7;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #f6f8fb;
+  --bg-inset: #e9eef5;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e3ebf4;
+  --bg-stage: #0d1117;
+  --control-knob: #ffffff;
+
+  --border-subtle: #e5eaf1;
+  --border: #ccd6e2;
+  --border-strong: #aab8c8;
+
+  --text-1: #16202b;
+  --text-2: #46586c;
+  --text-3: #6b7c90;
+  --text-inverse: #ffffff;
+
+  --accent: #0b74c4;
+  --accent-text: #0a63a8;
+  --accent-hover: #095b9b;
+  --accent-contrast: #ffffff;
+  --accent-border: #9dc4e4;
+  --accent-soft: rgba(11, 116, 196, 0.1);
+  --accent-strong: #095b9b;
+
+  --ok: #0f8a5f;
+  --ok-text: #0b6e4c;
+  --ok-soft: rgba(15, 138, 95, 0.1);
+  --ok-border: #a9dcc6;
+
+  --warn: #b8730a;
+  --warn-text: #925c07;
+  --warn-soft: rgba(184, 115, 10, 0.1);
+  --warn-border: #e8c893;
+
+  --danger: #c62f2f;
+  --danger-text: #a82020;
+  --danger-soft: rgba(198, 47, 47, 0.1);
+  --danger-border: #e9b6b6;
+
+  --info: #6d3fc0;
+  --info-text: #5a2fa8;
+  --info-soft: rgba(109, 63, 192, 0.1);
+  --info-border: #c9b6ec;
+
+  --shadow-1: 0 1px 2px rgba(16, 32, 48, 0.06), 0 1px 3px rgba(16, 32, 48, 0.08);
+  --shadow-2: 0 4px 14px rgba(16, 32, 48, 0.1);
+  --shadow-3: 0 14px 34px rgba(16, 32, 48, 0.18);
+  --focus-ring: 0 0 0 2px rgba(11, 116, 196, 0.4);
+
+  /* Veús: sobre superfícies claras as tintas são escuras e discretas */
+  --accent-rgb: 11, 116, 196;
+  --ok-rgb: 15, 138, 95;
+  --warn-rgb: 184, 115, 10;
+  --danger-rgb: 198, 47, 47;
+  --info-rgb: 109, 63, 192;
+  --scrim-rgb: 16, 32, 48;
+  --tint-rgb: 16, 32, 48;
+  --overlay-rgb: 16, 32, 48;
+
+  --glow-accent: rgba(11, 116, 196, 0.22);
+  --glow-ok: rgba(15, 138, 95, 0.22);
+  --glow-warn: rgba(184, 115, 10, 0.22);
+  --glow-danger: rgba(198, 47, 47, 0.22);
+  --glow-info: rgba(109, 63, 192, 0.22);
+  --glow-text: rgba(16, 32, 48, 0.25);
+
+  --chart-bg: #ffffff;
+  --chart-grid: #e0e7ef;
+  --chart-axis: #6b7c90;
+  --chart-band-fill: rgba(15, 138, 95, 0.12);
+  --chart-band-stroke: rgba(15, 138, 95, 0.45);
+  --chart-threshold: #c62f2f;
+  --chart-playhead: #0b74c4;
+  --chart-playhead-fill: rgba(11, 116, 196, 0.12);
+  --chart-series-knee: #0b74c4;
+  --chart-series-torso: #b8730a;
+  --chart-series-arm: #6d3fc0;
+  --chart-series-head: #b0336b;
+}
+
+/* =========================================================================
+   TEMA SÓBRIO (`sober`) — cinzentos e azuis escuros, sem preto puro,
+   sem brilhos: os véus são discretos e os *glow* ficam transparentes.
+   ========================================================================= */
+[data-theme='sober'] {
+  color-scheme: dark;
+
+  --bg-app: #1b1f27;
+  --bg-surface: #232833;
+  --bg-surface-2: #2a3140;
+  --bg-inset: #1f242d;
+  --bg-elevated: #262c38;
+  --bg-hover: #313a4a;
+  --bg-stage: #10141a;
+  --control-knob: #d8e0ea;
+
+  --border-subtle: #2c3340;
+  --border: #39424f;
+  --border-strong: #4a5666;
+
+  --text-1: #e3e8f0;
+  --text-2: #a8b4c4;
+  --text-3: #7d8a9c;
+  --text-inverse: #12171f;
+
+  --accent: #4f7ea8;
+  --accent-text: #8fb3d1;
+  --accent-hover: #3f6b92;
+  --accent-contrast: #0e141b;
+  --accent-border: #55708c;
+  --accent-soft: rgba(79, 126, 168, 0.14);
+  --accent-strong: #3f6b92;
+
+  --ok: #4f8f74;
+  --ok-text: #8dc3ab;
+  --ok-soft: rgba(79, 143, 116, 0.14);
+  --ok-border: #46695a;
+
+  --warn: #a8813f;
+  --warn-text: #d3ac6d;
+  --warn-soft: rgba(168, 129, 63, 0.14);
+  --warn-border: #7d6431;
+
+  --danger: #a75b5b;
+  --danger-text: #d38f8f;
+  --danger-soft: rgba(167, 91, 91, 0.14);
+  --danger-border: #7d4747;
+
+  --info: #71689f;
+  --info-text: #a49bd0;
+  --info-soft: rgba(113, 104, 159, 0.14);
+  --info-border: #565081;
+
+  --shadow-1: 0 1px 2px rgba(8, 11, 16, 0.4);
+  --shadow-2: 0 6px 18px rgba(8, 11, 16, 0.35);
+  --shadow-3: 0 14px 36px rgba(8, 11, 16, 0.45);
+  --focus-ring: 0 0 0 2px rgba(79, 126, 168, 0.5);
+
+  --accent-rgb: 79, 126, 168;
+  --ok-rgb: 79, 143, 116;
+  --warn-rgb: 168, 129, 63;
+  --danger-rgb: 167, 91, 91;
+  --info-rgb: 113, 104, 159;
+  --scrim-rgb: 8, 11, 16;
+  --tint-rgb: 227, 232, 240;
+  --overlay-rgb: 12, 16, 22;
+
+  /* Sem brilhos: a cor do brilho é transparente, a sombra desaparece. */
+  --glow-accent: transparent;
+  --glow-ok: transparent;
+  --glow-warn: transparent;
+  --glow-danger: transparent;
+  --glow-info: transparent;
+  --glow-text: transparent;
+
+  --chart-bg: #232833;
+  --chart-grid: #313a4a;
+  --chart-axis: #7d8a9c;
+  --chart-band-fill: rgba(79, 143, 116, 0.12);
+  --chart-band-stroke: rgba(79, 143, 116, 0.4);
+  --chart-threshold: #a75b5b;
+  --chart-playhead: #8fb3d1;
+  --chart-playhead-fill: rgba(143, 179, 209, 0.14);
+  --chart-series-knee: #6f9fc4;
+  --chart-series-torso: #b08c53;
+  --chart-series-arm: #9b8fc0;
+  --chart-series-head: #b07f9b;
+}
+
+/* O tema sóbrio não tem brilho de texto em lado nenhum. */
+[data-theme='sober'],
+[data-theme='sober'] * {
+  text-shadow: none !important;
+}
+
+/* Transição suave ao trocar de tema (sem afetar quem prefere menos animação). */
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+}

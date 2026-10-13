@@ -13,6 +13,7 @@ import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.v1.inference_ws import ws_router
 from src.api.v1.router import api_v1_router
 from src.infrastructure.database import init_db
 from src.schemas.fit import FrameValidationResponse
@@ -58,8 +59,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Montar rotas da API v1
+# Montar rotas da API v1 e WebSockets
 app.include_router(api_v1_router)
+app.include_router(ws_router)
 
 
 @app.get("/", tags=["system"])

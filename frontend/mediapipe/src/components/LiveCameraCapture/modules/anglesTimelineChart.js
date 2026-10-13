@@ -5,7 +5,21 @@
  * - Desenhar curvas contínuas dos ângulos articulares (Joelho, Costas, Braço, Cabeça) ao longo da timeline do vídeo.
  * - Renderizar faixa de conformidade ergonómica e cursor de sincronização temporal.
  * - Permitir interação por clique para navegar instantaneamente para qualquer momento do vídeo.
+ *
+ * As cores são lidas dos tokens do tema ativo (`--chart-*`): o mesmo gráfico
+ * funciona nos temas claro, escuro e sóbrio. Sem DOM (testes em Node) usa-se
+ * uma paleta de recurso por tema.
  */
+
+import { themeManager } from '../../../services/themeManager.js';
+
+/**
+ * Cor do token do tema ativo. Sem DOM (testes em Node) devolve a paleta de
+ * recurso do próprio gestor de temas — nunca há valores de cor fixos aqui.
+ */
+function token(name) {
+  return themeManager.token(name);
+}
 
 export class AnglesTimelineChart {
   /**
@@ -19,15 +33,26 @@ export class AnglesTimelineChart {
    * @param {number} duration - Duração total do vídeo
    * @param {Object} targets - Metas angulares
    * @param {Object} loopRange - Intervalo de loop { start, end, enabled }
+   * @param {{ emptyLabel?: string }} [options] - texto mostrado sem amostras (traduzido por quem chama)
    */
-  static render(ctx, width, height, samples = [], currentTime = 0, duration = 1, targets = {}, loopRange = null) {
+  static render(
+    ctx,
+    width,
+    height,
+    samples = [],
+    currentTime = 0,
+    duration = 1,
+    targets = {},
+    loopRange = null,
+    options = {}
+  ) {
     if (!ctx || width <= 0 || height <= 0) return;
 
     ctx.save();
     ctx.clearRect(0, 0, width, height);
 
-    // Fundo do gráfico (estilo dashboard escuro)
-    ctx.fillStyle = '#18181b';
+    // Fundo do gráfico (segue o tema ativo)
+    ctx.fillStyle = token('--chart-bg');
     ctx.fillRect(0, 0, width, height);
 
     const padding = { top: 20, right: 30, bottom: 25, left: 45 };
@@ -54,10 +79,10 @@ export class AnglesTimelineChart {
     };
 
     // 1. Linhas de grelha horizontal e rótulos de graus
-    ctx.strokeStyle = '#27272a';
+    ctx.strokeStyle = token('--chart-grid');
     ctx.lineWidth = 1;
     ctx.font = '10px monospace';
-    ctx.fillStyle = '#71717a';
+    ctx.fillStyle = token('--chart-axis');
 
     const gridSteps = [40, 80, 120, 150, 180];
     gridSteps.forEach((deg) => {
@@ -73,53 +98,65 @@ export class AnglesTimelineChart {
     const kneeTarget = targets.knee || [145, 155];
     const targetYTop = getY(kneeTarget[1]);
     const targetYBottom = getY(kneeTarget[0]);
-    ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+    ctx.fillStyle = token('--chart-band-fill');
     ctx.fillRect(padding.left, targetYTop, chartW, targetYBottom - targetYTop);
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+    ctx.strokeStyle = token('--chart-band-stroke');
     ctx.setLineDash([3, 3]);
     ctx.strokeRect(padding.left, targetYTop, chartW, targetYBottom - targetYTop);
     ctx.setLineDash([]);
 
-    // 3. Desenhar curvas das amostras registadas
-    if (samples.length >= 2) {
-      this.drawSeries(ctx, samples, 'joelho', '#38bdf8', getX, getY, 2.5); // Joelho (Azul)
-      this.drawSeries(ctx, samples, 'costas', '#f59e0b', getX, getY, 1.8); // Costas (Âmbar)
-      this.drawSeries(ctx, samples, 'braco', '#c084fc', getX, getY, 1.5);  // Braço (Roxo)
-      this.drawSeries(ctx, samples, 'cabeca', '#f472b6', getX, getY, 1.5); // Cabeça (Rosa)
+    // 3. Desenhar curvas das amostras registadas (ou mensagem informativa se vazio)
+    if (samples.length > 0) {
+      this.drawSeries(ctx, samples, 'joelho', token('--chart-series-knee'), getX, getY, 2.5);
+      this.drawSeries(ctx, samples, 'costas', token('--chart-series-torso'), getX, getY, 1.8);
+      this.drawSeries(ctx, samples, 'braco', token('--chart-series-arm'), getX, getY, 1.5);
+      this.drawSeries(ctx, samples, 'cabeca', token('--chart-series-head'), getX, getY, 1.5);
     } else {
-      // Texto informativo se ainda estiver no início
-      ctx.fillStyle = '#a1a1aa';
+      // Texto informativo enquanto não há amostras (o texto vem traduzido de quem chama).
+      ctx.fillStyle = token('--text-2');
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('A reproduzir vídeo para registar curvas angulares...', width / 2, height / 2);
+      ctx.fillText(
+        options.emptyLabel || 'A reproduzir vídeo para registar curvas angulares...',
+        width / 2,
+        height / 2
+      );
+      // Segundo reforço discreto (para leituras em testes ou capturas)
+      ctx.fillStyle = token('--text-3');
+      ctx.font = '10px sans-serif';
+      ctx.fillText(
+        options.emptyLabel || 'Sem amostras de ângulos: a curva aparece assim que a análise do vídeo registar a pedalada.',
+        width / 2,
+        height / 2 + 16
+      );
       ctx.textAlign = 'left';
     }
 
-    // 4. Destaque do Intervalo de Loop A-B (se ativo)
+    // 5. Destaque do Intervalo de Loop A-B (se ativo)
     if (loopRange && loopRange.enabled && loopRange.end > loopRange.start) {
       const loopX1 = getX(loopRange.start);
       const loopX2 = getX(loopRange.end);
       const loopW = Math.max(2, loopX2 - loopX1);
 
       ctx.save();
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.18)';
+      ctx.fillStyle = token('--chart-playhead-fill');
       ctx.fillRect(loopX1, padding.top, loopW, chartH);
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = token('--chart-playhead');
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 2]);
       ctx.strokeRect(loopX1, padding.top, loopW, chartH);
       ctx.setLineDash([]);
 
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = token('--chart-playhead');
       ctx.font = 'bold 9px monospace';
       ctx.fillText(`[A: ${loopRange.start.toFixed(1)}s]`, Math.max(padding.left, loopX1 - 8), padding.top + 12);
       ctx.fillText(`[B: ${loopRange.end.toFixed(1)}s]`, Math.max(padding.left, loopX2 - 25), padding.top + 12);
       ctx.restore();
     }
 
-    // 5. Cursor temporal do vídeo em reprodução
+    // 6. Cursor temporal do vídeo em reprodução
     const cursorX = getX(currentTime);
-    ctx.strokeStyle = '#ef4444';
+    ctx.strokeStyle = token('--chart-threshold');
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cursorX, padding.top);
@@ -127,7 +164,7 @@ export class AnglesTimelineChart {
     ctx.stroke();
 
     // Rótulo do tempo no cursor
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = token('--chart-threshold');
     ctx.font = 'bold 10px monospace';
     ctx.fillText(`${currentTime.toFixed(1)}s`, Math.max(padding.left, cursorX - 12), padding.top - 6);
 

@@ -7,7 +7,7 @@
 
     <div class="athlete-badge" v-if="sessionData">
       <span class="badge-name">{{ sessionData.athlete.name }}</span>
-      <span class="badge-mode">{{ sessionData.athlete.riding_style.toUpperCase() }}</span>
+      <span class="badge-mode">{{ (sessionData.athlete?.riding_style || 'road').toUpperCase() }}</span>
       <span class="badge-saddle" v-if="sessionData.theoreticalEstimates">
         LeMond: {{ sessionData.theoreticalEstimates.lemond_saddle_height_cm }} cm
       </span>
@@ -49,10 +49,42 @@
     >
       🪞 {{ isFlippedHorizontal ? 'Espelho Ativo' : 'Espelho Horizontal' }}
     </button>
+    <button
+      type="button"
+      class="btn-source-mode btn-hud-toggle"
+      :class="{ active: hudPosition !== 'hidden' }"
+      @click="toggleHudVisibility"
+      title="Alternar visibilidade do HUD de telemetria"
+    >
+      {{ hudPosition !== 'hidden' ? '📍 HUD: ' + hudPositionLabel : '👁️ Mostrar HUD' }}
+    </button>
+    <button
+      type="button"
+      class="btn-source-mode btn-tools-toggle"
+      :class="{ active: showAdvancedTools }"
+      @click="showAdvancedTools = !showAdvancedTools"
+      title="Ferramentas avançadas: BLE, calibração, clipe, bilateral, diagnóstico"
+    >
+      🛠️ Ferramentas {{ showAdvancedTools ? '▴' : '▾' }}
+    </button>
   </div>
 
   <!-- Barra de Ferramentas Avançadas (BLE, Calibração, Câmara Lenta, Bilateral) -->
-  <div class="advanced-tools-bar">
+  <div class="advanced-tools-bar" v-show="showAdvancedTools">
+    <div class="tools-heading">
+      <span class="control-group-title">Ferramentas avançadas</span>
+      <span class="tools-heading-hint">BLE, calibração, clipe, bilateral, marcadores, diagnóstico</span>
+      <button
+        type="button"
+        class="btn-tools-toggle"
+        :aria-expanded="showAdvancedTools ? 'true' : 'false'"
+        @click="showAdvancedTools = !showAdvancedTools"
+      >
+        {{ showAdvancedTools ? '▾ Ocultar' : '▸ Mostrar' }}
+      </button>
+    </div>
+
+    <div class="tools-grid">
     <!-- Conectar BLE -->
     <button
       type="button"
@@ -112,6 +144,7 @@
     >
       🐞 {{ diagnosticErrorsCount > 0 ? `Erros (${diagnosticErrorsCount})` : 'Diagnóstico & Logs' }}
     </button>
+    </div>
   </div>
 
   <!-- Menu de Seleção de Articulação para Calibração Manual e Bloqueio de Relevo Ótico -->
@@ -125,116 +158,328 @@
     <button v-if="hasManualMarkers" type="button" class="btn-clear-markers" @click="clearAllManualMarkers">🗑 Desbloquear Pontos</button>
   </div>
 
-  <!-- Barra de Controlos Responsiva (PC / Telemóvel / Tablet) -->
-  <div class="controls-bar">
-    <!-- Seletor de Câmara para Dispositivos Móveis e PC -->
-    <div class="control-item" v-if="videoSourceMode === 'camera'">
-      <label for="camera-select">{{ t('selectCamera') }}</label>
-      <select id="camera-select" v-model="selectedDeviceId" @change="restartCamera">
-        <option v-for="dev in videoDevices" :key="dev.deviceId" :value="dev.deviceId">
-          {{ dev.label }} {{ dev.isVirtual ? '(Virtual)' : '' }}
-        </option>
-      </select>
-    </div>
+  <!-- Barra de Controlos Responsiva (Recolhível com Setinha / Dropdown) -->
+  <div class="controls-bar" :class="{ 'is-collapsed': isControlsBarCollapsed }">
+    <!-- Barra de Cabeçalho / Acordeão com Setinha e Resumo Rápido -->
+    <div
+      class="controls-bar-header"
+      @click="toggleControlsBar"
+      :title="isControlsBarCollapsed ? 'Clique para expandir as ferramentas de análise' : 'Clique para recolher as ferramentas'"
+      role="button"
+      tabindex="0"
+      :aria-expanded="!isControlsBarCollapsed"
+      @keydown.enter.space.prevent="toggleControlsBar"
+    >
+      <div class="controls-header-left">
+        <span class="controls-toggle-arrow" :class="{ rotated: !isControlsBarCollapsed }">▶</span>
+        <span class="controls-header-title">⚙️ Ferramentas & Ajustes de Análise</span>
 
-    <!-- Indicador e Seletor de Ficheiro de Vídeo -->
-    <div class="control-item" v-else-if="videoSourceMode === 'file'">
-      <label>Ficheiro de Vídeo</label>
-      <button type="button" class="btn-secondary" @click="triggerVideoFileInput">
-        📁 {{ uploadedVideoName ? `${uploadedVideoName} (${uploadedVideoSizeMb} MB)` : 'Carregar Vídeo...' }}
-      </button>
-    </div>
+        <!-- Chips de Resumo Visíveis quando as ferramentas estão recolhidas -->
+        <div class="controls-summary-chips" v-if="isControlsBarCollapsed">
+          <span class="controls-chip" title="Plano de visão">📐 {{ viewPlane === 'sagittal' ? 'Sagital' : 'Frontal' }}</span>
+          <span class="controls-chip" title="Lado do ciclista">{{ currentSide === 'left' ? '🚲 Esquerdo' : '⚙️ Direito' }}</span>
+          <span class="controls-chip" title="Estabilização de ruído">🎯 {{ smoothingLevelText }}</span>
+          <span class="controls-chip" :class="{ 'chip-active': audioEnabled || voiceEnabled }">
+            {{ audioEnabled || voiceEnabled ? '🔊 Alertas On' : '🔇 Alertas Off' }}
+          </span>
+          <span class="controls-chip" :class="{ 'chip-active': showFootOrbit }">
+            {{ showFootOrbit ? '🦶 Órbita Ativa' : '🦶 Órbita Off' }}
+          </span>
+          <span class="controls-chip" :class="{ 'chip-active': chromaEnabled }">
+            {{ chromaEnabled ? '🎯 CromaTrack On' : '🎯 CromaTrack Off' }}
+          </span>
+        </div>
+      </div>
 
-    <!-- Estabilização de Ruído (Anti-Jitter) -->
-    <div class="control-item">
-      <label for="smoothing-select">{{ t('smoothingLabel') }}</label>
-      <select id="smoothing-select" v-model="smoothingLevel" @change="onSmoothingChange">
-        <option value="ultra">🎯 Rigor Máximo (1€ Zero-Jitter)</option>
-        <option value="high">{{ t('smoothingHigh') }}</option>
-        <option value="medium">{{ t('smoothingMedium') }}</option>
-        <option value="low">{{ t('smoothingLow') }}</option>
-        <option value="off">{{ t('smoothingOff') }}</option>
-      </select>
-    </div>
-
-    <!-- Foco Articular Dedicado & Órbita -->
-    <div class="control-item">
-      <label for="focus-select">{{ t('focusLabel') }}</label>
-      <select id="focus-select" v-model="focusTarget" @change="onFocusChange">
-        <option value="all">{{ t('focusAll') }}</option>
-        <option value="knee">{{ t('focusKnee') }}</option>
-        <option value="hip">{{ t('focusHip') }}</option>
-        <option value="ankle">{{ t('focusAnkle') }}</option>
-        <option value="cockpit">{{ t('focusCockpit') }}</option>
-        <option value="kops">{{ t('focusKops') }}</option>
-      </select>
-    </div>
-
-    <!-- Alternar Câmara Frontal / Traseira em Telemóveis -->
-    <div class="control-item" v-if="videoSourceMode === 'camera' && videoDevices.length > 1">
-      <button type="button" @click="toggleFacingMode" class="btn-secondary">
-        🔄 {{ facingMode === 'environment' ? t('cameraFacingUser') : t('cameraFacingEnvironment') }}
-      </button>
-    </div>
-
-    <!-- Seletor de Plano de Visão (Sagital vs Frontal) (FEAT-19) -->
-    <div class="control-item">
-      <label>{{ t('viewPlaneLabel') }}</label>
-      <div class="toggle-group">
+      <div class="controls-header-right">
         <button
           type="button"
-          :class="{ active: viewPlane === 'sagittal' }"
-          @click="setViewPlane('sagittal')"
+          class="btn-tools-collapse-toggle"
+          @click.stop="toggleControlsBar"
+          :title="isControlsBarCollapsed ? 'Expandir todas as ferramentas' : 'Ocultar ferramentas'"
         >
-          📐 {{ t('sagittalPlane') }}
-        </button>
-        <button
-          type="button"
-          :class="{ active: viewPlane === 'frontal' }"
-          @click="setViewPlane('frontal')"
-        >
-          👤 {{ t('frontalPlane') }}
+          {{ isControlsBarCollapsed ? 'Mostrar Opções ▾' : 'Ocultar ▴' }}
         </button>
       </div>
     </div>
 
-    <!-- Seletor de Perfil (Esquerdo / Direito) -->
-    <div class="control-item">
-      <label>{{ t('profileSide') }}</label>
-      <div class="toggle-group">
-        <button
-          type="button"
-          :class="{ active: currentSide === 'left' }"
-          @click="setProfileSide('left')"
-          title="Perfil Esquerdo (Lado sem corrente da bicicleta)"
-        >
-          🚲 {{ t('leftProfile') }}
-        </button>
-        <button
-          type="button"
-          :class="{ active: currentSide === 'right' }"
-          @click="setProfileSide('right')"
-          title="Perfil Direito (Lado da transmissão / pedaleira / corrente)"
-        >
-          ⚙️ {{ t('rightProfile') }}
-        </button>
+    <!-- Conteúdo das Ferramentas (Linha 1 e Linha 2) -->
+    <div v-show="!isControlsBarCollapsed" class="controls-bar-body">
+      <!-- Linha 1: Entrada, Enquadramento e Alertas -->
+      <div class="controls-row controls-row-primary">
+      <!-- Grupo 1: entrada de imagem -->
+      <div class="control-group control-group-input">
+        <span class="control-group-title" title="Fonte de imagem a analisar">Entrada & Modelos</span>
+        <!-- Seletor de Câmara para Dispositivos Móveis e PC -->
+        <div class="control-item" v-if="videoSourceMode === 'camera'">
+          <label for="camera-select" title="Câmara do dispositivo a usar na captura">{{ t('selectCamera') }}</label>
+          <select id="camera-select" v-model="selectedDeviceId" @change="restartCamera">
+            <option v-for="dev in videoDevices" :key="dev.deviceId" :value="dev.deviceId">
+              {{ dev.label }} {{ dev.isVirtual ? '(Virtual)' : '' }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Indicador e Seletor de Ficheiro de Vídeo -->
+        <div class="control-item" v-else-if="videoSourceMode === 'file'">
+          <label>Ficheiro de Vídeo</label>
+          <button type="button" class="btn-secondary" @click="triggerVideoFileInput">
+            📁 {{ uploadedVideoName ? `${uploadedVideoName} (${uploadedVideoSizeMb} MB)` : 'Carregar Vídeo...' }}
+          </button>
+        </div>
+
+        <!-- Seletor de Motor de Visão / Inferência IA (DirectML GPU / MediaPipe) -->
+        <div class="control-item">
+          <label for="vision-engine-select" title="Motor de inteligência artificial para deteção da postura corporal">Motor de IA / Visão</label>
+          <select id="vision-engine-select" v-model="selectedVisionEngine" @change="onVisionEngineChange">
+            <option value="mediapipe_wasm">MediaPipe (Navegador WASM)</option>
+            <option
+              v-for="eng in availableVisionEngines"
+              :key="eng.name"
+              :value="eng.name"
+              :disabled="eng.available === false"
+              :title="eng.notes || eng.description"
+            >
+              {{ eng.display_name }} ({{ eng.hardware_provider }}){{ eng.available === false ? ' — indisponível' : '' }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Grupo 1b: enquadramento e perfil -->
+      <div class="control-group control-group-framing">
+        <span class="control-group-title" title="Plano de observação e lado visível à câmara">Enquadramento</span>
+        <!-- Alternar Câmara Frontal / Traseira em Telemóveis -->
+        <div class="control-item" v-if="videoSourceMode === 'camera' && videoDevices.length > 1">
+          <button type="button" @click="toggleFacingMode" class="btn-secondary" :title="t('cameraFacingFull')">
+            🔄 {{ facingMode === 'environment' ? t('cameraFacingUser') : t('cameraFacingEnvironment') }}
+          </button>
+        </div>
+
+        <!-- Seletor de Plano de Visão (Sagital vs Frontal) (FEAT-19) -->
+        <div class="control-item">
+          <label :title="t('viewPlaneFull')">{{ t('viewPlaneLabel') }}</label>
+          <div class="toggle-group">
+            <button
+              type="button"
+              :class="{ active: viewPlane === 'sagittal' }"
+              :title="t('sagittalPlaneFull')"
+              @click="setViewPlane('sagittal')"
+            >
+              📐 {{ t('sagittalPlane') }}
+            </button>
+            <button
+              type="button"
+              :class="{ active: viewPlane === 'frontal' }"
+              :title="t('frontalPlaneFull')"
+              @click="setViewPlane('frontal')"
+            >
+              👤 {{ t('frontalPlane') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Seletor de Perfil (Esquerdo / Direito) -->
+        <div class="control-item">
+          <label :title="t('profileSideFull')">{{ t('profileSide') }}</label>
+          <div class="toggle-group">
+            <button
+              type="button"
+              :class="{ active: currentSide === 'left' }"
+              :title="t('leftProfileFull')"
+              @click="setProfileSide('left')"
+            >
+              🚲 {{ t('leftProfile') }}
+            </button>
+            <button
+              type="button"
+              :class="{ active: currentSide === 'right' }"
+              :title="t('rightProfileFull')"
+              @click="setProfileSide('right')"
+            >
+              ⚙️ {{ t('rightProfile') }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grupo 4: alertas -->
+      <div class="control-group control-group-alerts">
+        <span class="control-group-title" title="Feedback sonoro durante a análise">Alertas</span>
+        <!-- Toggle Alertas Sonoros -->
+        <div class="control-item">
+          <label class="checkbox-label" :class="{ 'alert-muted': !audioEnabled }" :title="t('audioAlertsToggleFull')">
+            <input type="checkbox" v-model="audioEnabled" @change="toggleAudio" />
+            <span>{{ audioEnabled ? '🔊 Som' : '🔇 Som (desat.)' }}</span>
+          </label>
+        </div>
+
+        <!-- Toggle Avisos por Voz -->
+        <div class="control-item">
+          <label class="checkbox-label" :class="{ 'alert-muted': !voiceEnabled }" :title="t('voiceAlertsToggleFull')">
+            <input type="checkbox" v-model="voiceEnabled" @change="toggleVoice" />
+            <span>{{ voiceEnabled ? '🗣 Voz' : '🤫 Voz (desat.)' }}</span>
+          </label>
+        </div>
       </div>
     </div>
 
-    <!-- Toggle Alertas Sonoros -->
-    <div class="control-item">
-      <label class="checkbox-label">
-        <input type="checkbox" v-model="audioEnabled" @change="toggleAudio" />
-        🔊 {{ t('audioAlertsToggle') }}
-      </label>
-    </div>
+    <!-- Linha 2: Leitura, Dinâmica do Pé e CromaTrack -->
+    <div class="controls-row controls-row-secondary">
+      <!-- Grupo 2: qualidade da leitura -->
+      <div class="control-group control-group-reading">
+        <span class="control-group-title" title="Como os ângulos são lidos e estabilizados">Leitura</span>
+        <!-- Estabilização de Ruído (Anti-Jitter) -->
+        <div class="control-item">
+          <label for="smoothing-select" :title="t('smoothingLabelFull')">{{ t('smoothingLabel') }}</label>
+          <select id="smoothing-select" v-model="smoothingLevel" @change="onSmoothingChange" :title="t('smoothingLabelFull')">
+            <option value="ultra">🎯 Rigor máximo</option>
+            <option value="high">{{ t('smoothingHigh') }}</option>
+            <option value="medium">{{ t('smoothingMedium') }}</option>
+            <option value="low">{{ t('smoothingLow') }}</option>
+            <option value="off">{{ t('smoothingOff') }}</option>
+          </select>
+        </div>
 
-    <!-- Toggle Avisos por Voz -->
-    <div class="control-item">
-      <label class="checkbox-label">
-        <input type="checkbox" v-model="voiceEnabled" @change="toggleVoice" />
-        🗣 {{ t('voiceAlertsToggle') }}
-      </label>
+        <!-- Foco Articular Dedicado & Órbita -->
+        <div class="control-item">
+          <label for="focus-select" :title="t('focusLabelFull')">{{ t('focusLabel') }}</label>
+          <select id="focus-select" v-model="focusTarget" @change="onFocusChange" :title="t('focusLabelFull')">
+            <option value="all">{{ t('focusAll') }}</option>
+            <option value="knee">{{ t('focusKnee') }}</option>
+            <option value="hip">{{ t('focusHip') }}</option>
+            <option value="ankle">{{ t('focusAnkle') }}</option>
+            <option value="cockpit">{{ t('focusCockpit') }}</option>
+            <option value="kops">{{ t('focusKops') }}</option>
+          </select>
+        </div>
+
+        <!-- Guias de Correção Ergonómica (Alvos Fantasma e Setas) -->
+        <div class="control-item">
+          <label title="Linhas-guia pontilhadas e setas de correção da posição ideal">Guias de Alvo</label>
+          <div class="toggle-group">
+            <button
+              type="button"
+              :class="{ active: !showTargetGuides }"
+              title="Ocultar setas e metas para ver apenas o esqueleto anatómico limpo"
+              @click="showTargetGuides = false"
+            >
+              Desligado
+            </button>
+            <button
+              type="button"
+              :class="{ active: showTargetGuides }"
+              title="Mostrar setas de correção e posição ideal recomendada"
+              @click="showTargetGuides = true"
+            >
+              🎯 Ligado
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!--
+        Grupo 2c: Dinâmica do Pé — a órbita que o pé desenha ao rodar a roda pedaleira.
+        O rasto fica desenhado sobre o vídeo (percurso a lápis, uma passagem por pedalada, + as
+        horas 12h/3h/6h/9h + círculo ajustado + ponto do instante atual) e o seletor liga-o e
+        desliga-o; a preferência fica guardada no dispositivo.
+      -->
+      <div class="control-group foot-orbit-group">
+        <span class="control-group-title" :title="t('footOrbitTitle')">{{ t('footOrbitGroupTitle') }}</span>
+
+        <div class="control-item">
+          <label>
+            {{ t('footOrbitLabel') }}
+            <HelpTip
+              :title="t('footOrbitTitle')"
+              :summary="t('footOrbitHelpSummary')"
+              :steps="[t('footOrbitStep1'), t('footOrbitStep2'), t('footOrbitStep3')]"
+              :source="t('footOrbitHelpSource')"
+              diagram="footOrbit"
+            />
+          </label>
+          <div class="toggle-group">
+            <button
+              type="button"
+              :class="{ active: !showFootOrbit }"
+              @click="showFootOrbit && toggleFootOrbit(false)"
+            >
+              {{ t('footOrbitOff') }}
+            </button>
+            <button
+              type="button"
+              :class="{ active: showFootOrbit }"
+              @click="!showFootOrbit && toggleFootOrbit(true)"
+            >
+              🦶 {{ t('footOrbitOn') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="control-item foot-orbit-status" v-if="showFootOrbit">
+          <!--
+            Leitura viva da POSIÇÃO na pedaleira (12h em cima, 6h em baixo, 3h/9h nos intermédios),
+            lida da rotação do próprio rasto: acompanha a reprodução, instante a instante.
+          -->
+          <span class="foot-orbit-line foot-orbit-position" v-if="footOrbitPositionText">{{ footOrbitPositionText }}</span>
+          <span class="foot-orbit-line" :class="{ empty: !footOrbitText }">{{ footOrbitText || t('footOrbitNoData') }}</span>
+        </div>
+      </div>
+
+      <!--
+        Grupo 2b: CromaTrack — rastreio por marcadores cromáticos.
+        Marcadores coloridos nas articulações ancoram o ponto medido; ver docs/CHROMA_TRACK_TASKS.md.
+      -->
+      <div class="control-group chroma-group">
+        <span class="control-group-title" :title="t('chromaTitle')">🎯 CromaTrack</span>
+
+        <div class="control-item">
+          <label :title="t('chromaTitle')">
+            {{ t('chromaLabel') }}
+            <HelpTip
+              :title="t('chromaTitle')"
+              :summary="t('chromaHelpSummary')"
+              :steps="[t('chromaStep1'), t('chromaStep2'), t('chromaStep3')]"
+              :formula="t('chromaHelpFormula')"
+              :source="t('chromaHelpSource')"
+              diagram="chromaMarkers"
+            />
+          </label>
+          <div class="toggle-group">
+            <button
+              type="button"
+              :class="{ active: !chromaEnabled }"
+              @click="chromaEnabled && toggleChroma()"
+            >
+              {{ t('chromaOff') }}
+            </button>
+            <button
+              type="button"
+              :class="{ active: chromaEnabled }"
+              @click="!chromaEnabled && toggleChroma()"
+            >
+              🎯 {{ t('chromaOn') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="control-item" v-if="chromaEnabled">
+          <label :title="t('chromaPaletteFull')">{{ t('chromaPaletteLabel') }}</label>
+          <select
+            :value="chromaSingleColor ? 'single' : 'multi'"
+            @change="setChromaPaletteMode($event.target.value === 'single')"
+          >
+            <option value="multi">{{ t('chromaPaletteMulti') }}</option>
+            <option value="single">{{ t('chromaPaletteSingle') }}</option>
+          </select>
+        </div>
+
+        <div class="control-item chroma-status" v-if="chromaEnabled">
+          <span class="chroma-status-line">{{ chromaStatusText() }}</span>
+          <span class="chroma-status-note">{{ t('chromaDisclaimer') }}</span>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 
@@ -300,47 +545,31 @@
     @change="handleImageFilesUpload"
   />
 
+  <!-- ========================================================================
+       GRELHA DE TRABALHO DO MÓDULO
+       Coluna principal: palco de vídeo, reprodução, análise integral, gráfico e fotos.
+       Barra lateral: leituras em direto e estado da prescrição final.
+       Em ecrãs estreitos a barra lateral passa para baixo da coluna principal.
+       ======================================================================== -->
+  <div class="analysis-layout">
+  <div class="analysis-main">
+
   <!-- Área Principal de Vídeo e Canvas Sobreposto -->
-  <div class="viewport-wrapper">
+  <div class="viewport-wrapper" :class="'hud-pos-' + hudPosition">
+    <!-- Botão de Restauro Flutuante quando o HUD estiver Oculto -->
+    <div v-if="hudPosition === 'hidden'" class="hud-restore-pill">
+      <button type="button" class="btn-restore-hud" @click="toggleHudVisibility" title="Ativar painel HUD de telemetria">
+        👁️ Mostrar HUD
+      </button>
+    </div>
+
+    <!-- Indicador de Status / Telemetria na Câmara, Vídeo ou Fotos (HUD - Fora do Vídeo ou Flutuante) -->
     <div
-      class="video-canvas-container"
-      :class="{ 'is-calibrating': isManualCalibrating }"
-      ref="container"
-      @click="handleCanvasClick"
-      @mousemove="handleCanvasMouseMove"
-      @mouseleave="handleCanvasMouseLeave"
+      v-if="hudPosition !== 'hidden' && (videoSourceMode === 'camera' || uploadedVideoFile || (videoSourceMode === 'images' && imageItems.length > 0))"
+      class="camera-hud-container"
+      :class="{ 'is-outside': hudPosition === 'top' || hudPosition === 'bottom', 'is-overlay': hudPosition === 'overlay' }"
     >
-      <!-- Vídeo onde a webcam ou o clipe é reproduzido -->
-      <video ref="video" autoplay muted playsinline></video>
-      <!-- Canvas interativo onde o esqueleto e ângulos são desenhados -->
-      <canvas ref="canvas"></canvas>
-
-      <!-- Overlay de upload exibido diretamente no local da webcam quando em modo vídeo sem ficheiro -->
-      <div
-        v-if="videoSourceMode === 'file' && !uploadedVideoFile"
-        class="video-canvas-upload-overlay"
-        @click="triggerVideoFileInput"
-      >
-        <div class="upload-icon">📁</div>
-        <h3>Carregar Vídeo para Análise Biomecânica</h3>
-        <p>{{ t('uploadVideoPrompt') }}</p>
-        <button type="button" class="btn-video-choose">Escolher Ficheiro</button>
-      </div>
-
-      <!-- Overlay de upload exibido quando em modo fotos e sem imagens carregadas -->
-      <div
-        v-if="videoSourceMode === 'images' && imageItems.length === 0"
-        class="video-canvas-upload-overlay"
-        @click="triggerImageFilesInput"
-      >
-        <div class="upload-icon">🖼️</div>
-        <h3>Carregar Fotos das Posições da Pedalada</h3>
-        <p>Selecione uma ou várias fotos em diferentes posições dos pés e cranques (BDC, 90°, TDC, etc.).</p>
-        <button type="button" class="btn-video-choose">Escolher Imagens (1 ou várias)</button>
-      </div>
-
-      <!-- Indicador de Status Overlay na Câmara, Vídeo ou Fotos (HUD) -->
-      <div v-if="videoSourceMode === 'camera' || uploadedVideoFile || (videoSourceMode === 'images' && imageItems.length > 0)" class="camera-hud-overlay">
+      <div class="hud-badges-group">
         <div class="hud-item hud-status" :class="{ 'hud-active': isAnalyzing || videoSourceMode === 'images' }">
           ● {{ videoSourceMode === 'images' ? 'MODO FOTO' : (isAnalyzing ? 'LIVE TRACKING' : 'PAUSADO') }}
         </div>
@@ -360,6 +589,11 @@
           📷 {{ activeImage.name }} [{{ imageAnalysisMgr.getPositionMeta(activeImage.crankPosition).shortLabel }}]
         </div>
 
+        <!-- Badge de Pontos Médios Consolidados das Análises -->
+        <div v-if="videoSourceMode === 'images' && activeImage?.status === 'done'" class="hud-item hud-median-badge">
+          📍 PONTOS MÉDIOS ({{ activeImage.stabilization?.passes || 5 }} análises)
+        </div>
+
         <!-- Badge de Cadência RPM Dinâmica -->
         <div v-if="videoSourceMode !== 'images'" class="hud-item hud-cadence">
           🔄 {{ currentRpm > 0 ? `${currentRpm} RPM` : '-- RPM' }}
@@ -368,6 +602,11 @@
         <!-- Extensão no Ponto Morto Inferior (BDC) -->
         <div class="hud-item hud-bdc" :class="{ 'bdc-flash': bdcFlashActive }">
           🦵 BDC: {{ lastBdcKneeAngle ? `${lastBdcKneeAngle}°` : '--' }}
+        </div>
+
+        <!-- Fase da Pedaleira & Grau Ótimo por Posição (6h / 12h / 3h / 9h) -->
+        <div v-if="currentCrankPhaseBadge" class="hud-item hud-crank-phase">
+          {{ currentCrankPhaseBadge }}
         </div>
 
         <!-- Potência BLE (se conectado) -->
@@ -420,6 +659,56 @@
         </div>
       </div>
 
+      <!-- Seletor de Posição / Modo do HUD -->
+      <div class="hud-position-control">
+        <button
+          type="button"
+          class="btn-hud-pos-switch"
+          @click="cycleHudPosition"
+          :title="'Posição atual: ' + hudPositionLabel + '. Clique para alternar: Fora (Topo) → Fora (Base) → Sobre o Vídeo → Ocultar'"
+        >
+          📍 HUD: {{ hudPositionLabel }} ⟳
+        </button>
+      </div>
+    </div>
+
+    <div
+      class="video-canvas-container"
+      :class="{ 'is-calibrating': isManualCalibrating, 'mode-images': videoSourceMode === 'images' }"
+      ref="container"
+      @click="handleCanvasClick"
+      @mousemove="handleCanvasMouseMove"
+      @mouseleave="handleCanvasMouseLeave"
+    >
+      <!-- Vídeo onde a webcam ou o clipe é reproduzido -->
+      <video ref="video" v-show="videoSourceMode !== 'images'" autoplay muted playsinline></video>
+      <!-- Canvas interativo onde o esqueleto e ângulos são desenhados -->
+      <canvas ref="canvas"></canvas>
+
+      <!-- Overlay de upload exibido diretamente no local da webcam quando em modo vídeo sem ficheiro -->
+      <div
+        v-if="videoSourceMode === 'file' && !uploadedVideoFile"
+        class="video-canvas-upload-overlay"
+        @click="triggerVideoFileInput"
+      >
+        <div class="upload-icon">📁</div>
+        <h3>Carregar Vídeo para Análise Biomecânica</h3>
+        <p>{{ t('uploadVideoPrompt') }}</p>
+        <button type="button" class="btn-video-choose">Escolher Ficheiro</button>
+      </div>
+
+      <!-- Overlay de upload exibido quando em modo fotos e sem imagens carregadas -->
+      <div
+        v-if="videoSourceMode === 'images' && imageItems.length === 0"
+        class="video-canvas-upload-overlay"
+        @click="triggerImageFilesInput"
+      >
+        <div class="upload-icon">🖼️</div>
+        <h3>Carregar Fotos das Posições da Pedalada</h3>
+        <p>Selecione uma ou várias fotos em diferentes posições dos pés e cranques (BDC, 90°, TDC, etc.).</p>
+        <button type="button" class="btn-video-choose">Escolher Imagens (1 ou várias)</button>
+      </div>
+
       <!-- Controlo Timeline Scrubber de Câmara Lenta -->
       <div v-if="slowMoScrubberActive && clipRecorder.hasClip" class="scrubber-panel">
         <div class="scrubber-header">
@@ -443,282 +732,225 @@
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Controlos de Reprodução do Ficheiro de Vídeo -->
-    <div v-if="videoSourceMode === 'file' && uploadedVideoFile" class="video-player-controls">
-      <div class="video-timeline-row">
-        <input
-          type="range"
-          class="video-slider"
-          min="0"
-          :max="videoDuration"
-          step="0.05"
-          :value="videoCurrentTime"
-          @input="seekVideo(Number($event.target.value))"
-        />
-        <span class="video-time-label">
-          {{ videoCurrentTime.toFixed(1) }}s / {{ videoDuration.toFixed(1) }}s
-        </span>
-      </div>
+  <!-- Controlos de Reprodução do Ficheiro de Vídeo (Subcomponente VideoScrubberBar) -->
+  <VideoScrubberBar
+    v-if="videoSourceMode === 'file' && uploadedVideoFile"
+    ref="videoScrubberBar"
+    :video-duration="videoDuration"
+    :video-current-time="videoCurrentTime"
+    :formatted-video-time="formattedVideoTime"
+    :formatted-duration="formattedDuration"
+    :has-loop-range="hasLoopRange"
+    :loop-range-label="loopRangeLabel"
+    :is-infinite-loop-active="isInfiniteLoopActive"
+    :is-video-playing="isVideoPlaying"
+    :video-playback-rate="videoPlaybackRate"
+    :auto-slowdown-enabled="autoSlowdownEnabled"
+    :loop-range="loopRange"
+    @seek="seekVideo"
+    @toggle-play="toggleVideoPlayback"
+    @seek-relative="seekRelativeVideo"
+    @step-range-frame="stepVideoFrame"
+    @trigger-file="triggerVideoFileInput"
+    @set-speed="setVideoSpeed"
+    @toggle-slowdown="toggleAutoSlowdown"
+    @set-loop-from-current="setLoopFromCurrent"
+    @toggle-loop="toggleLoop"
+    @toggle-infinite-loop="toggleInfiniteLoop"
+    @clear-loop="clearLoop"
+  />
 
-      <div class="video-buttons-row">
-        <div class="video-main-btns">
-          <!-- Botão Principal de Reprodução / Pausa -->
-          <button
-            type="button"
-            class="btn-video-ctrl btn-play-main"
-            :class="{ 'btn-playing-reverse': isReversePlaying }"
-            @click="toggleVideoPlay"
-            :title="playbackDirection === 'reverse' ? 'Reproduzir / Pausar de trás para a frente (marcha-atrás)' : 'Reproduzir / Pausar de frente para trás (normal)'"
-          >
-            {{ isVideoPlaying ? (isReversePlaying ? '⏸ Pausa (Trás p/ Frente)' : '⏸ Pausa') : (playbackDirection === 'reverse' ? '◀ De Trás p/ Frente' : '▶ De Frente p/ Trás') }}
-          </button>
-
-          <!-- Comutador de Sentido Temporal (De Frente para Trás vs De Trás para a Frente) -->
-          <div class="direction-toggle-group">
-            <button
-              type="button"
-              class="btn-direction"
-              :class="{ active: playbackDirection === 'forward' }"
-              @click="setPlaybackDirection('forward')"
-              title="Avançar no tempo: De Frente para Trás (Normal)"
-            >
-              ▶ De Frente p/ Trás
-            </button>
-            <button
-              type="button"
-              class="btn-direction btn-direction-rev"
-              :class="{ active: playbackDirection === 'reverse' }"
-              @click="setPlaybackDirection('reverse')"
-              title="Recuar no tempo: De Trás para a Frente (Inverso - começa no final)"
-            >
-              ◀ De Trás p/ Frente
-            </button>
-          </div>
-
-          <!-- Botão Direto de Marcha-Atrás -->
-          <button
-            type="button"
-            class="btn-video-ctrl btn-rev-direct"
-            :class="{ active: isReversePlaying }"
-            @click="playReverseVideo"
-            title="Reproduzir diretamente de trás para a frente"
-          >
-            ⏪ Recuar
-          </button>
-
-          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(-1)" title="Saltar 1s atrás">
-            -1s
-          </button>
-          <button type="button" class="btn-video-ctrl" @click="seekRelativeVideo(1)" title="Saltar 1s à frente">
-            +1s
-          </button>
-          <button type="button" class="btn-video-ctrl" @click="triggerVideoFileInput">
-            🔄 Trocar Vídeo
-          </button>
+    <!-- ================================================================
+         ANÁLISE INTEGRAL DO VÍDEO → PRESCRIÇÃO FINAL ÚNICA
+         Perfil do atleta → varrimento completo → estatística por posição do cranque.
+         Nada aqui dá recomendações antes do fim da análise.
+         ================================================================ -->
+    <div v-if="videoSourceMode === 'file' && uploadedVideoFile" class="video-full-analysis-card">
+      <div class="vfa-header">
+        <div class="vfa-title-group">
+          <h4>🧠 Análise Integral do Vídeo</h4>
+          <span class="vfa-subtitle">
+            Cada pedalada é medida às 12h (TDC), 3h (90°), 6h (BDC) e 9h (270°) — o que se avalia
+            muda com a posição do cranque. A prescrição só é emitida no fim e depois não muda.
+          </span>
         </div>
-
-        <div class="speed-selector">
-          <span style="font-size: 11px; color: #a1a1aa; margin-right: 4px;">Velocidade:</span>
-          <button
-            type="button"
-            class="btn-speed"
-            :class="{ active: videoPlaybackRate === 0.25 }"
-            @click="setVideoSpeed(0.25)"
-          >
-            0.25x
-          </button>
-          <button
-            type="button"
-            class="btn-speed"
-            :class="{ active: videoPlaybackRate === 0.5 }"
-            @click="setVideoSpeed(0.5)"
-          >
-            0.5x
-          </button>
-          <button
-            type="button"
-            class="btn-speed"
-            :class="{ active: videoPlaybackRate === 1.0 }"
-            @click="setVideoSpeed(1.0)"
-          >
-            1.0x
-          </button>
-
-          <!-- Toggle Inteligente de Auto-Slowdown para Análise Rigorosa no Movimento -->
-          <button
-            type="button"
-            class="btn-auto-slowdown"
-            :class="{ active: autoSlowdownEnabled, 'in-slowdown': isAutoSlowedDown }"
-            @click="toggleAutoSlowdown"
-            title="Abranda o vídeo automaticamente em câmara lenta (0.25x) durante o movimento para o MediaPipe analisar todos os fotogramas com máximo rigor"
-          >
-            🎯 {{ isAutoSlowedDown ? 'Câmara Lenta Ativa (0.25x)' : (autoSlowdownEnabled ? 'Auto-Slowdown Ligado' : 'Auto-Slowdown') }}
-          </button>
+        <div class="vfa-profile-group">
+          <span class="vfa-profile-line" :class="{ 'is-incomplete': !athleteProfileComplete }">
+            👤 {{ athleteProfileLine }}
+          </span>
+          <button type="button" class="btn-img-act" @click="openProfileModal">✏️ Perfil do Atleta</button>
         </div>
       </div>
 
-      <!-- Controlos de Loop Infinito e Escolha de Pontos Temporais -->
-      <div class="video-loop-row">
-        <div class="loop-buttons-group">
-          <!-- Botão de Loop Infinito / Reprodução Sem Fim -->
-          <button
-            type="button"
-            class="btn-infinite-loop"
-            :class="{ active: isInfiniteLoopActive }"
-            @click="toggleInfiniteLoop"
-            title="Loop Infinito: Reprodução perpétua sem fim (no vídeo todo ou no intervalo escolhido)"
-          >
-            ♾️ {{ isInfiniteLoopActive ? 'Loop Infinito: Ligado' : 'Loop Infinito: Desligado' }}
-          </button>
-
-          <button
-            type="button"
-            class="btn-loop-ctrl"
-            :class="{ active: loopRange.enabled }"
-            @click="toggleLoop"
-            title="Ativar/Desativar repetição contínua no intervalo definido"
-          >
-            🔁 {{ loopRange.enabled ? 'Repetir Intervalo' : 'Intervalo A-B' }}
-          </button>
-          <button type="button" class="btn-loop-ctrl" @click="setLoopPointA" title="Definir ponto A no segundo atual">
-            [A] Fixar Atual: {{ (videoCurrentTime || 0).toFixed(1) }}s
-          </button>
-          <button type="button" class="btn-loop-ctrl" @click="setLoopPointB" title="Definir ponto B no segundo atual">
-            [B] Fixar Atual: {{ (videoCurrentTime || 0).toFixed(1) }}s
-          </button>
-          <button v-if="loopRange.start > 0 || loopRange.end > 0" type="button" class="btn-loop-clear" @click="clearLoop" title="Limpar intervalo e reproduzir o vídeo completo">
-            ✕ Limpar Intervalo
-          </button>
+      <!-- Progresso do varrimento integral -->
+      <div v-if="isFullVideoScanRunning" class="vfa-scan-block">
+        <div class="vfa-scan-row">
+          <span class="vfa-scan-label">{{ videoScanLabel }}</span>
+          <span class="vfa-scan-percent">{{ videoScanProgress.percent.toFixed(0) }}%</span>
         </div>
-
-        <!-- Seletores de Pontos Temporais no Slide Temporal do Vídeo -->
-        <div class="loop-timeline-pickers">
-          <div class="loop-point-picker">
-            <span class="picker-label">⏱ Ponto A (Início):</span>
-            <input
-              type="range"
-              class="loop-point-slider"
-              min="0"
-              :max="loopRange.end > 0 ? loopRange.end : (videoDuration || 10)"
-              step="0.05"
-              :value="loopRange.start || 0"
-              @input="updateLoopStart($event.target.value)"
-              title="Ajuste o ponto inicial do loop no slide temporal"
-            />
-            <span class="loop-point-val">{{ (loopRange.start || 0).toFixed(2) }}s</span>
-          </div>
-
-          <div class="loop-point-picker">
-            <span class="picker-label">⏱ Ponto B (Fim):</span>
-            <input
-              type="range"
-              class="loop-point-slider"
-              :min="loopRange.start || 0"
-              :max="videoDuration || 10"
-              step="0.05"
-              :value="loopRange.end > 0 ? loopRange.end : (videoDuration || 10)"
-              @input="updateLoopEnd($event.target.value)"
-              title="Ajuste o ponto final do loop no slide temporal"
-            />
-            <span class="loop-point-val">{{ (loopRange.end > 0 ? loopRange.end : videoDuration).toFixed(2) }}s</span>
-          </div>
+        <div class="scan-progress-track">
+          <div class="scan-progress-fill" :style="{ width: `${videoScanProgress.percent}%` }"></div>
         </div>
-
-        <span v-if="loopRange.enabled" class="loop-status-pill">
-          🔁 Intervalo: {{ loopRange.start.toFixed(1) }}s → {{ loopRange.end.toFixed(1) }}s ({{ (loopRange.end - loopRange.start).toFixed(1) }}s)
-        </span>
-        <span v-else class="loop-status-pill loop-all-video-pill">
-          🌐 Sem intervalo: a reproduzir o vídeo completo {{ isInfiniteLoopActive ? '(Loop Infinito ativo)' : '' }}
-        </span>
+        <div class="vfa-scan-stats">
+          <span>Vídeo: {{ (videoScanProgress.scannedSeconds || 0).toFixed(1) }}s / {{ (videoScanProgress.totalSeconds || videoDuration).toFixed(1) }}s</span>
+          <span>Amostras válidas: {{ videoScanProgress.samples }}</span>
+          <span>Sem pose: {{ videoScanProgress.failures }}</span>
+          <span>Tempo: {{ ((videoScanProgress.elapsedMs || 0) / 1000).toFixed(1) }}s</span>
+          <button type="button" class="btn-loop-clear" @click="cancelFullVideoAnalysis">✕ Cancelar análise</button>
+        </div>
       </div>
 
-      <!-- Deslizador de Vaivém de Alta Precisão do Intervalo Escolhido (Jog/Shuttle Range Scrubber) -->
-      <div v-if="loopRange.start > 0 || loopRange.end > 0 || loopRange.enabled" class="range-scrubber-box">
-        <div class="range-scrubber-header">
-          <div class="range-title-group">
-            <span class="range-icon">🎛️</span>
-            <strong>Deslizador do Período Selecionado (Vaivém Manual)</strong>
-          </div>
-          <span class="range-metrics-pill">
-            [A: {{ (loopRange.start || 0).toFixed(2) }}s] ➔ [B: {{ (loopRange.end || videoDuration).toFixed(2) }}s]
-            (Duração: {{ rangeDuration.toFixed(2) }}s)
+      <!-- Resultado da análise (só existe depois de o vídeo estar todo analisado) -->
+      <div v-else-if="videoFinalPrescription" class="vfa-result-block">
+        <div class="vfa-status-row">
+          <span class="vfa-badge" :style="{ backgroundColor: activeTuningReport?.verdictColor }">
+            {{ videoFinalPrescription.status === 'ready'
+              ? `✅ PRESCRIÇÃO FINAL · confiança ${videoFinalPrescription.confidence.label} (${videoFinalPrescription.confidence.score}/100)`
+              : '⛔ SEM PRESCRIÇÃO' }}
+          </span>
+          <span v-if="videoFinalPrescription.phase" class="vfa-meta">
+            {{ videoFinalPrescription.phase.completeRevolutions }} pedalada(s) completas ·
+            {{ videoFinalPrescription.phase.cadenceRpm || '--' }} rpm ·
+            perfil virado para {{ videoFinalPrescription.phase.direction === 'mirrored' ? 'a esquerda' : 'a direita' }} ·
+            {{ videoFinalPrescription.scan?.samples || 0 }} amostras ·
+            janela de fase ±{{ videoFinalPrescription.phase.windowDeg }}°
           </span>
         </div>
 
-        <!-- Slider de Vaivém Dedicado ao Intervalo A-B com passo ultra-fino -->
-        <div class="range-slider-wrapper">
-          <span class="range-bound-tag range-start-tag">{{ (loopRange.start || 0).toFixed(2) }}s</span>
-          <input
-            type="range"
-            class="range-scrubber-slider"
-            :min="loopRange.start || 0"
-            :max="loopRange.end || videoDuration"
-            step="0.01"
-            :value="videoCurrentTime"
-            @mousedown="onRangeScrubStart"
-            @touchstart="onRangeScrubStart"
-            @input="onRangeScrubInput"
-            @mouseup="onRangeScrubEnd"
-            @touchend="onRangeScrubEnd"
-            title="Arraste para a frente e para trás para deslocar manualmente à velocidade que desejar"
-          />
-          <span class="range-bound-tag range-end-tag">{{ (loopRange.end || videoDuration).toFixed(2) }}s</span>
+        <p v-if="videoFinalPrescription.lockReason" class="vfa-lock-reason">
+          {{ videoFinalPrescription.lockReason }}
+        </p>
+
+        <div v-if="videoPositionsList.length" class="vfa-positions-grid">
+          <div
+            v-for="pos in videoPositionsList"
+            :key="pos.key"
+            class="vfa-position-card"
+            :class="{ 'is-empty': !pos.revolutions }"
+          >
+            <div class="vfa-position-head">
+              <strong>{{ pos.label }}</strong>
+              <span>{{ pos.revolutions }} pedalada(s) · erro de fase {{ pos.phaseErrorDeg }}°</span>
+            </div>
+            <ul class="vfa-metric-list">
+              <li
+                v-for="metric in pos.metrics"
+                :key="`${metric.key}-${metric.label}`"
+                :class="`metric-${metric.status}`"
+                :title="metric.note || ''"
+              >
+                <span class="vfa-metric-name">{{ metric.label }}</span>
+                <span class="vfa-metric-value">{{ metric.value }}{{ metric.unit }}</span>
+                <span class="vfa-metric-mad">MAD ±{{ metric.mad }}{{ metric.unit }}</span>
+                <span
+                  class="vfa-metric-target"
+                  :class="{ 'is-reference': !metric.target && metric.referenceRange }"
+                  :title="metric.referenceLabel || ''"
+                >
+                  {{ metric.target
+                    ? `alvo ${metric.target[0]}–${metric.target[1]}${metric.unit}`
+                    : (metric.referenceRange
+                        ? `referência nesta posição ${metric.referenceRange[0]}–${metric.referenceRange[1]}${metric.unit}`
+                        : 'descritivo') }}
+                </span>
+              </li>
+            </ul>
+            <!-- O alvo do joelho só é comparável na posição em que foi medido. -->
+            <p v-if="pos.footPositionPt" class="vfa-position-foot">
+              🦶 Medições feitas com o {{ pos.footPositionPt }} — nesta posição é que o número tem significado.
+            </p>
+          </div>
         </div>
 
-        <!-- Controlos de Vaivém Fotograma a Fotograma e Ajuste de Precisão -->
-        <div class="range-jog-controls-row">
-          <div class="jog-step-buttons">
-            <button
-              type="button"
-              class="btn-jog"
-              @click="stepRangeSeconds(-0.1)"
-              title="Recuar 0.1s"
-            >
-              ⏪ -0.1s
-            </button>
-            <button
-              type="button"
-              class="btn-jog"
-              @click="stepRangeFrame(-1)"
-              title="Recuar 1 fotograma (~33ms)"
-            >
-              ◀ -1 Frame
-            </button>
-            <button
-              type="button"
-              class="btn-jog btn-jog-play"
-              @click="toggleVideoPlay"
-              title="Reproduzir / Pausar intervalo"
-            >
-              {{ isVideoPlaying ? '⏸ Pausa' : '▶ Play' }}
-            </button>
-            <button
-              type="button"
-              class="btn-jog"
-              @click="stepRangeFrame(1)"
-              title="Avançar 1 fotograma (~33ms)"
-            >
-              +1 Frame ▶
-            </button>
-            <button
-              type="button"
-              class="btn-jog"
-              @click="stepRangeSeconds(0.1)"
-              title="Avançar 0.1s"
-            >
-              +0.1s ⏩
-            </button>
+        <!-- ================================================================
+             RESULTADO DE AJUSTES POR BAIXO DOS CARTÕES (mesmo formato da
+             análise de fotos): componente → o que fazer → onde está mal →
+             POSIÇÃO DO PÉ onde foi medido → consequência evitada.
+             ================================================================ -->
+        <div v-if="videoFinalPrescription.status === 'ready'" class="vfa-adjustments-block">
+          <div class="vfa-adjustments-head">
+            <h5>🔧 Resultado: ajustes a fazer</h5>
+            <span class="vfa-adjustments-count">
+              {{ videoAdjustmentCount === 0
+                ? 'Nenhum desvio fora da tolerância'
+                : `${videoAdjustmentCount} componente(s) a afinar` }}
+              · {{ videoAdjustments.length }} linha(s), cada uma com a posição do pé onde foi medida
+            </span>
           </div>
 
-          <div class="range-pos-telemetry">
-            <span class="telemetry-time">
-              Posição: <strong>{{ videoCurrentTime.toFixed(2) }}s</strong>
-            </span>
-            <span class="telemetry-rel">
-              (+{{ rangeRelativeCurrentTime.toFixed(2) }}s | {{ rangeProgressPercent }}% do ciclo)
-            </span>
+          <div v-if="videoAdjustments.length > 0" class="consolidated-actions-table-wrapper">
+            <table class="consolidated-actions-table">
+              <thead>
+                <tr>
+                  <th>Componente da Bicicleta</th>
+                  <th>Estado</th>
+                  <th>O Que Se Deve Fazer (Afinação Mecânica)</th>
+                  <th>Onde Está Mal / Graus</th>
+                  <th>Posição do Pé na Pedaleira</th>
+                  <th>Consequência Clínica Evitada</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(act, aIdx) in videoAdjustments" :key="`vfa-adj-${aIdx}`" :class="`row-${act.status}`">
+                  <td class="col-component">
+                    <strong>{{ act.component }}</strong>
+                    <span class="source-photo-tag">Fonte: {{ act.source || 'vídeo completo' }}</span>
+                  </td>
+                  <td class="col-badge">
+                    <span class="issue-status-badge" :class="`badge-${act.status}`">{{ act.badge }}</span>
+                  </td>
+                  <td class="col-action"><strong>{{ act.whatToDo || act.action }}</strong></td>
+                  <td class="col-degrees">
+                    {{ act.degreesInfo }}
+                    <span v-if="act.measuredLine !== '—'" class="vfa-adjustment-measured">{{ act.measuredLine }}</span>
+                  </td>
+                  <td class="col-position">
+                    <strong>{{ act.positionLine }}</strong>
+                    <span v-if="act.positionFoot" class="vfa-adjustment-foot">🦶 {{ act.positionFoot }}</span>
+                  </td>
+                  <td class="col-harm"><span class="harm-pill">{{ act.harmDone }}</span></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+
+          <div v-else class="consolidated-perfect-alert">
+            🎉 <strong>Excelente!</strong> Nenhum desvio fora da tolerância ergonómica no vídeo analisado.
+          </div>
+
+          <p class="vfa-adjustments-note">
+            Cada linha foi medida na posição do pé indicada: o joelho com o pé em cima (12h) não é
+            comparável com o joelho com o pé em baixo (6h) — só às 6h é que o joelho define a altura do selim.
+          </p>
+        </div>
+
+        <div v-if="videoFinalPrescription.profileNotes.length" class="vfa-profile-notes">
+          <div v-for="note in videoFinalPrescription.profileNotes" :key="note.key" class="vfa-note">
+            <strong>{{ note.icon }} {{ note.label }}:</strong> {{ note.text }}
+            <em class="vfa-note-source">Fonte: {{ note.source }}</em>
+          </div>
+        </div>
+
+        <div v-if="videoFinalPrescription.confidence.reasons.length" class="vfa-confidence">
+          <strong>Como foi medido / confiança:</strong>
+          <ul>
+            <li v-for="(reason, idx) in videoFinalPrescription.confidence.reasons" :key="idx">{{ reason }}</li>
+          </ul>
+        </div>
+
+        <div class="vfa-actions">
+          <button
+            v-if="activeTuningReport?.items?.length"
+            type="button"
+            class="btn-img-act"
+            @click="toggleTuningReportModal"
+          >
+            🔍 Ver prescrições detalhadas
+          </button>
+          <button type="button" class="btn-img-act" @click="copyFinalVideoReport">📋 Copiar relatório final</button>
+          <button type="button" class="btn-img-act" @click="startFullVideoAnalysis">🔁 Reanalisar vídeo</button>
         </div>
       </div>
     </div>
@@ -726,19 +958,36 @@
     <!-- Gráfico de Evolução dos Ângulos na Linha Temporal do Vídeo -->
     <div v-if="videoSourceMode === 'file' && uploadedVideoFile" class="video-chart-card">
       <div class="chart-header">
-        <h4>{{ t('anglesTimelineTitle') }}</h4>
-        <div class="chart-legend">
-          <span class="legend-item"><span class="legend-color" style="background-color: #38bdf8;"></span> Joelho</span>
-          <span class="legend-item"><span class="legend-color" style="background-color: #f59e0b;"></span> Costas</span>
-          <span class="legend-item"><span class="legend-color" style="background-color: #c084fc;"></span> Braço</span>
-          <span class="legend-item"><span class="legend-color" style="background-color: #f472b6;"></span> Cabeça</span>
+        <div class="chart-header-left">
+          <h4>{{ t('anglesTimelineTitle') }}</h4>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-color" style="background-color: var(--chart-series-knee);"></span> Joelho</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: var(--chart-series-torso);"></span> Costas</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: var(--chart-series-arm);"></span> Braço</span>
+            <span class="legend-item"><span class="legend-color" style="background-color: var(--chart-series-head);"></span> Cabeça</span>
+          </div>
         </div>
+        <button
+          v-if="chartHasSamples || videoSamplesHistory.length > 0"
+          type="button"
+          class="btn-clear-chart"
+          @click="clearVideoChart"
+          title="Limpar gráfico e reiniciar histórico de ângulos"
+        >
+          🗑️ Limpar Gráfico
+        </button>
       </div>
       <canvas
         ref="chartCanvas"
         class="chart-canvas"
         @click="handleChartCanvasClick"
       ></canvas>
+
+      <div v-if="chartHasSamples" class="chart-live-hint">
+        <span>{{ t('anglesTimelineLiveHint') }}</span>
+      </div>        <div v-if="!chartHasSamples && videoSourceMode === 'file' && uploadedVideoFile" class="chart-empty-hint">
+        <span>{{ t('anglesTimelineEmpty') }}</span>
+      </div>
 
       <!-- Resumo dos Movimentos e Diagnóstico do Vídeo -->
       <div class="video-summary-grid">
@@ -824,6 +1073,12 @@
         </div>
       </div>
 
+      <!-- Estabilização em curso: a foto é inferida várias vezes até ao ponto médio.
+           O traço corporal só é desenhado no fim, para não mostrar um resultado que ainda muda. -->
+      <div v-if="imageStabilization" class="image-stabilizing-chip">
+        {{ imageStabilizationLabel }}
+      </div>
+
       <!-- Lista / Grelha de Cartões das Fotos da Pedalada -->
       <div class="images-cards-grid" v-if="imageItems.length > 0">
         <div
@@ -872,6 +1127,21 @@
               </span>
             </div>
 
+            <!-- Prova de estabilidade: de quantas passagens veio este desenho e quanto variaram -->
+            <div v-if="imgItem.status === 'done' && imgItem.stabilization" class="image-card-stability">
+              🔁 {{ imageStabilizationNote(imgItem) }}
+            </div>
+
+            <!-- Posição dos Pontos Médios Achados das Análises -->
+            <div v-if="imgItem.status === 'done' && imgItem.medianJointPositions" class="image-card-median-summary">
+              <span class="median-chip" v-if="imgItem.medianJointPositions.joelho">
+                📍 Joelho: ({{ imgItem.medianJointPositions.joelho.pctX }}, {{ imgItem.medianJointPositions.joelho.pctY }})
+              </span>
+              <span class="median-chip" v-if="imgItem.medianJointPositions.tornozelo">
+                📍 Tornozelo: ({{ imgItem.medianJointPositions.tornozelo.pctX }}, {{ imgItem.medianJointPositions.tornozelo.pctY }})
+              </span>
+            </div>
+
             <div v-else-if="imgItem.status === 'error'" class="image-card-error">
               ⚠️ {{ imgItem.errorMessage || 'Erro ao detetar pose' }}
             </div>
@@ -912,6 +1182,33 @@
             <button type="button" class="btn-img-act btn-copy-diag" @click="copyActivePhotoReport">
               📋 Copiar Diagnóstico Desta Foto
             </button>
+          </div>
+        </div>
+
+        <!-- Quadro de Posição dos Pontos Médios Achados do Conjunto de Análises -->
+        <div v-if="activeImage.medianJointPositions" class="photo-median-positions-panel">
+          <div class="median-panel-header">
+            <h6>📍 Posição dos Pontos Médios Achados (Conjunto de {{ activeImage.stabilization?.passes || 5 }} Análises)</h6>
+            <span class="median-panel-tag">
+              Desvio máximo entre análises: ≤ {{ activeImage.stabilization?.spreadPercent ?? '0.4' }}%
+            </span>
+          </div>
+          <div class="median-points-grid">
+            <div
+              v-for="(pos, jointKey) in activeImage.medianJointPositions"
+              :key="jointKey"
+              class="median-point-card"
+            >
+              <div class="median-point-label">{{ pos.label }}</div>
+              <div class="median-point-coords">
+                <span class="coord-tag">X: <strong>{{ pos.pctX }}</strong></span>
+                <span class="coord-tag">Y: <strong>{{ pos.pctY }}</strong></span>
+              </div>
+              <div class="median-point-sub">
+                <span class="sub-pixels">{{ pos.pixelX }} × {{ pos.pixelY }} px</span>
+                <span v-if="pos.spread !== null" class="sub-spread">±{{ pos.spread }}%</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -982,21 +1279,27 @@
         </div>
       </div>
 
-      <!-- Resumo Final Consolidado dos Dados Totais Adquiridos (Prescrição Global de Afinações) -->
+      <!-- Prescrição Coerente Consolidada (a partir de >= 2 fotos, uma única direção por componente) -->
       <div v-if="multiPositionSummary.totalAnalyzed > 0" class="photo-consolidated-summary-panel">
         <div class="consolidated-header">
           <div class="consolidated-title-group">
-            <h4>📋 Resumo Final Consolidado dos Dados Totais Adquiridos</h4>
+            <h4>📋 Prescrição Coerente Consolidada de Afinações</h4>
             <p class="consolidated-subtitle">
-              Prescrição de afinações biomecânicas agregada com base em {{ multiPositionSummary.totalAnalyzed }} foto(s) analisada(s).
-              <span v-if="consolidatedPhotosScore !== null" class="overall-photos-score">
-                Índice Global de Ajuste: <strong>{{ consolidatedPhotosScore }}%</strong>
+              Agregação de {{ coherentPrescription.analyzedCount }} foto(s) analisada(s) com
+              <strong>uma única direção de ajuste por componente</strong>.
+              <span v-if="coherentPrescriptionScore !== null" class="overall-photos-score">
+                Índice Global de Ajuste: <strong>{{ coherentPrescriptionScore }}%</strong>
               </span>
             </p>
           </div>
           <div class="consolidated-header-actions">
-            <button type="button" class="btn-img-act btn-copy-consolidated" @click="copyConsolidatedPhotoReport">
-              📋 Copiar Resumo Final
+            <button
+              type="button"
+              class="btn-img-act btn-copy-consolidated"
+              :disabled="!coherentPrescription.ready"
+              @click="copyConsolidatedPhotoReport"
+            >
+              📋 Copiar Prescrição
             </button>
             <button type="button" class="btn-img-act btn-print-consolidated" @click="printPhotoReport">
               🖨️ Imprimir Resumo
@@ -1004,47 +1307,137 @@
           </div>
         </div>
 
-        <!-- Tabela Resumo Consolidada do que se deve fazer -->
-        <div class="consolidated-actions-table-wrapper" v-if="consolidatedPhotoActions.length > 0">
-          <table class="consolidated-actions-table">
-            <thead>
-              <tr>
-                <th>Componente da Bicicleta</th>
-                <th>Estado</th>
-                <th>O Que Se Deve Fazer (Afinação Mecânica)</th>
-                <th>Onde Está Mal / Graus</th>
-                <th>Consequência Clínica Evitada</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(act, aIdx) in consolidatedPhotoActions"
-                :key="aIdx"
-                :class="`row-${act.status}`"
-              >
-                <td class="col-component">
-                  <strong>{{ act.component }}</strong>
-                  <span class="source-photo-tag" v-if="act.photoName">Foto: {{ act.photoName }}</span>
-                </td>
-                <td class="col-badge">
-                  <span class="issue-status-badge" :class="`badge-${act.status}`">{{ act.badge }}</span>
-                </td>
-                <td class="col-action">
-                  <strong>{{ act.whatToDo }}</strong>
-                </td>
-                <td class="col-degrees">
-                  {{ act.degreesInfo }}
-                </td>
-                <td class="col-harm">
-                  <span class="harm-pill">{{ act.harmDone }}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Aviso de prontidão: exige no mínimo 2 fotos -->
+        <!-- NOTA IMPORTANTE: este ficheiro é carregado como bloco de template externo.
+             Nunca usar tags de fragmento de template aqui dentro (usar sempre div),
+             caso contrário o carregador de templates interpreta-as como um novo bloco
+             e o resto do componente é silenciosamente descartado. -->
+        <div v-if="!coherentPrescription.ready" class="prescription-readiness">
+          <span class="readiness-icon">⏳</span>
+          <div class="readiness-text">
+            <strong>Prescrição bloqueada por falta de fotos.</strong>
+            <p v-for="(notice, nIdx) in coherentPrescription.notices" :key="nIdx">{{ notice }}</p>
+          </div>
         </div>
 
-        <div v-else class="consolidated-perfect-alert">
-          🎉 <strong>Excelente!</strong> Nenhuma das fotos analisadas apresentou desvios fora da tolerância ergonómica. A bicicleta está afinada à medida do ciclista.
+        <div v-else class="prescription-ready">
+          <!-- Posições autoritativas em falta (ex.: sem foto a 6h ou a 3h) -->
+          <div v-if="coherentPrescription.missingPositions.length > 0" class="prescription-missing-positions">
+            ⚠️ Posições em falta para completar o diagnóstico:
+            <strong>{{ coherentPrescription.missingPositions.join(', ') }}</strong>.
+            Os componentes que dependem dessas posições não foram prescritos.
+          </div>
+
+          <!-- Tabela Resumo Consolidada do que se deve fazer -->
+          <div class="consolidated-actions-table-wrapper" v-if="coherentPrescription.prescriptions.length > 0">
+            <table class="consolidated-actions-table">
+              <thead>
+                <tr>
+                  <th>Componente da Bicicleta</th>
+                  <th>Estado</th>
+                  <th>O Que Se Deve Fazer (Afinação Mecânica)</th>
+                  <th>Onde Está Mal / Graus</th>
+                  <th>Consequência Clínica Evitada</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(act, aIdx) in coherentPrescription.prescriptions"
+                  :key="aIdx"
+                  :class="`row-${act.status}`"
+                >
+                  <td class="col-component">
+                    <strong>{{ act.component }}</strong>
+                    <span class="source-photo-tag">Fonte: {{ act.source }}</span>
+                  </td>
+                  <td class="col-badge">
+                    <span class="issue-status-badge" :class="`badge-${act.status}`">{{ act.badge }}</span>
+                  </td>
+                  <td class="col-action">
+                    <strong>{{ act.whatToDo }}</strong>
+                  </td>
+                  <td class="col-degrees">
+                    {{ act.degreesInfo }}
+                  </td>
+                  <td class="col-harm">
+                    <span class="harm-pill">{{ act.harmDone }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-else class="consolidated-perfect-alert">
+            🎉 <strong>Excelente!</strong> Nenhuma das fotos analisadas apresentou desvios fora da tolerância ergonómica. A bicicleta está afinada à medida do ciclista.
+          </div>
+
+          <!-- Avisos de coerência (fotos que divergem entre si) -->
+          <ul v-if="coherentPrescription.notices.length > 0" class="prescription-notices">
+            <li v-for="(notice, nIdx) in coherentPrescription.notices" :key="nIdx">{{ notice }}</li>
+          </ul>
+
+          <!-- OTIMIZAÇÃO POR POSIÇÃO DO PÉ: o alvo ótimo muda com a posição do pé. -->
+          <div v-if="positionOptimizationRows.length > 0" class="position-optimization-panel">
+            <h5>🦶 Otimização por Posição do Pé (o alvo acompanha a posição)</h5>
+            <p class="pos-opt-intro">
+              Cada posição tem a sua própria referência: <strong>12h</strong> → fecho da anca ·
+              <strong>3h</strong> → KOPS + tornozelo de potência · <strong>6h</strong> → extensão do joelho
+              (altura do selim) · <strong>9h</strong> → transição do tornozelo (registo, sem ordem).
+            </p>
+            <div v-for="(pos, pIdx) in positionOptimizationRows" :key="pIdx" class="pos-opt-card">
+              <div class="pos-opt-head">
+                <strong>{{ pos.label }}</strong>
+                <span class="pos-opt-summary">{{ pos.summary }}</span>
+              </div>
+              <ul class="pos-opt-metrics">
+                <li v-for="(metric, mIdx) in pos.metrics" :key="mIdx" :class="`pos-metric-${metric.status}`">
+                  <span class="pos-metric-label">{{ metric.label }}:</span>
+                  <span class="pos-metric-value">{{ metric.measured === null ? '—' : `${metric.measured}${metric.unit || '°'}` }}</span>
+                  <span class="pos-metric-target">
+                    {{ metric.target === null ? 'sem alvo de posição (alvo vem do regime/modalidade)' : `alvo ${metric.target[0]}–${metric.target[1]}${metric.unit === 'mm' ? ' mm' : '°'}` }}
+                  </span>
+                  <span class="pos-metric-verdict">{{ metric.verdict }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- RESUMO TÉCNICO: TODOS os dados fornecidos contam (ou dizem porque não contam). -->
+          <div v-if="technicalSummaryRows.length > 0" class="technical-summary-panel">
+            <div class="tech-sum-header">
+              <h5>🧾 Resumo Técnico de Ajuste — em que contribuiu cada dado fornecido</h5>
+              <div class="tech-sum-actions">
+                <span v-if="technicalSummaryCounts" class="tech-sum-counts">
+                  ✅ {{ technicalSummaryCounts.counted }} contam ·
+                  ◻️ {{ technicalSummaryCounts.context }} sem efeito nesta análise ·
+                  ⬜ {{ technicalSummaryCounts.missing }} em falta
+                </span>
+                <button type="button" class="btn-img-act" @click="copyTechnicalSummary">
+                  📋 Copiar Resumo Técnico
+                </button>
+              </div>
+            </div>
+            <table class="tech-sum-table">
+              <thead>
+                <tr>
+                  <th>Grupo</th>
+                  <th>Dado fornecido</th>
+                  <th>Valor</th>
+                  <th>O que alterou na decisão</th>
+                  <th>Origem</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rIdx) in technicalSummaryRows" :key="rIdx" :class="`tech-sum-${row.status}`">
+                  <td>{{ row.group }}</td>
+                  <td><strong>{{ row.label }}</strong></td>
+                  <td>{{ row.value === null || row.value === '' ? '—' : `${row.value}${row.unit ? ` ${row.unit}` : ''}` }}</td>
+                  <td>{{ row.effect }}</td>
+                  <td class="tech-sum-source">{{ row.source }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -1057,70 +1450,106 @@
           </button>
         </div>
 
+        <!-- Uma carta por posição do pé, gerada pelo MESMO motor que avalia as fotos (`phaseCards`
+             ← positionOptimization): o alvo, o valor medido e a ordem de cada fase saem do SSOT. Assim
+             o alvo acompanha sempre a posição (12h fecho da anca · 3h KOPS e tornozelo de potência ·
+             6h extensão do joelho/altura do selim · 9h transição do tornozelo) e NÃO há números fixos
+             de estrada aplicados a todas as fases. -->
         <div class="comp-phases-grid">
-          <!-- Fase BDC (6h) -->
-          <div class="comp-phase-card" :class="multiPositionSummary.bdcItem ? 'has-data' : 'no-data'">
+          <div
+            v-for="phase in phaseCards"
+            :key="phase.id"
+            class="comp-phase-card"
+            :class="phase.hasData ? 'has-data' : 'no-data'"
+          >
             <div class="phase-card-top">
-              <span class="phase-icon">🔻</span>
-              <strong>BDC (Ponto Morto Inferior - 6h)</strong>
+              <span class="phase-icon">{{ phase.icon }}</span>
+              <strong>{{ phase.label }}</strong>
             </div>
-            <p class="phase-goal">Meta: Extensão máx. joelho 145°-155° (Holmes)</p>
-            <div v-if="multiPositionSummary.bdcItem" class="phase-values">
-              <div class="val-row">
-                <span>Ângulo Medido:</span>
-                <strong :style="{ color: multiPositionSummary.bdcItem.angles.joelho >= 145 && multiPositionSummary.bdcItem.angles.joelho <= 155 ? '#10b981' : '#f59e0b' }">
-                  {{ multiPositionSummary.bdcItem.angles.joelho ? `${Math.round(multiPositionSummary.bdcItem.angles.joelho)}°` : '--' }}
-                </strong>
-              </div>
-              <span class="verdict-tag">{{ multiPositionSummary.bdcItem.report?.items[0]?.action || 'Avaliado' }}</span>
+            <p class="phase-goal">{{ phase.goal }}</p>
+            <!-- Prioridade da fase: só o que excede o erro de repetição publicado conta como
+                 desvio a corrigir — é o que separa uma leitura de fitter de um alarme automático. -->
+            <p v-if="phase.priority" class="phase-priority">
+              <span class="phase-priority-tag">Prioridade</span>
+              {{ phase.priority }} — {{ phase.priorityDetail }}
+            </p>
+            <ul v-if="phase.metrics.length > 0" class="phase-metrics">
+              <li
+                v-for="(metric, mIdx) in phase.metrics"
+                :key="mIdx"
+                :class="`pos-metric-${metric.status}`"
+              >
+                <span class="pos-metric-label">{{ metric.label }}:</span>
+                <span class="pos-metric-value">{{ metric.measured }}{{ metric.unit || '°' }}</span>
+                <span class="pos-metric-target">{{ metric.targetText }}</span>
+                <span class="pos-metric-verdict">{{ metric.verdict }}</span>
+                <span v-if="metric.evidenceLabel" class="pos-metric-evidence">{{ metric.evidenceLabel }}</span>
+                <span v-if="metric.order" class="phase-metric-action">→ {{ metric.order }}</span>
+                <span v-if="metric.professionalNote" class="pos-metric-note">{{ metric.professionalNote }}</span>
+              </li>
+            </ul>
+            <div v-else class="phase-placeholder">
+              Foto em falta: atribua uma foto a {{ phase.label }} para esta fase entrar na recomendação.
             </div>
-            <div v-else class="phase-placeholder">Foto BDC em falta (atribua uma foto a BDC)</div>
-          </div>
-
-          <!-- Fase 90° (3h) -->
-          <div class="comp-phase-card" :class="multiPositionSummary.ninetyItem ? 'has-data' : 'no-data'">
-            <div class="phase-card-top">
-              <span class="phase-icon">➡️</span>
-              <strong>Potência (90° / 3h - Horizontal)</strong>
-            </div>
-            <p class="phase-goal">Meta: Alinhamento KOPS patela/pedal (±10 mm)</p>
-            <div v-if="multiPositionSummary.ninetyItem" class="phase-values">
-              <div class="val-row">
-                <span>Desvio KOPS:</span>
-                <strong>
-                  {{ multiPositionSummary.ninetyItem.kopsResult ? `${multiPositionSummary.ninetyItem.kopsResult.offsetMm} mm` : '--' }}
-                </strong>
-              </div>
-              <span class="verdict-tag">{{ multiPositionSummary.ninetyItem.kopsResult?.actionPt || 'Avaliado' }}</span>
-            </div>
-            <div v-else class="phase-placeholder">Foto 90° em falta (atribua uma foto a 90°)</div>
-          </div>
-
-          <!-- Fase TDC (12h) -->
-          <div class="comp-phase-card" :class="multiPositionSummary.tdcItem ? 'has-data' : 'no-data'">
-            <div class="phase-card-top">
-              <span class="phase-icon">🔺</span>
-              <strong>TDC (Ponto Morto Superior - 12h)</strong>
-            </div>
-            <p class="phase-goal">Meta: Fecho da Anca > 50° (sem pinçamento femoroacetabular)</p>
-            <div v-if="multiPositionSummary.tdcItem" class="phase-values">
-              <div class="val-row">
-                <span>Ângulo da Anca:</span>
-                <strong :style="{ color: (multiPositionSummary.tdcItem.angles.anca || 0) >= 50 ? '#10b981' : '#ef4444' }">
-                  {{ multiPositionSummary.tdcItem.angles.anca ? `${Math.round(multiPositionSummary.tdcItem.angles.anca)}°` : '--' }}
-                </strong>
-              </div>
-              <span class="verdict-tag">
-                {{ (multiPositionSummary.tdcItem.angles.anca || 0) >= 50 ? '✅ Anca Desobstruída' : '⚠️ Risco Pinçamento' }}
-              </span>
-            </div>
-            <div v-else class="phase-placeholder">Foto TDC em falta (atribua uma foto a TDC)</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Painel Lateral de Leituras Articulares em Tempo Real -->
+    </div>
+
+    <!-- Barra lateral: postura (ereta vs aero), leituras em direto, prescrição final e orientações -->
+    <aside class="analysis-rail">
+    <!-- Postura em análise: estrada (ereta) ou aero (barras de contra-relógio).
+         Em aero os braços ficam fletidos sobre as almofadas e o tronco muito plano, pelo que os
+         alvos de estrada (cotovelo 150–165°, tronco 40–50°) dariam ordens erradas. -->
+    <div class="posture-panel" :class="{ 'is-aero': posture === 'aero' }">
+      <div class="posture-panel-head">
+        <strong>{{ postureMode.icon }} {{ postureMode.shortLabel }}</strong>
+        <span class="posture-source-tag">{{ postureSourceLabel }}</span>
+      </div>
+
+      <div class="posture-switch" role="group" aria-label="Postura do atleta">
+        <button type="button" :class="{ 'is-active': posture === 'upright' }" @click="selectPosture('upright')">
+          🚴 Estrada
+        </button>
+        <button type="button" :class="{ 'is-active': posture === 'aero' }" @click="selectPosture('aero')">
+          🪂 Aero
+        </button>
+      </div>
+
+      <p class="posture-targets-line">{{ postureSummaryText }}</p>
+
+      <!-- Pergunta de confirmação: só aparece quando os sinais apontam aero sem certeza suficiente -->
+      <div v-if="showPosturePrompt" class="posture-prompt">
+        <p class="posture-question"><strong>O atleta está em posição aero?</strong></p>
+        <p class="posture-prompt-note">
+          Os cotovelos estão fletidos com o antebraço apoiado e o tronco muito plano — isso é a
+          assinatura de barras de contra-relógio, mas também pode ser má afinação de estrada.
+        </p>
+        <ul class="posture-reasons">
+          <li v-for="(reason, idx) in postureDetectionReasons" :key="idx">{{ reason }}</li>
+        </ul>
+        <div class="posture-prompt-actions">
+          <button type="button" class="btn-posture-aero" @click="confirmAeroPosture">🪂 Sim, é aero</button>
+          <button type="button" class="btn-posture-upright" @click="dismissAeroPosture">🚴 Não, é estrada</button>
+        </div>
+      </div>
+
+      <p v-else-if="postureDetectionLine" class="posture-detection-line">
+        {{ postureDetectionLine }}
+      </p>
+
+      <button
+        v-if="postureSource === 'manual'"
+        type="button"
+        class="btn-posture-auto"
+        @click="useAutomaticPosture"
+      >
+        🤖 Detetar automaticamente
+      </button>
+    </div>
+
     <div class="live-metrics-panel">
       <h3>📊 Leituras em Direto</h3>
 
@@ -1166,6 +1595,23 @@
         </div>
       </div>
 
+      <!-- Antebraço: só tem alvo em posição aero (referência 0–20° face à horizontal) -->
+      <div
+        v-if="posture === 'aero' && targets.antebraco"
+        class="metric-row"
+        :class="getComplianceClass(liveAngles.antebraco, targets.antebraco)"
+      >
+        <div class="metric-header">
+          <span class="joint-title">🪂 Antebraço (face à horizontal)</span>
+          <span class="angle-badge">
+            {{ liveAngles.antebraco !== null ? `${Math.round(liveAngles.antebraco)}°` : '--' }}
+          </span>
+        </div>
+        <div class="metric-target">
+          {{ t('targetRange') }} {{ targets.antebraco[0] }}° - {{ targets.antebraco[1] }}°
+        </div>
+      </div>
+
       <!-- Tornozelo -->
       <div class="metric-row" :class="getComplianceClass(liveAngles.tornozelo, targets.ankle)">
         <div class="metric-header">
@@ -1179,8 +1625,9 @@
         </div>
       </div>
 
-      <!-- Cabeça / Cervical -->
-      <div class="metric-row" :class="getComplianceClass(liveAngles.cabeca, targets.head)">
+      <!-- Cabeça / Cervical: em posição aero não tem alvo numérico (é medida descritiva),
+           por isso a linha só existe quando existe alvo. -->
+      <div v-if="targets.head" class="metric-row" :class="getComplianceClass(liveAngles.cabeca, targets.head)">
         <div class="metric-header">
           <span class="joint-title">👤 {{ t('headAngleLabel') }}</span>
           <span class="angle-badge">
@@ -1201,19 +1648,56 @@
           </span>
         </div>
         <p class="kops-text">{{ kopsResult.labelPt }}</p>
+        <p v-if="posture === 'aero'" class="kops-aero-note">
+          ℹ️ Em posição aero este desvio é descritivo: a referência é o ângulo de assento (78–86°),
+          não o joelho sobre o eixo do pedal.
+        </p>
       </div>
 
-      <!-- Card Resumo do Relatório de Afinações em Tempo Real -->
-      <div class="tuning-summary-card" @click="toggleTuningReportModal">
+      <!--
+        Card Resumo: em modo vídeo mostra o estado da ANÁLISE INTEGRAL (bloqueada até 100%).
+        `v-if="activeTuningReport"` é essencial: em modo ficheiro o relatório é `null` até o
+        vídeo estar todo analisado — sem esta guarda, ler `.locked` de `null` rebentava o render
+        ("Cannot read properties of null (reading 'locked')") mal se carregava o vídeo.
+      -->
+      <div
+        v-if="activeTuningReport"
+        class="tuning-summary-card"
+        :class="{ 'is-locked': activeTuningReport.locked, 'is-pending': activeTuningReport.locked && !isFullVideoScanRunning }"
+        @click="activeTuningReport.locked ? (!isFullVideoScanRunning && isVideoModeFile ? requestFullVideoAnalysis() : null) : toggleTuningReportModal()"
+      >
         <div class="tuning-card-header">
-          <h4>📋 Afinações Mecânicas</h4>
+          <h4 v-if="isVideoModeFile">
+            {{ activeTuningReport.locked ? (isFullVideoScanRunning ? '🔎 Análise Integral em Curso' : '🔎 Análise Integral do Vídeo') : '📋 Afinações — Análise Final' }}
+          </h4>
+          <h4 v-else>📋 Afinações Mecânicas</h4>
           <span class="tuning-score-badge" :style="{ backgroundColor: activeTuningReport.verdictColor }">
-            {{ activeTuningReport.score }}%
+            {{ activeTuningReport.locked ? (isFullVideoScanRunning ? `${Math.round(activeTuningReport.percent)}%` : 'Pendente') : `${activeTuningReport.score}%` }}
           </span>
         </div>
         <p class="tuning-verdict-text">{{ activeTuningReport.verdict }}</p>
-        <button type="button" class="btn-open-tuning-modal">
-          🔍 Ver Relatório de Afinações
+
+        <!-- Barra de Progresso quando o Varrimento está Ativamente a Correr -->
+        <div v-if="activeTuningReport.locked && isFullVideoScanRunning" class="scan-progress-track scan-progress-inline">
+          <div class="scan-progress-fill" :style="{ width: `${activeTuningReport.percent}%` }"></div>
+        </div>
+
+        <!-- Botão para Arrancar a Análise se Estiver Pendente -->
+        <button
+          v-if="activeTuningReport.locked && !isFullVideoScanRunning && isVideoModeFile"
+          type="button"
+          class="btn-start-scan-hero"
+          @click.stop="requestFullVideoAnalysis"
+        >
+          ▶ Iniciar Análise Integral
+        </button>
+
+        <span v-if="activeTuningReport.locked" class="scan-locked-note">
+          {{ isFullVideoScanRunning ? 'A calcular pedaladas (12h, 3h, 6h, 9h)...' : 'Calcula todas as pedaladas para emitir a prescrição final única.' }}
+        </span>
+
+        <button v-else type="button" class="btn-open-tuning-modal">
+          🔍 {{ isVideoModeFile ? 'Ver Relatório Final' : 'Ver Relatório de Afinações' }}
         </button>
       </div>
 
@@ -1227,10 +1711,11 @@
         </ul>
       </div>
     </div>
+    </aside>
   </div>
 
-  <!-- Painel de Correção Postural & Diagnóstico Clínico (Diretamente abaixo do vídeo) -->
-  <div class="clinical-corrections-panel" v-if="activeTuningReport && activeTuningReport.items">
+  <!-- Painel de Correção Postural & Diagnóstico Clínico (Abaixo da grelha de trabalho) -->
+  <div class="clinical-corrections-panel" v-if="activeTuningReport && activeTuningReport.items && activeTuningReport.items.length">
     <div class="clinical-panel-header">
       <div class="clinical-title-row">
         <div class="clinical-title-group">
@@ -1244,15 +1729,22 @@
       <p class="clinical-subtitle">
         Diagnóstico detalhado: Ações práticas passo a passo, graus ideais com desvio, fundamentação biomecânica e prevenção de lesões.
       </p>
+      <!-- Com que perfil de postura foi feita a análise (e com que fontes). -->
+      <p v-if="activeTuningReport.posture" class="report-posture-line">
+        {{ activeTuningReport.posture.targetsLine }}
+        <span class="report-posture-sources">
+          Fontes: {{ (activeTuningReport.posture.sources || []).join(' · ') }}
+        </span>
+      </p>
     </div>
 
     <!-- Alerta quando o enquadramento não inclui o corpo todo -->
-    <div v-if="!isFullBodyVisible" class="body-incomp-banner">
+    <div v-if="!analysisBodyComplete" class="body-incomp-banner">
       ⚠️ <strong>Enquadramento Parcial:</strong> Para orientações clínicas seguras da perna aos braços e cabeça, posicione a câmara para visualizar o atleta na totalidade (em falta: {{ missingBodyPartsText }}). Recomendações em pausa.
     </div>
 
     <!-- Lista de Articulações Fora da Posição Ideal -->
-    <div class="clinical-cards-grid" v-if="isFullBodyVisible && nonCompliantItems.length">
+    <div class="clinical-cards-grid" v-if="analysisBodyComplete && nonCompliantItems.length">
       <div
         v-for="(item, idx) in nonCompliantItems"
         :key="idx"
@@ -1287,7 +1779,7 @@
     </div>
 
     <!-- Estado quando todos os ângulos estão em perfeita harmonia -->
-    <div v-else-if="isFullBodyVisible && !nonCompliantItems.length" class="clinical-all-good-box">
+    <div v-else-if="analysisBodyComplete && !nonCompliantItems.length" class="clinical-all-good-box">
       <span class="all-good-icon">🎯</span>
       <div class="all-good-content">
         <h4>Postura Ergonómica Ideal!</h4>
@@ -1309,6 +1801,73 @@
     <button @click="completeSession" class="btn-action finish-btn">
       {{ t('completeSessionBtn') }} →
     </button>
+  </div>
+
+  <!-- Modal do Perfil do Atleta: pedido no INÍCIO da análise integral do vídeo -->
+  <div v-if="showProfileModal" class="profile-overlay-modal" @click.self="closeProfileModal">
+    <div class="profile-modal-box">
+      <div class="profile-modal-header">
+        <h3>👤 Perfil do Atleta — dados para uma análise rigorosa</h3>
+        <button type="button" class="btn-close-profile" @click="closeProfileModal">✕</button>
+      </div>
+
+      <p class="profile-modal-intro">
+        O <strong>peso</strong>, o <strong>número de sapato</strong> e a <strong>cintura</strong> já são
+        pedidos no passo 1 e vêm preenchidos para aqui: só aparece o que faltar. Não alteram os alvos
+        angulares — alteram a leitura mecânica. O peso define o sag de suspensão e a carga no selim; o
+        tamanho do sapato orienta o recuo dos travessões em relação ao eixo do pedal; a cintura é
+        contexto do fecho da anca às 12h.
+      </p>
+
+      <div class="profile-field-grid">
+        <label class="profile-field">
+          <span class="profile-label">⚖️ Peso (kg) *</span>
+          <input type="number" min="30" max="180" step="0.5" v-model="athleteProfile.weightKg" placeholder="ex.: 78.5" />
+        </label>
+        <label class="profile-field">
+          <span class="profile-label">👟 Número de sapato (EU) *</span>
+          <input type="number" min="33" max="52" step="0.5" v-model="athleteProfile.shoeSizeEu" placeholder="ex.: 43" />
+        </label>
+        <label class="profile-field">
+          <span class="profile-label">📏 Cintura (cm) — opcional</span>
+          <input type="number" min="50" max="160" step="0.5" v-model="athleteProfile.waistCm" placeholder="ex.: 84" />
+        </label>
+        <label class="profile-field">
+          <span class="profile-label">📏 Altura (cm) — opcional</span>
+          <input type="number" min="130" max="215" step="0.5" v-model="athleteProfile.heightCm" placeholder="ex.: 178" />
+        </label>
+        <label class="profile-field">
+          <span class="profile-label">📐 Costura interior (cm) — opcional</span>
+          <input type="number" min="55" max="115" step="0.5" v-model="athleteProfile.inseamCm" placeholder="ex.: 83" />
+        </label>
+        <label class="profile-field">
+          <span class="profile-label">⚙️ Travessões / Cleats — opcional</span>
+          <select v-model="athleteProfile.cleatPosition" class="profile-select">
+            <option value="">Não especificado</option>
+            <option value="rearward">Recuados (Atrás)</option>
+            <option value="neutral">Neutro (Centro)</option>
+            <option value="forward">Avançados (Frente)</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="profile-modal-hint">
+        A costura interior é a variável que alimenta as fórmulas de altura de selim (LeMond: × 0,883).
+        Sem ela a análise angular do vídeo continua válida — deixa apenas de haver estimativa por fórmula.
+      </p>
+
+      <div v-if="!athleteProfileComplete" class="profile-modal-warning">
+        ⚠️ Falta indicar: {{ athleteProfileMissingText }}. Sem estes dois dados não se inicia a análise integral.
+      </div>
+
+      <div class="profile-modal-actions">
+        <button type="button" class="btn-profile-secondary" @click="clearAthleteProfile">🗑 Limpar</button>
+        <button type="button" class="btn-profile-secondary" @click="closeProfileModal">Cancelar</button>
+        <button type="button" class="btn-profile-primary" @click="saveAthleteProfile">
+          {{ profilePendingAction === 'video-analysis' ? '✅ Guardar e analisar o vídeo' : '✅ Guardar perfil' }}
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal Flutuante de Diagnóstico e Consola de Logs -->
@@ -1365,12 +1924,22 @@
   </div>
 
   <!-- Modal Flutuante do Relatório Completo de Afinações em Tempo Real -->
-  <div v-if="showTuningReportModal" class="tuning-overlay-modal" @click.self="toggleTuningReportModal">
+  <div
+    v-if="showTuningReportModal && activeTuningReport?.items?.length"
+    class="tuning-overlay-modal"
+    @click.self="toggleTuningReportModal"
+  >
     <div class="tuning-modal-box">
       <div class="tuning-modal-header">
         <div class="tuning-header-title">
-          <h3>📋 Relatório de Afinações Mecânicas ao Vivo</h3>
-          <span class="tuning-timestamp">Atualizado às {{ activeTuningReport.timestamp }}</span>
+          <h3 v-if="isVideoModeFile">📋 Relatório Final — Análise Integral do Vídeo</h3>
+          <h3 v-else>📋 Relatório de Afinações Mecânicas ao Vivo</h3>
+          <span v-if="isVideoModeFile" class="tuning-timestamp">
+            {{ videoFinalPrescription?.video?.name || 'Vídeo analisado' }} ·
+            {{ videoFinalPrescription?.phase?.completeRevolutions || 0 }} pedalada(s) ·
+            confiança {{ videoFinalPrescription?.confidence?.label }}
+          </span>
+          <span v-else class="tuning-timestamp">Atualizado às {{ activeTuningReport.timestamp }}</span>
         </div>
         <button type="button" class="btn-close-tuning" @click="toggleTuningReportModal">✕</button>
       </div>
@@ -1382,8 +1951,8 @@
         </div>
         <div class="overview-info">
           <h4>{{ activeTuningReport.verdict }}</h4>
-          <p v-if="!isFullBodyVisible" class="text-warn">
-            ⚠️ O atleta não está enquadrado na totalidade (em falta: {{ missingBodyPartsText }}). Recomenda-se enquadramento de corpo inteiro para máxima precisão.
+          <p v-if="!analysisBodyComplete" class="text-warn">
+            ⚠️ O atleta não está enquadrado na totalidade{{ isVideoModeFile ? ` em ${Math.round((1 - (videoFinalPrescription?.fullBodyRatio ?? 0)) * 100)}% das medições` : ` (em falta: ${missingBodyPartsText})` }}. Recomenda-se enquadramento de corpo inteiro para máxima precisão.
           </p>
           <p v-else class="text-ok">
             ✅ Análise com corpo inteiro calibrado (Pernas, Tronco, Braços e Cabeça).
@@ -1417,6 +1986,11 @@
             <span class="modal-field-tag">📐 Graus:</span> {{ item.degreesInfo }}
           </div>
 
+          <!-- Prova estatística da análise integral do vídeo (nº de pedaladas, dispersão, fase) -->
+          <div class="modal-item-field" v-if="item.evidence && item.evidence.length">
+            <span class="modal-field-tag">📊 Prova:</span> {{ item.evidence.join(' | ') }}
+          </div>
+
           <div class="modal-item-field" v-if="item.why">
             <span class="modal-field-tag">💡 Porquê:</span> {{ item.why }}
           </div>
@@ -1427,8 +2001,14 @@
         </div>
       </div>
 
-      <!-- Ações do Relatório (Copiar, Imprimir, Fechar) -->
+      <!-- Ações do Relatório (Copiar, Guardar Linha de Base, Comparar Antes vs Depois, Fechar) -->
       <div class="tuning-modal-actions">
+        <button type="button" class="btn-tuning-act btn-save-baseline" @click="saveAsBaselineSession" title="Guarda esta análise como referência antes do ajuste na bicicleta">
+          💾 Guardar Linha de Base
+        </button>
+        <button type="button" class="btn-tuning-act btn-compare-sessions" @click="openComparatorWithSession" title="Abre o comparador para conferir se após a aplicação das sugestões está melhor">
+          ⚖ Comparar Antes vs Depois
+        </button>
         <button type="button" class="btn-tuning-act btn-copy-report" @click="copyTuningReport">
           📋 Copiar Resumo
         </button>
@@ -1436,7 +2016,7 @@
           🖨 Imprimir / PDF
         </button>
         <button type="button" class="btn-tuning-act btn-close-modal" @click="toggleTuningReportModal">
-          Fechar
+          ◀ Voltar ao Vídeo
         </button>
       </div>
     </div>

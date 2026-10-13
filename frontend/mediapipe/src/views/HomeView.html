@@ -45,6 +45,16 @@
       <span class="step-num">4</span>
       <span class="step-text">{{ t('tabComparator') }}</span>
     </button>
+
+    <!-- Etapa 5: Estação Biomecânica DirectML & Seleção de Motores -->
+    <button
+      class="step-tab"
+      :class="{ active: currentTab === 'workbench' }"
+      @click="currentTab = 'workbench'"
+    >
+      <span class="step-num">⚡</span>
+      <span class="step-text">{{ t('tabWorkbench') }}</span>
+    </button>
   </nav>
 
   <!-- Conteúdo Dinâmico por Etapa -->
@@ -60,6 +70,7 @@
       v-else-if="currentTab === 'camera'"
       :session-data="sessionData"
       @session-completed="handleSessionCompleted"
+      @open-comparator="handleOpenComparator"
     />
 
     <!-- Etapa 3: Relatório Final e Recomendações de Ajuste Físico -->
@@ -75,6 +86,11 @@
       :athlete-id="sessionData?.athlete?.id"
       :current-session="reportData"
       @back-to-report="currentTab = 'report'"
+    />
+
+    <!-- Etapa 5: Estação Biomecânica DirectML (Motores de Pose GPU/CPU) -->
+    <BiomechanicalWorkbench
+      v-else-if="currentTab === 'workbench'"
     />
   </div>
 </div>

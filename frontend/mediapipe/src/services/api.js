@@ -17,6 +17,11 @@ const apiClient = axios.create({
   },
 });
 
+// O cliente é partilhado: quem precisa de uma rota da API (ex.: compilação do GIF) tem de usar a
+// MESMA base URL, senão o pedido relativo cai no servidor de desenvolvimento (404) e a exportação
+// degrada silenciosamente para um fotograma estático.
+export { apiClient, getBaseUrl };
+
 export const apiService = {
   // Estimativa biomecânica teórica imediata
   async estimateTheoreticalFit(payload) {

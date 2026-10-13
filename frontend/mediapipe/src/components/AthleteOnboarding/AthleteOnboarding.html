@@ -4,6 +4,41 @@
     <p class="subtitle">{{ t('onboardingSubtitle') }}</p>
   </div>
 
+  <!--
+    Secção 0: Histórico dos últimos perfis usados neste dispositivo (máx. 5, mais recente primeiro).
+    Clicar num chip preenche o formulário inteiro — é o "auto preencher" pedido. O histórico é
+    local (`localStorage`) e cada submissão atualiza/substitui o perfil com o mesmo nome.
+  -->
+  <div v-if="profiles.length" class="profiles-panel">
+    <div class="profiles-header">
+      <h3 class="profiles-title">🗂️ {{ t('profilesTitle') }}</h3>
+      <span class="profiles-hint">{{ t('profilesHint') }}</span>
+    </div>
+    <ul class="profiles-list">
+      <li v-for="profile in profiles" :key="profile.id" class="profile-chip">
+        <button
+          type="button"
+          class="profile-chip-apply"
+          :title="t('profilesApply')"
+          :aria-label="`${t('profilesApply')}: ${profile.name}`"
+          @click="useProfile(profile.id)"
+        >
+          <span class="profile-chip-name">{{ profile.name }}</span>
+          <span class="profile-chip-summary">{{ profileSummary(profile) }}</span>
+        </button>
+        <button
+          type="button"
+          class="profile-chip-remove"
+          :title="t('profilesRemove')"
+          :aria-label="`${t('profilesRemove')}: ${profile.name}`"
+          @click="forgetProfile(profile.id)"
+        >
+          ✕
+        </button>
+      </li>
+    </ul>
+  </div>
+
   <form @submit.prevent="handleSubmit" class="onboarding-form">
     <!-- Secção 1: Antropometria do Ciclista -->
     <div class="form-section">
@@ -21,8 +56,70 @@
           />
         </div>
 
+        <!--
+          Peso, número de sapato e cintura são pedidos AQUI, no início, com o resto da
+          antropometria: eram pedidos a meio da análise do vídeo (modal do passo 2) e o atleta
+          tinha de interromper para os escrever. Recolhidos aqui viajam na sessão para o passo 2
+          e para o relatório.
+        -->
         <div class="form-group">
-          <label for="height">{{ t('heightCm') }} *</label>
+          <label for="weight">
+            {{ t('weightKg') }} *
+            <HelpTip v-bind="help.weight" />
+          </label>
+          <input
+            id="weight"
+            v-model.number="form.weight_kg"
+            type="number"
+            step="0.5"
+            min="30"
+            max="180"
+            required
+            placeholder="Ex: 78.5"
+          />
+          <span class="help-text">{{ t('weightHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="shoe_size">
+            {{ t('shoeSizeEu') }} *
+            <HelpTip v-bind="help.shoeSize" />
+          </label>
+          <input
+            id="shoe_size"
+            v-model.number="form.shoe_size_eu"
+            type="number"
+            step="0.5"
+            min="33"
+            max="52"
+            required
+            placeholder="Ex: 43"
+          />
+          <span class="help-text">{{ t('shoeHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="waist">
+            {{ t('waistCm') }}
+            <HelpTip v-bind="help.waist" />
+          </label>
+          <input
+            id="waist"
+            v-model.number="form.waist_cm"
+            type="number"
+            step="0.5"
+            min="50"
+            max="160"
+            placeholder="Ex: 84"
+          />
+          <span class="help-text">{{ t('waistHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="height">
+            {{ t('heightCm') }} *
+            <HelpTip v-bind="help.height" />
+          </label>
           <input
             id="height"
             v-model.number="form.height_cm"
@@ -37,7 +134,10 @@
         </div>
 
         <div class="form-group">
-          <label for="inseam">{{ t('inseamCm') }} *</label>
+          <label for="inseam">
+            {{ t('inseamCm') }} *
+            <HelpTip v-bind="help.inseam" />
+          </label>
           <input
             id="inseam"
             v-model.number="form.inseam_cm"
@@ -52,7 +152,10 @@
         </div>
 
         <div class="form-group">
-          <label for="shoulder">{{ t('shoulderWidthCm') }}</label>
+          <label for="shoulder">
+            {{ t('shoulderWidthCm') }}
+            <HelpTip v-bind="help.shoulderWidth" />
+          </label>
           <input
             id="shoulder"
             v-model.number="form.shoulder_width_cm"
@@ -100,7 +203,10 @@
         </div>
 
         <div class="form-group">
-          <label for="current_saddle">{{ t('currentSaddleHeightCm') }}</label>
+          <label for="current_saddle">
+            {{ t('currentSaddleHeightCm') }}
+            <HelpTip v-bind="help.currentSaddle" />
+          </label>
           <input
             id="current_saddle"
             v-model.number="form.current_saddle_height_cm"
@@ -112,7 +218,10 @@
         </div>
 
         <div class="form-group">
-          <label for="frame_size">{{ t('frameSizeCm') }}</label>
+          <label for="frame_size">
+            {{ t('frameSizeCm') }}
+            <HelpTip v-bind="help.frameSize" />
+          </label>
           <input
             id="frame_size"
             v-model.number="form.frame_size_cm"
@@ -123,8 +232,31 @@
           <span class="help-text">{{ t('frameHelp') }}</span>
         </div>
 
+        <!--
+          TUBO SUPERIOR (Top Tube) / ETT — o comprimento do quadro que o atleta sente no cockpit.
+          Não é o "tamanho do quadro" (esse é o tubo do selim) nem vai até ao avanço: o avanço aperta
+          no tubo de direção. Serve para somar o alcance total: ETT + avanço + reach do guiador.
+        -->
         <div class="form-group">
-          <label for="handlebar">{{ t('handlebarWidthMm') }}</label>
+          <label for="top_tube">
+            {{ t('topTubeMm') }}
+            <HelpTip v-bind="help.topTube" />
+          </label>
+          <input
+            id="top_tube"
+            v-model.number="form.top_tube_mm"
+            type="number"
+            step="5"
+            placeholder="Ex: 545"
+          />
+          <span class="help-text">{{ t('topTubeHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="handlebar">
+            {{ t('handlebarWidthMm') }}
+            <HelpTip v-bind="help.handlebarWidth" />
+          </label>
           <input
             id="handlebar"
             v-model.number="form.handlebar_width_mm"
@@ -136,7 +268,42 @@
         </div>
 
         <div class="form-group">
-          <label for="stem">{{ t('stemLengthMm') }}</label>
+          <label for="handlebar_reach">
+            {{ t('handlebarReachMm') }}
+            <HelpTip v-bind="help.handlebarReach" />
+          </label>
+          <input
+            id="handlebar_reach"
+            v-model.number="form.handlebar_reach_mm"
+            type="number"
+            min="0"
+            step="any"
+            placeholder="Ex: 80 (livre)"
+          />
+          <span class="help-text">{{ t('handlebarReachHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="handlebar_drop">
+            {{ t('handlebarDropMm') }}
+            <HelpTip v-bind="help.handlebarDrop" />
+          </label>
+          <input
+            id="handlebar_drop"
+            v-model.number="form.handlebar_drop_mm"
+            type="number"
+            min="0"
+            step="any"
+            placeholder="Ex: 125 (livre)"
+          />
+          <span class="help-text">{{ t('handlebarDropHelp') }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="stem">
+            {{ t('stemLengthMm') }}
+            <HelpTip v-bind="help.stemLength" />
+          </label>
           <input
             id="stem"
             v-model.number="form.stem_length_mm"
@@ -148,7 +315,10 @@
         </div>
 
         <div class="form-group">
-          <label for="crank">{{ t('crankLengthMm') }}</label>
+          <label for="crank">
+            {{ t('crankLengthMm') }}
+            <HelpTip v-bind="help.crankLength" />
+          </label>
           <input
             id="crank"
             v-model.number="form.crank_length_mm"
@@ -158,44 +328,135 @@
           />
           <span class="help-text">{{ t('crankHelp') }}</span>
         </div>
+
+        <!-- Posição dos Cleats / Travessões (Opcional - Requisito 9) -->
+        <div class="form-group">
+          <label for="cleat_position">
+            {{ t('cleatPositionLabel') }}
+            <HelpTip v-bind="help.cleatPosition" />
+          </label>
+          <select
+            id="cleat_position"
+            v-model="form.cleat_position"
+            class="form-select"
+          >
+            <option value="">{{ t('cleatPositionNone') }}</option>
+            <option value="rearward">{{ t('cleatPositionRearward') }}</option>
+            <option value="neutral">{{ t('cleatPositionNeutral') }}</option>
+            <option value="forward">{{ t('cleatPositionForward') }}</option>
+          </select>
+          <span class="help-text">{{ t('cleatPositionHelp') }}</span>
+        </div>
       </div>
     </div>
 
-    <!-- Secção 3: Estimativas Teóricas Imediatas (Live Preview) -->
-    <div v-if="theoreticalEstimates" class="estimates-panel">
+    <!-- Secção 3: Estimativas Teóricas Imediatas.
+         Regra: só aparece o que já tem dado escrito em cima. Cada número diz de que campo veio,
+         e compara-se com a medida que o atleta diz ter na bicicleta (quando a escreveu). -->
+    <div v-if="hasEstimates" class="estimates-panel">
       <h4>⚡ {{ t('theoreticalTitle') }}</h4>
+      <span class="estimates-hint">{{ t('theoreticalHelpHint') }}</span>
+      <p v-if="missingLabels.length" class="estimates-missing-note">
+        {{ t('estimatesMissingLabel') }} <strong>{{ missingLabels.join(' · ') }}</strong>
+      </p>
       <div class="estimates-grid">
-        <div class="estimate-item highlight">
-          <span class="estimate-label">{{ t('lemondSaddleHeight') }}</span>
-          <span class="estimate-value">{{ theoreticalEstimates.lemond_saddle_height_cm }} cm</span>
+        <!-- 1. Altura do selim (LeMond) — precisa do cavalo -->
+        <div v-if="estimates.ready.saddleHeight" class="estimate-item highlight">
+          <span class="estimate-label">
+            {{ t('lemondSaddleHeight') }}
+            <HelpTip v-bind="help.lemond" placement="left" />
+          </span>
+          <span class="estimate-value">{{ estimates.values.lemond_saddle_height_cm }} cm</span>
+          <span class="estimate-basis">{{ basisNote('inseam') }}</span>
         </div>
-        <div class="estimate-item">
-          <span class="estimate-label">{{ t('hamley109SaddleHeight') }}</span>
-          <span class="estimate-value">{{ theoreticalEstimates.hamley_109_saddle_height_cm }} cm</span>
+
+        <!-- 2. Altura do selim (109% / Hamley) — precisa do cavalo -->
+        <div v-if="estimates.ready.saddleHeight" class="estimate-item">
+          <span class="estimate-label">
+            {{ t('hamley109SaddleHeight') }}
+            <HelpTip v-bind="help.hamley109" placement="left" />
+          </span>
+          <span class="estimate-value">{{ estimates.values.hamley_109_saddle_height_cm }} cm</span>
+          <span class="estimate-basis">{{ basisNote('inseam') }}</span>
         </div>
+
+        <!-- 3. Comparação com a altura de selim atual — precisa dos DOIS lados -->
         <div
-          v-if="saddleDelta !== null"
+          v-if="saddleComparison"
           class="estimate-item"
-          :class="{ 'delta-warning': Math.abs(saddleDelta) > 1.5, 'delta-ok': Math.abs(saddleDelta) <= 1.5 }"
+          :class="saddleDeltaIsWarning ? 'delta-warning' : 'delta-ok'"
         >
-          <span class="estimate-label">{{ t('saddleComparison') }}</span>
-          <span class="estimate-value">
-            {{ saddleDelta > 0 ? `+${saddleDelta} cm (Selim atual mais alto)` : `${saddleDelta} cm (Selim atual mais baixo)` }}
+          <span class="estimate-label">
+            {{ t('saddleComparison') }}
+            <HelpTip v-bind="help.deltaSaddle" placement="left" />
+          </span>
+          <span class="estimate-value">{{ saddleDeltaText }}</span>
+        </div>
+
+        <!-- 4. Tamanho de quadro — precisa do cavalo -->
+        <div
+          v-if="estimates.ready.frameSize"
+          class="estimate-item"
+          :class="{ 'delta-warning': frameComparison && !frameComparison.withinTolerance }"
+        >
+          <span class="estimate-label">
+            {{ t('estimatedFrameSize') }}
+            <HelpTip v-bind="help.frameSize" placement="left" />
+          </span>
+          <span class="estimate-value">{{ estimates.values.estimated_frame_size_cm }} cm</span>
+          <span class="estimate-basis">{{ basisNote('inseam') }}</span>
+          <span v-if="frameComparison" class="estimate-current">
+            {{ comparisonText(frameComparison, 'cm') }}
           </span>
         </div>
-        <div class="estimate-item">
-          <span class="estimate-label">{{ t('estimatedFrameSize') }}</span>
-          <span class="estimate-value">{{ theoreticalEstimates.estimated_frame_size_cm }} cm</span>
+
+        <!-- 5. Largura de guiador — precisa da largura biacromial (em MTB, da convenção) -->
+        <div
+          v-if="estimates.ready.handlebarWidth"
+          class="estimate-item"
+          :class="{ 'delta-warning': handlebarComparison && !handlebarComparison.withinTolerance }"
+        >
+          <span class="estimate-label">
+            {{ t('recommendedHandlebarWidth') }}
+            <HelpTip v-bind="help.handlebarWidth" placement="left" />
+          </span>
+          <span class="estimate-value">{{ handlebarText }}</span>
+          <span v-if="estimates.values.handlebar_is_convention" class="estimate-basis">
+            {{ t('mtbHandlebarNote') }}
+          </span>
+          <span v-else class="estimate-basis">{{ basisNote('shoulder') }}</span>
+          <span v-if="handlebarComparison" class="estimate-current">
+            {{ comparisonText(handlebarComparison, 'mm') }}
+          </span>
         </div>
-        <div class="estimate-item">
-          <span class="estimate-label">{{ t('recommendedHandlebarWidth') }}</span>
-          <span class="estimate-value">{{ theoreticalEstimates.recommended_handlebar_width_mm }} mm</span>
-        </div>
-        <div class="estimate-item">
-          <span class="estimate-label">{{ t('recommendedCrankLength') }}</span>
-          <span class="estimate-value">{{ theoreticalEstimates.recommended_crank_length_mm }} mm</span>
+
+        <!-- 6. Comprimento de crenque — precisa do cavalo -->
+        <div
+          v-if="estimates.ready.crankLength"
+          class="estimate-item"
+          :class="{ 'delta-warning': crankComparison && !crankComparison.withinTolerance }"
+        >
+          <span class="estimate-label">
+            {{ t('recommendedCrankLength') }}
+            <HelpTip v-bind="help.crankLength" placement="left" />
+          </span>
+          <span class="estimate-value">{{ estimates.values.recommended_crank_length_mm }} mm</span>
+          <span class="estimate-basis">{{ basisNote('inseam') }}</span>
+          <span v-if="crankComparison" class="estimate-current">
+            {{ comparisonText(crankComparison, 'mm') }}
+          </span>
         </div>
       </div>
+    </div>
+
+    <!-- Ainda não há dados nenhuns: diz-se o que falta, em vez de mostrar números de amostra -->
+    <div v-else class="estimates-pending-panel">
+      <h4>⚡ {{ t('theoreticalTitle') }}</h4>
+      <p class="estimates-pending-intro">{{ t('estimatesPendingIntro') }}</p>
+      <ul class="estimates-pending-list">
+        <li v-for="label in missingLabels" :key="label">{{ label }}</li>
+      </ul>
+      <span class="estimates-hint">{{ t('theoreticalHelpHint') }}</span>
     </div>
 
     <div v-if="errorMessage" class="error-banner">

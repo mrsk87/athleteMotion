@@ -1,0 +1,48 @@
+/* =========================================================================
+   ESTILOS DOS DESENHOS DOS PAINÉIS DE AJUDA (HelpTip)
+   -------------------------------------------------------------------------
+   Este ficheiro é **global de propósito**: os desenhos SVG são injetados com
+   `v-html`, e o conteúdo injetado não recebe o atributo `data-v-…` dos estilos
+   com `scoped`. Com o estilo no ficheiro com `scoped`, o desenho ficava com os
+   valores por omissão do SVG (preto sólido, texto preto) e desaparecia nos
+   temas escuros — por isso vive aqui, fora do `scoped`.
+   Todas as cores vêm dos tokens de tema.
+   ========================================================================= */
+
+.help-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Texto por omissão: pequeno, monoespaçado e discreto. */
+.help-svg text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 500;
+  fill: var(--text-3);
+}
+
+.help-svg-label {
+  fill: var(--text-2);
+}
+
+/* Traço anatómico/mecânico: sem preenchimento, para nunca sair uma mancha preta. */
+.help-svg-body {
+  stroke: var(--text-2);
+  stroke-width: 1.6;
+  fill: none;
+}
+
+.help-svg-dim {
+  stroke: var(--text-3);
+  stroke-width: 1.2;
+  fill: none;
+}
+
+.help-svg-emphasis {
+  stroke: var(--accent-text);
+  stroke-width: 2.2;
+  fill: var(--accent-text);
+}

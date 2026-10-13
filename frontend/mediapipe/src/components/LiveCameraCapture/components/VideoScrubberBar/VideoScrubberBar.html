@@ -1,0 +1,223 @@
+<div class="video-player-controls">
+  <!-- Cabeçalho Informativo: Relógio e Estado do Vídeo -->
+  <div class="vsc-header-row">
+    <div class="vsc-clock-box">
+      <span class="vsc-time-current">{{ formattedVideoTime }}</span>
+      <span class="vsc-time-sep">/</span>
+      <span class="vsc-time-total">{{ formattedDuration }}</span>
+    </div>
+
+    <div class="vsc-status-badges">
+      <span class="vsc-badge" :class="isVideoPlaying ? 'vsc-badge-playing' : 'vsc-badge-paused'">
+        {{ isVideoPlaying ? '▶ A REPRODUZIR' : '⏸ EM PAUSA' }}
+      </span>
+
+      <span v-if="hasLoopRange" class="vsc-badge vsc-badge-loop">
+        🔁 Loop A-B: {{ loopRangeLabel || `${(loopRange.start || 0).toFixed(1)}s → ${(loopRange.end || videoDuration).toFixed(1)}s` }}
+      </span>
+      <span v-else-if="isInfiniteLoopActive" class="vsc-badge vsc-badge-infinite">
+        ♾️ Repetir Vídeo Completo
+      </span>
+      <span v-else class="vsc-badge vsc-badge-muted">
+        ▶ Reproduzir 1x
+      </span>
+    </div>
+
+    <div class="vsc-header-actions">
+      <button type="button" class="btn-vsc-secondary" @click="onTriggerFile" title="Carregar outro ficheiro de vídeo">
+        📁 Trocar Vídeo
+      </button>
+    </div>
+  </div>
+
+  <!-- Barra de Linha Temporal Interativa (Scrubber) -->
+  <div class="vsc-timeline-wrapper">
+    <div
+      class="vsc-timeline-track"
+      ref="timelineTrack"
+      @mousemove="handleTimelineMouseMove"
+      @mouseleave="handleTimelineMouseLeave"
+    >
+      <!-- Faixa de Progresso Preenchida -->
+      <div class="vsc-timeline-fill" :style="{ width: computedPlayheadPercent + '%' }"></div>
+
+      <!-- Região do Intervalo A-B (se definido) -->
+      <div
+        v-if="hasLoopRange"
+        class="vsc-loop-highlight"
+        :style="computedLoopStyle"
+        title="Intervalo de Repetição A-B"
+      ></div>
+
+      <!-- Marcador Ponto A -->
+      <div
+        v-if="hasLoopRange"
+        class="vsc-loop-pin vsc-loop-pin-a"
+        :style="{ left: computedPinAPercent + '%' }"
+        title="Início do Loop (A)"
+      >
+        <span>A</span>
+      </div>
+
+      <!-- Marcador Ponto B -->
+      <div
+        v-if="hasLoopRange"
+        class="vsc-loop-pin vsc-loop-pin-b"
+        :style="{ left: computedPinBPercent + '%' }"
+        title="Fim do Loop (B)"
+      >
+        <span>B</span>
+      </div>
+
+      <!-- Cursor Temporal (Playhead Thumb / Pin) -->
+      <div
+        class="vsc-playhead-pin"
+        :style="{ left: computedPlayheadPercent + '%' }"
+        title="Posição Atual do Vídeo"
+      >
+        <span class="vsc-playhead-core"></span>
+      </div>
+
+      <!-- Tooltip Flutuante de Tempo sob o Cursor -->
+      <div
+        v-if="hoverLabel"
+        class="vsc-hover-tooltip"
+        :style="{ left: hoverPercent + '%' }"
+      >
+        {{ hoverLabel }}
+      </div>
+
+      <!-- Input Range Nativo para Scrubbing Suave e Responsivo -->
+      <input
+        type="range"
+        class="vsc-range-slider"
+        min="0"
+        :max="effectiveDuration"
+        step="0.05"
+        :value="videoCurrentTime"
+        aria-label="Linha temporal do vídeo"
+        @input="onSliderInput"
+        @change="onSliderChange"
+      />
+    </div>
+
+    <!-- Escala de Tempo Rápida -->
+    <div class="vsc-timeline-scale">
+      <span>00:00.0</span>
+      <span v-if="hasLoopRange" class="vsc-loop-legend">
+        [A: {{ (loopRange.start || 0).toFixed(1) }}s] ➔ [B: {{ (loopRange.end || videoDuration).toFixed(1) }}s]
+      </span>
+      <span>{{ formattedDuration }}</span>
+    </div>
+  </div>
+
+  <!-- Barra de Controlos de Transporte e Navegação -->
+  <div class="vsc-controls-toolbar">
+    <!-- Grupo 1: Navegação e Reprodução Primária -->
+    <div class="vsc-btn-group vsc-transport-group">
+      <button type="button" class="btn-vsc-nav" @click="onSeekRelative(-5)" title="Recuar 5 segundos">
+        ⏮ -5s
+      </button>
+
+      <button type="button" class="btn-vsc-nav" @click="onStepRangeFrame(-1)" title="Recuar 1 fotograma">
+        ◀ -1f
+      </button>
+
+      <button
+        type="button"
+        class="btn-vsc-play"
+        :class="{ 'is-playing': isVideoPlaying }"
+        @click="onTogglePlay"
+        title="Reproduzir / Pausa (Barra de Espaço)"
+      >
+        <span class="vsc-play-icon">{{ isVideoPlaying ? '⏸' : '▶' }}</span>
+        <span class="vsc-play-text">{{ isVideoPlaying ? 'Pausa' : 'Reproduzir' }}</span>
+      </button>
+
+      <button type="button" class="btn-vsc-nav" @click="onStepRangeFrame(1)" title="Avançar 1 fotograma">
+        +1f ▶
+      </button>
+
+      <button type="button" class="btn-vsc-nav" @click="onSeekRelative(5)" title="Avançar 5 segundos">
+        +5s ⏭
+      </button>
+    </div>
+
+    <!-- Grupo 2: Velocidades de Reprodução -->
+    <div class="vsc-btn-group vsc-speed-group">
+      <span class="vsc-group-label">Velocidade:</span>
+      <button
+        v-for="rate in [0.25, 0.5, 1.0, 1.5, 2.0]"
+        :key="'spd-' + rate"
+        type="button"
+        class="btn-vsc-speed"
+        :class="{ 'is-active': videoPlaybackRate === rate }"
+        @click="onSetSpeed(rate)"
+      >
+        {{ rate }}x
+      </button>
+
+      <button
+        type="button"
+        class="btn-vsc-toggle"
+        :class="{ 'is-active': autoSlowdownEnabled }"
+        @click="onToggleSlowdown"
+        title="Câmara lenta automática quando for detetado movimento rápido"
+      >
+        🎯 Auto-Slowdown
+      </button>
+    </div>
+
+    <!-- Grupo 3: Gestão Simples e Direta do Loop A-B -->
+    <div class="vsc-btn-group vsc-loop-group">
+      <button
+        type="button"
+        class="btn-vsc-loop-point"
+        @click="onSetLoopFromCurrent('A')"
+        title="Fixar o instante atual do vídeo como Ponto de Início (A)"
+      >
+        🚩 Ponto A (Início)
+      </button>
+
+      <button
+        type="button"
+        class="btn-vsc-loop-point"
+        @click="onSetLoopFromCurrent('B')"
+        title="Fixar o instante atual do vídeo como Ponto de Fim (B)"
+      >
+        🚩 Ponto B (Fim)
+      </button>
+
+      <button
+        v-if="hasLoopRange"
+        type="button"
+        class="btn-vsc-loop-toggle"
+        :class="{ 'is-active': loopRange.enabled }"
+        @click="onToggleLoop"
+        title="Ativar/Desativar repetição do intervalo A-B"
+      >
+        🔁 {{ loopRange.enabled ? 'Loop A-B Ativo' : 'Ativar Loop A-B' }}
+      </button>
+
+      <button
+        v-if="hasLoopRange"
+        type="button"
+        class="btn-vsc-clear-loop"
+        @click="onClearLoop"
+        title="Limpar o intervalo de repetição A-B"
+      >
+        ✕ Limpar Loop
+      </button>
+
+      <button
+        type="button"
+        class="btn-vsc-infinite"
+        :class="{ 'is-active': isInfiniteLoopActive }"
+        @click="onToggleInfiniteLoop"
+        title="Repetir o vídeo completo continuamente"
+      >
+        ♾️ Repetir Vídeo
+      </button>
+    </div>
+  </div>
+</div>

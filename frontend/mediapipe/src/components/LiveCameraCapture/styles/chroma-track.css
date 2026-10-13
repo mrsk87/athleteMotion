@@ -1,0 +1,35 @@
+/* =========================================================================
+   CromaTrack — rastreio por marcadores cromáticos (painel de controlo)
+   =========================================================================
+   Só usa variáveis do tema: as três paletas (claro, escuro e sóbrio) ficam
+   corretas sem duplicar regras nem fixar cores.
+   ========================================================================= */
+
+.chroma-group .control-group-title {
+  color: var(--accent-text);
+}
+
+/* Linha de estado: quantas articulações ancoradas, quantos blobs, quanto custou. */
+.chroma-group .chroma-status {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.chroma-status-line {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-text);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Aviso honesto sobre o que é medido: plano da imagem, não centro da articulação. */
+.chroma-status-note {
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-2);
+  white-space: nowrap;
+}

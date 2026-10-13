@@ -41,11 +41,24 @@ class BikeCreate(BaseModel):
     athlete_id: str = Field(..., description="ID do atleta associado")
     bike_type: str = Field(default="road", description="Tipo de bicicleta: road, mtb, tt, gravel")
     brand_model: str = Field(default="Bicicleta", description="Marca e modelo da bicicleta")
-    frame_size_cm: float | None = Field(default=None, description="Tamanho do quadro em cm ou polegadas")
+    frame_size_cm: float | None = Field(
+        default=None,
+        description="Tamanho do quadro = tubo do selim (cm), do centro do eixo pedaleiro ao topo (C-T)",
+    )
+    top_tube_mm: float | None = Field(
+        default=None,
+        description="Tubo superior efetivo / ETT (mm), medido na horizontal entre o eixo do tubo do selim e o eixo do tubo de direção",
+    )
     handlebar_width_mm: float | None = Field(default=None, description="Largura do guiador em milímetros")
+    handlebar_reach_mm: float | None = Field(default=None, description="Reach (profundidade) da curva do guiador em mm")
+    handlebar_drop_mm: float | None = Field(default=None, description="Drop (descida) da curva do guiador em mm")
     stem_length_mm: float | None = Field(default=None, description="Comprimento do avanço em milímetros")
     crank_length_mm: float | None = Field(default=None, description="Comprimento do crenque/pedivela em mm")
     current_saddle_height_cm: float | None = Field(default=None, description="Altura atual do selim em cm")
+    cleat_position: str | None = Field(
+        default=None,
+        description="Posição atual dos travessões/cleats na sapatilha (ex: rearward / recuado, neutral / neutro, forward / avançado)",
+    )
 
 
 class BikeResponse(BaseModel):
@@ -54,10 +67,14 @@ class BikeResponse(BaseModel):
     bike_type: str
     brand_model: str
     frame_size_cm: float | None
+    top_tube_mm: float | None = None
     handlebar_width_mm: float | None
+    handlebar_reach_mm: float | None = None
+    handlebar_drop_mm: float | None = None
     stem_length_mm: float | None
     crank_length_mm: float | None
     current_saddle_height_cm: float | None
+    cleat_position: str | None = None
     created_at: datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)

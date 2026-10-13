@@ -5,7 +5,22 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "verify:coherence": "node scripts/verify-coherence.mjs",
+    "verify:playback": "node scripts/verify-playback.mjs",
+    "verify:full-analysis": "node scripts/verify-full-analysis.mjs",
+    "verify:theme": "node scripts/verify-theme.mjs",
+    "verify:help": "node scripts/verify-help.mjs",
+    "verify:aero": "node scripts/verify-aero.mjs",
+    "verify:estimates": "node scripts/verify-estimates.mjs",
+    "verify:convergence": "node scripts/verify-convergence.mjs",
+    "verify:equipment": "node scripts/verify-equipment.mjs",
+    "verify:positions": "node scripts/verify-positions.mjs",
+    "verify:profiles": "node scripts/verify-profiles.mjs",
+    "verify:chroma": "node scripts/verify-chroma.mjs",
+    "verify:workbench": "node scripts/verify-workbench.mjs",
+    "verify:fit-standards": "node scripts/verify-fit-standards.mjs",
+    "verify": "npm run verify:coherence && npm run verify:playback && npm run verify:full-analysis && npm run verify:theme && npm run verify:help && npm run verify:aero && npm run verify:estimates && npm run verify:convergence && npm run verify:equipment && npm run verify:positions && npm run verify:profiles && npm run verify:chroma && npm run verify:workbench && npm run verify:fit-standards"
   },
   "dependencies": {
     "@mediapipe/camera_utils": "^0.3.1675466862",
@@ -13,6 +28,8 @@
     "@mediapipe/pose": "^0.5.1675469404",
     "axios": "^1.8.1",
     "core-js": "^3.8.3",
+    "echarts": "^5.6.0",
+    "pinia": "^2.3.1",
     "vue": "^3.2.13",
     "vue-router": "^4.0.3"
   },
@@ -29,7 +46,8 @@
   "eslintConfig": {
     "root": true,
     "env": {
-      "node": true
+      "node": true,
+      "vue/setup-compiler-macros": true
     },
     "extends": [
       "plugin:vue/vue3-essential",

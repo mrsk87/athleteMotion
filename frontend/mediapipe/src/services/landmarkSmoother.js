@@ -22,6 +22,10 @@ export class LandmarkSmoother {
     this.previousLandmarks = null;
     this.trajectories = new Map();
     this.maxTrajectoryLength = 32;
+    /** Instante de VÍDEO da última leitura filtrada (para detetar descontinuidades). */
+    this.lastSourceTime = null;
+    /** Salto de tempo de vídeo acima do qual o filtro não se aplica (seek, fotograma novo). */
+    this.maxSourceStep = 0.35;
 
     this.setSmoothingLevel(defaultLevel);
   }
@@ -73,14 +77,39 @@ export class LandmarkSmoother {
   }
 
   /**
+   * Esquece o estado dos filtros (mantém as trajetórias da órbita).
+   *
+   * Serve para os SALTOS de tempo: depois de um seek, de um fotograma novo ou de uma
+   * descontinuidade, o filtro não pode arrastar a posição antiga para o fotograma novo
+   * — isso é exatamente o "esqueleto a chegar atrasado à perna". No primeiro fotograma
+   * depois de um salto apresenta-se a leitura crua (exata) e o filtro recomeça daí.
+   */
+  resetFilters() {
+    this.filters = [];
+    this.lastSourceTime = null;
+  }
+
+  /**
    * Suaviza o array de 33 marcos anatómicos com o algoritmo One-Euro Filter (1€ Filter).
-   * 
+   *
    * @param {Array<Object>} rawLandmarks - Array de {x, y, z, visibility}
+   * @param {{time?: number, maxStep?: number}} [options] - instante de VÍDEO do fotograma
    * @returns {Array<Object>} Array com as coordenadas filtradas com rigor cirúrgico
    */
-  smooth(rawLandmarks) {
+  smooth(rawLandmarks, options = {}) {
     if (!rawLandmarks || rawLandmarks.length === 0) {
       return rawLandmarks;
+    }
+
+    const sourceTime = Number(options.time);
+    const maxStep = Number.isFinite(Number(options.maxStep)) ? Number(options.maxStep) : this.maxSourceStep;
+    if (Number.isFinite(sourceTime)) {
+      const jumped =
+        this.lastSourceTime === null ||
+        sourceTime < this.lastSourceTime - 1e-3 ||
+        sourceTime - this.lastSourceTime > maxStep;
+      if (jumped) this.resetFilters();
+      this.lastSourceTime = sourceTime;
     }
 
     if (this.level === 'off') {
@@ -108,13 +137,13 @@ export class LandmarkSmoother {
       const dt = Math.max(0.001, (now - f.t) / 1000.0);
       f.t = now;
 
-      // Proteção contra marcos com visibilidade degradada
+      // Proteção contra marcos com visibilidade degradada ou não detetados
       const visibility = curr.visibility !== undefined ? curr.visibility : 1.0;
-      if (visibility < 0.35) {
+      if (visibility < 0.20 || (curr.x === 0 && curr.y === 0)) {
         return {
-          x: f.x,
-          y: f.y,
-          z: f.z,
+          x: curr.x,
+          y: curr.y,
+          z: curr.z || 0,
           visibility,
         };
       }
@@ -191,6 +220,7 @@ export class LandmarkSmoother {
   reset() {
     this.previousLandmarks = null;
     this.trajectories.clear();
+    this.resetFilters();
   }
 }
 

@@ -1,0 +1,436 @@
+/* =========================================================================
+   BARRA DE REPRODUÇÃO E SCRUBBER TEMPORAL DE VÍDEO (VideoScrubberBar)
+   Interface moderna, ergonómica e 100% parametrizada por tokens de tema
+   ========================================================================= */
+
+@import '../../styles/video-analysis.css';
+
+/*
+ * Nomes locais (mais curtos) para os tokens do tema. NENHUMA cor fixa aqui: os valores por omissão
+ * que existiam entre parênteses faziam a barra ignorar o tema — com o tema claro, a barra continuava
+ * azul-escura. Sem o valor de recurso, a barra segue mesmo o tema escolhido.
+ */
+.video-player-controls {
+  --accent-primary: var(--accent);
+  --accent-hover: var(--accent-hover);
+  --accent-soft: rgba(var(--accent-rgb), 0.16);
+  --status-ok: var(--ok);
+  --status-ok-soft: rgba(var(--ok-rgb), 0.16);
+  --status-warn: var(--warn);
+  --status-warn-soft: rgba(var(--warn-rgb), 0.22);
+  --status-danger: var(--danger);
+  --status-danger-soft: rgba(var(--danger-rgb), 0.16);
+  --status-info: var(--info);
+  --status-info-soft: rgba(var(--info-rgb), 0.16);
+  --text-primary: var(--text-1);
+  --text-secondary: var(--text-2);
+  --text-muted: var(--text-3);
+
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px 24px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-2);
+}
+
+/* Cabeçalho de Estado e Relógio */
+.vsc-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.vsc-clock-box {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-family: 'SF Mono', 'Fira Code', 'Roboto Mono', monospace;
+}
+
+.vsc-time-current {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  letter-spacing: 0.5px;
+}
+
+.vsc-time-sep {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.vsc-time-total {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.vsc-status-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.vsc-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vsc-badge-playing {
+  background: var(--status-ok-soft);
+  color: var(--status-ok);
+  border: 1px solid var(--status-ok);
+}
+
+.vsc-badge-paused {
+  background: var(--status-warn-soft);
+  color: var(--status-warn);
+  border: 1px solid var(--status-warn);
+}
+
+.vsc-badge-loop {
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+}
+
+.vsc-badge-infinite {
+  background: var(--status-info-soft);
+  color: var(--status-info);
+  border: 1px solid var(--status-info);
+}
+
+.vsc-badge-muted {
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Timeline Wrapper e Scrubber */
+.vsc-timeline-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vsc-timeline-track {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: visible;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.vsc-timeline-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.45) 0%, var(--accent-primary) 100%);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.4);
+  border-radius: var(--radius) 0 0 var(--radius);
+  pointer-events: none;
+  opacity: 0.85;
+  transition: width 0.04s ease-out;
+}
+
+.vsc-playhead-pin {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 34px;
+  background: var(--control-knob);
+  border: 2px solid var(--accent-primary);
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.95), 0 2px 8px rgba(var(--scrim-rgb), 0.8);
+  pointer-events: none;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.04s ease-out;
+}
+
+.vsc-playhead-core {
+  width: 2px;
+  height: 14px;
+  background: var(--accent-primary);
+  border-radius: 1px;
+}
+
+.vsc-loop-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--status-warn-soft);
+  border-top: 2px solid var(--status-warn);
+  border-bottom: 2px solid var(--status-warn);
+  border-left: 2px solid var(--status-ok);
+  border-right: 2px solid var(--status-danger);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.vsc-loop-pin {
+  position: absolute;
+  top: -10px;
+  transform: translateX(-50%);
+  background: var(--status-warn);
+  color: var(--text-inverse);
+  font-weight: 800;
+  font-size: 11px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 7;
+  box-shadow: var(--shadow-1);
+  pointer-events: none;
+}
+
+.vsc-loop-pin-a {
+  background: var(--status-ok);
+  color: var(--text-inverse);
+  box-shadow: 0 0 10px rgba(var(--ok-rgb), 0.7);
+}
+
+.vsc-loop-pin-b {
+  background: var(--status-danger);
+  color: var(--text-inverse);
+  box-shadow: 0 0 10px rgba(var(--danger-rgb), 0.7);
+}
+
+.vsc-hover-tooltip {
+  position: absolute;
+  top: -30px;
+  transform: translateX(-50%);
+  background: var(--bg-surface);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.vsc-range-slider {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  z-index: 5;
+}
+
+.vsc-timeline-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+  padding: 0 4px;
+}
+
+.vsc-loop-legend {
+  color: var(--status-warn);
+  font-weight: 600;
+}
+
+/* Barra de Ferramentas / Botões */
+.vsc-controls-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.vsc-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.vsc-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
+/* Botões de Ação */
+.btn-vsc-nav,
+.btn-vsc-speed,
+.btn-vsc-loop-point,
+.btn-vsc-secondary {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-vsc-nav:hover,
+.btn-vsc-speed:hover,
+.btn-vsc-loop-point:hover,
+.btn-vsc-secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+/* Botão Play Principal */
+.btn-vsc-play {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+  border: 1px solid var(--accent-hover);
+  padding: 8px 22px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-1);
+}
+
+.btn-vsc-play:hover {
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+.btn-vsc-play.is-playing {
+  background: var(--status-warn);
+  color: var(--text-inverse);
+  border-color: var(--status-warn);
+}
+
+.btn-vsc-play.is-playing:hover {
+  filter: brightness(0.9);
+}
+
+/* Botões Ativos / Toggles */
+.btn-vsc-speed.is-active,
+.btn-vsc-toggle.is-active,
+.btn-vsc-infinite.is-active,
+.btn-vsc-loop-toggle.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+.btn-vsc-toggle {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-vsc-loop-point {
+  background: var(--status-warn-soft);
+  border-color: var(--status-warn);
+  color: var(--status-warn);
+}
+
+.btn-vsc-loop-point:hover {
+  background: var(--status-warn);
+  color: var(--text-inverse);
+}
+
+.btn-vsc-loop-toggle {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-vsc-clear-loop {
+  background: var(--status-danger-soft);
+  border: 1px solid var(--status-danger);
+  color: var(--status-danger);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-vsc-clear-loop:hover {
+  background: var(--status-danger);
+  color: var(--text-inverse);
+}
+
+.btn-vsc-infinite {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+@media print {
+  .video-player-controls {
+    display: none;
+  }
+}

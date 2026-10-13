@@ -52,6 +52,7 @@ export class CanvasOverlayRenderer {
     if (!ctx || !p1 || !p2) return;
     if (typeof p1.visibility === 'number' && p1.visibility < 0.25) return;
     if (typeof p2.visibility === 'number' && p2.visibility < 0.25) return;
+    if ((p1.x === 0 && p1.y === 0) || (p2.x === 0 && p2.y === 0)) return;
 
     const scale = Math.max(1.0, Math.min(4.0, Math.max(w, h) / 720));
     const x1 = p1.x * w;
@@ -178,6 +179,99 @@ export class CanvasOverlayRenderer {
   }
 
   /**
+   * Desenha o ponto médio de uma articulação obtido a partir do conjunto de várias análises,
+   * incluindo os pontos individuais das análises (dispersão) e a mira de precisão do ponto médio com coordenadas.
+   */
+  static drawMedianJointMarker(ctx, point, label, angle, targetRange, w, h, showCoordinates = true) {
+    if (!ctx || !point) return;
+    const scale = Math.max(1.0, Math.min(3.5, Math.max(w, h) / 720));
+    const px = point.x * w;
+    const py = point.y * h;
+    const color = angle !== null && angle !== undefined && targetRange
+      ? this.getComplianceHexColor(angle, targetRange)
+      : '#38bdf8';
+
+    ctx.save();
+
+    // 1. Amostras individuais do conjunto de análises (nuvem de pontos discretos)
+    if (Array.isArray(point.history) && point.history.length > 1) {
+      point.history.forEach((sample) => {
+        const sx = sample.x * w;
+        const sy = sample.y * h;
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(1.5, 2.5 * scale), 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.fill();
+      });
+    }
+
+    // 2. Halo da dispersão/desvio máximo do ponto médio
+    if (point.spreadDist && Number.isFinite(point.spreadDist)) {
+      const spreadRadius = Math.max(7 * scale, (point.spreadDist / 100) * Math.min(w, h));
+      ctx.beginPath();
+      ctx.arc(px, py, spreadRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+      ctx.lineWidth = Math.max(1, Math.round(scale));
+      ctx.setLineDash([2 * scale, 2 * scale]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 3. Ponto Médio central (alvo de alta precisão com anel duplo e retículo)
+    ctx.beginPath();
+    ctx.arc(px, py, Math.round(5 * scale), 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = Math.round(8 * scale);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(px, py, Math.round(11 * scale), 0, 2 * Math.PI);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.5, 2 * scale);
+    ctx.stroke();
+
+    // Retículo / Mira de precisão em cruz
+    const crossArm = Math.round(16 * scale);
+    ctx.beginPath();
+    ctx.moveTo(px - crossArm, py);
+    ctx.lineTo(px - Math.round(13 * scale), py);
+    ctx.moveTo(px + Math.round(13 * scale), py);
+    ctx.lineTo(px + crossArm, py);
+    ctx.moveTo(px, py - crossArm);
+    ctx.lineTo(px, py - Math.round(13 * scale));
+    ctx.moveTo(px, py + Math.round(13 * scale));
+    ctx.lineTo(px, py + crossArm);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 4. Etiqueta com Nome, Ângulo e Coordenadas do Ponto Médio (X%, Y%)
+    const fontSize = Math.round(11 * scale);
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = Math.round(4 * scale);
+
+    const xPct = (point.x * 100).toFixed(1);
+    const yPct = (point.y * 100).toFixed(1);
+    const angleText = angle !== null && angle !== undefined ? ` ${Math.round(angle)}°` : '';
+    const labelLine = `${label || 'P. Médio'}${angleText}`;
+    ctx.fillText(labelLine, px + Math.round(15 * scale), py - Math.round(8 * scale));
+
+    if (showCoordinates) {
+      const coordFontSize = Math.round(9.5 * scale);
+      ctx.font = `${coordFontSize}px monospace`;
+      ctx.fillStyle = 'rgba(224, 242, 254, 0.95)';
+      ctx.fillText(`(${xPct}%, ${yPct}%)`, px + Math.round(15 * scale), py + Math.round(6 * scale));
+    }
+
+    ctx.restore();
+  }
+
+  /**
    * Desenha a órbita histórica da trajetória do membro durante a pedalada.
    */
   static drawTrajectoryOrbit(ctx, trajectoryPoints) {
@@ -213,6 +307,74 @@ export class CanvasOverlayRenderer {
     ctx.font = 'bold 10px sans-serif';
     ctx.fillStyle = '#38bdf8';
     ctx.fillText(`[${label}]`, px - 20, py - 30);
+    ctx.restore();
+  }
+
+  /**
+   * CromaTrack: retículo de um marcador cromático detetado.
+   *
+   * Distingue visualmente **confirmado** (anel cheio + mira) de **por confirmar** (anel
+   * tracejado): o técnico vê de imediato se aquele ponto já está a valer.
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {{x:number,y:number,weight?:number,confidence?:number,confirmed?:boolean}} point ponto normalizado
+   * @param {string} label  nome da articulação
+   * @param {string} color  cor hex da articulação (paleta)
+   * @param {number} w
+   * @param {number} h
+   */
+  static drawChromaMarker(ctx, point, label, color, w, h) {
+    if (!ctx || !point) return;
+    const radius = 10 + Math.round((point.weight || 0) * 6);
+    const px = point.x * w;
+    const py = point.y * h;
+
+    ctx.save();
+    ctx.strokeStyle = color || '#22c55e';
+    ctx.fillStyle = color || '#22c55e';
+    ctx.setLineDash(point.confirmed ? [] : [4, 4]);
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // Mira em cruz.
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(px - radius - 4, py);
+    ctx.lineTo(px + radius + 4, py);
+    ctx.moveTo(px, py - radius - 4);
+    ctx.lineTo(px, py + radius + 4);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(px, py, 2.5, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(`${label} ${point.confidence ?? 0}%`, px + radius + 6, py - radius);
+    ctx.restore();
+  }
+
+  /**
+   * CromaTrack: legenda com a cor de cada articulação (o técnico não tem de adivinhar).
+   *
+   * @param {Array<{label: string, color: string}>} entries
+   */
+  static drawChromaLegend(ctx, entries, x = 12, y = 12) {
+    if (!ctx || !entries || !entries.length) return;
+    ctx.save();
+    ctx.font = 'bold 11px sans-serif';
+    entries.forEach((entry, index) => {
+      const lineY = y + index * 16;
+      ctx.fillStyle = entry.color;
+      ctx.beginPath();
+      ctx.arc(x + 5, lineY, 5, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillText(entry.label, x + 16, lineY + 4);
+    });
     ctx.restore();
   }
 
@@ -448,12 +610,13 @@ export class CanvasOverlayRenderer {
     const elbowIdx = isLeft ? 13 : 14;
     const wristIdx = isLeft ? 15 : 16;
 
-    // 1. GUIA PARA EXTENSÃO DO JOELHO (Altura do Selim)
+    // 1. GUIA PARA EXTENSÃO DO JOELHO (Altura do Selim - apenas na fase de extensão/BDC)
     const kneeTarget = targets.knee || [145, 155];
     const kneeAngle = liveAngles.joelho;
     if (
       kneeAngle !== null &&
       kneeAngle !== undefined &&
+      kneeAngle >= 90 &&
       (kneeAngle < kneeTarget[0] || kneeAngle > kneeTarget[1])
     ) {
       const pKnee = landmarks[kneeIdx];

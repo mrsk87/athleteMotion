@@ -5,7 +5,33 @@
  * - Converter ângulos medidos (Joelho no BDC, KOPS, Tronco, Braço) em recomendações práticas de afinação mecânica (mm e cm).
  * - Calcular pontuação global de conformidade ergonómica (0-100%).
  * - Formatar texto estruturado para cópia e geração de janela de impressão/PDF.
+ *
+ * REGRA DE COERÊNCIA:
+ * - O ângulo do Tronco gere apenas o STACK (espaçadores do guiador).
+ * - O ângulo do Cotovelo gere apenas o REACH (comprimento do avanço).
+ *   Assim, nunca dois componentes diferentes mandam mexer na mesma peça em sentidos opostos.
+ * - O Joelho só gera ALTURA DE SELIM na posição de EXTENSÃO (6h/BDC); noutras posições é descritivo.
+ *
+ * POSTURA (ereta vs aero):
+ * Quem diz o que é prescritivo em cada postura é `postureMode.js` (SSOT). Aqui aplicam-se as
+ * consequências: em AERO o KOPS e a cabeça passam a DESCRITIVOS, o tronco e o cotovelo usam os
+ * alvos de aero, e o antebraço ganha alvo próprio (0–20°).
  */
+
+import {
+  KNEE_EXTENSION_RANGE,
+  getCrankRule,
+  getKneeTargetForPosition,
+  getPositionMetricAuthority,
+} from './crankPositionRules.js';
+import {
+  DEFAULT_POSTURE,
+  POSTURE_AERO,
+  POSTURE_MODES,
+  formatTargetsLine,
+  getPostureMetricAuthority,
+  postureCopyFor,
+} from './postureMode.js';
 
 export class LiveTuningReportManager {
   /**
@@ -19,15 +45,43 @@ export class LiveTuningReportManager {
     isFullBody = true,
     rpm = 0,
     psi = 85,
+    crankPosition = 'bdc',
+    posture = DEFAULT_POSTURE,
+    postureDetection = null,
   }) {
     const items = [];
     let compliancePoints = 0;
     let totalChecks = 0;
+    // Quem é prescritivo nesta postura (KOPS/anca/cabeça saem em aero).
+    const authority = getPostureMetricAuthority({ posture, position: crankPosition });
+    // O KOPS só é MEDÍVEL às 3h (é a única posição autorizada pela regra da posição). Em aero,
+    // onde deixa de prescrever, continua a só ser registado quando é medível nesta posição:
+    // fora das 3h seria uma linha sem significado, como já acontece em posição ereta.
+    const kopsMeasurableHere = getPositionMetricAuthority(crankPosition).kops === true;
+    const mode = POSTURE_MODES[posture] || POSTURE_MODES[DEFAULT_POSTURE];
+    const copyFor = (metric, variant) => postureCopyFor(posture, metric, variant);
 
-    // 1. AFINAÇÃO DA ALTURA DO SELIM (BDC Knee Extension)
-    const kneeTarget = targets.knee || [145, 155];
+    // 1. AFINAÇÃO DA ALTURA DO SELIM — só avaliada na posição de EXTENSÃO (6h/BDC)
+    const kneeRule = getCrankRule(crankPosition);
+    const kneeTarget = getKneeTargetForPosition(crankPosition, targets.knee || KNEE_EXTENSION_RANGE);
     const knee = bdcKneeAngle || liveAngles.joelho;
-    if (knee) {
+    if (knee && !kneeTarget) {
+      // Posição que NÃO permite prescrever altura de selim (ex.: 3h, 12h, 9h, Livre).
+      // Não conta para a pontuação: é informação de contexto, não um desvio.
+      items.push({
+        component: 'Altura do Selim',
+        action: 'Sem alteração (posição não avaliativa)',
+        whatToDo: 'Não alterar a altura do selim com base nesta foto; use uma foto no Ponto Morto Inferior (6h / BDC).',
+        degreesInfo: `Ângulo do joelho medido: ${Math.round(knee)}° | Posição: ${kneeRule.label}.`,
+        why: kneeRule.explanationPt,
+        harmDone: 'Nenhum. Ajustar o selim a partir de uma posição que não seja o BDC conduziria a uma afinação errada.',
+        status: 'ok',
+        badge: 'ℹ️ CONTEXTO',
+        measured: `${Math.round(knee)}°`,
+        target: 'Avaliar a 6h (BDC)',
+        detail: 'A altura do selim só é avaliada no ponto morto inferior (6h), onde a perna atinge a extensão máxima.',
+      });
+    } else if (knee) {
       totalChecks++;
       const [minK, maxK] = kneeTarget;
       if (knee >= minK && knee <= maxK) {
@@ -84,8 +138,8 @@ export class LiveTuningReportManager {
       }
     }
 
-    // 2. AFINAÇÃO DO RECUO / AVANÇO DO SELIM (KOPS)
-    if (kopsResult && typeof kopsResult.offsetMm === 'number') {
+    // 2. AFINAÇÃO DO RECUO / AVANÇO DO SELIM (KOPS) — só prescritivo em posição ERETA
+    if (authority.kops && kopsResult && typeof kopsResult.offsetMm === 'number') {
       totalChecks++;
       const offset = kopsResult.offsetMm;
       if (Math.abs(offset) <= 10) {
@@ -136,23 +190,43 @@ export class LiveTuningReportManager {
           detail: 'Patela atrasada face ao eixo do pedal. Deslizar o selim para a frente para melhorar cadência.',
         });
       }
+    } else if (posture === POSTURE_AERO && kopsMeasurableHere && kopsResult && typeof kopsResult.offsetMm === 'number') {
+      // EMPOSIÇÃO AERO O KOPS É DESCRITIVO: a referência é o ângulo de assento (78–86°),
+      // não o joelho sobre o eixo do pedal. Não conta para a pontuação nem gera ordem.
+      const kopsCopy = copyFor('kops', 'descriptive');
+      const offset = kopsResult.offsetMm;
+      items.push({
+        component: kopsCopy.component,
+        action: kopsCopy.action,
+        whatToDo: kopsCopy.whatToDo,
+        degreesInfo: `Desvio medido: ${offset > 0 ? `+${offset}` : offset} mm (referência KOPS de estrada, não aplicável em aero).`,
+        why: kopsCopy.why,
+        harmDone: kopsCopy.harmDone,
+        status: 'ok',
+        badge: 'ℹ️ DESCRITIVO',
+        measured: `${offset > 0 ? `+${offset}` : offset} mm`,
+        target: null,
+        detail: kopsCopy.detail,
+        descriptive: true,
+      });
     }
 
-    // 3. AFINAÇÃO DO COCKPIT (Tronco / Inclinação do Guiador)
+    // 3. AFINAÇÃO DO COCKPIT — STACK (espaçadores do guiador) ← ângulo do tronco
     const backTarget = targets.back || [40, 50];
     const back = liveAngles.costas;
     if (back) {
       totalChecks++;
       const [minB, maxB] = backTarget;
+      const okCopy = copyFor('trunk', 'ok');
       if (back >= minB && back <= maxB) {
         compliancePoints += 100;
         items.push({
-          component: 'Cockpit / Inclinação do Tronco',
-          action: 'Manter altura de espaçadores',
-          whatToDo: 'Manter a altura atual do guiador e comprimento do avanço/mesa.',
+          component: okCopy?.component || 'Cockpit — Stack (Guiador/Espaçadores)',
+          action: okCopy?.action || 'Manter altura de espaçadores',
+          whatToDo: okCopy?.whatToDo || 'Manter a altura atual do guiador (espaçadores) e o comprimento do avanço.',
           degreesInfo: `Ângulo medido: ${Math.round(back)}° | Meta ergonómica: ${minB}° a ${maxB}°.`,
-          why: 'Equilibra o centro de massa, distribuindo 60% do peso corporal no selim e 40% no guiador com curvatura lombar neutra.',
-          harmDone: 'Nenhum. Previne dores lombares e compressão cervical.',
+          why: okCopy?.why || 'Equilibra o centro de massa, distribuindo 60% do peso corporal no selim e 40% no guiador com curvatura lombar neutra.',
+          harmDone: okCopy?.harmDone || 'Nenhum. Previne dores lombares e compressão cervical.',
           status: 'ok',
           badge: '✅ EQUILIBRADO',
           measured: `${Math.round(back)}°`,
@@ -161,14 +235,15 @@ export class LiveTuningReportManager {
         });
       } else if (back < minB) {
         const delta = minB - Math.round(back);
+        const lowCopy = copyFor('trunk', 'low');
         compliancePoints += 55;
         items.push({
-          component: 'Cockpit / Guiador (Stack & Reach)',
-          action: 'Elevar guiador (+10 mm espaçador) ou encurtar mesa',
-          whatToDo: 'Adicionar espaçadores (+10 a +15 mm) sob o avanço da mesa ou encurtar a mesa em 10 mm.',
+          component: lowCopy?.component || 'Cockpit — Stack (Guiador/Espaçadores)',
+          action: lowCopy?.action || 'Elevar guiador (+10 mm de espaçadores)',
+          whatToDo: lowCopy?.whatToDo || 'Adicionar espaçadores (+10 a +15 mm) sob o avanço. NÃO alterar o comprimento do avanço (esse ajuste é avaliado pelo cotovelo).',
           degreesInfo: `Ângulo medido: ${Math.round(back)}° | Devia ter: ${minB}° a ${maxB}° (Tronco ${delta}° demasiado deitado).`,
-          why: 'Elevar o guiador alivia a rotação excessiva da bacia e mantém a coluna lombar na sua lordose anatómica neutra.',
-          harmDone: 'Pinçamento discal lombar severo (L4-L5 e L5-S1), hiperextensão cervical crónica para conseguir ver a estrada (dores de cabeça e contraturas) e dormência nos dedos por pressão excessiva no guiador.',
+          why: lowCopy?.why || 'Elevar o guiador alivia a rotação excessiva da bacia e mantém a coluna lombar na sua lordose anatómica neutra.',
+          harmDone: lowCopy?.harmDone || 'Pinçamento discal lombar severo (L4-L5 e L5-S1), hiperextensão cervical crónica para conseguir ver a estrada (dores de cabeça e contraturas) e dormência nos dedos por pressão excessiva no guiador.',
           status: 'warning',
           badge: '🟡 MUITO REBAIXADO',
           measured: `${Math.round(back)}°`,
@@ -177,14 +252,15 @@ export class LiveTuningReportManager {
         });
       } else {
         const delta = Math.round(back) - maxB;
+        const highCopy = copyFor('trunk', 'high');
         compliancePoints += 65;
         items.push({
-          component: 'Cockpit / Guiador (Stack & Reach)',
-          action: 'Baixar espaçadores (-5 mm a -10 mm) ou alongar mesa',
-          whatToDo: 'Remover espaçadores sob o avanço (-5 a -10 mm) ou optar por um avanço ligeiramente mais longo.',
+          component: highCopy?.component || 'Cockpit — Stack (Guiador/Espaçadores)',
+          action: highCopy?.action || 'Baixar espaçadores (-5 mm a -10 mm)',
+          whatToDo: highCopy?.whatToDo || 'Remover espaçadores sob o avanço (-5 a -10 mm). NÃO alterar o comprimento do avanço (esse ajuste é avaliado pelo cotovelo).',
           degreesInfo: `Ângulo medido: ${Math.round(back)}° | Devia ter: ${minB}° a ${maxB}° (Tronco ${delta}° demasiado vertical).`,
-          why: 'Uma ligeira inclinação frontal transfere peso para os membros superiores, aliviando a pressão vertical nos ísquios.',
-          harmDone: 'Concentra mais de 80% do peso nos ísquios e cóccix, transmitindo todas as pancadas do asfalto diretamente para a coluna vertebral sem o amortecimento dos braços.',
+          why: highCopy?.why || 'Uma ligeira inclinação frontal transfere peso para os membros superiores, aliviando a pressão vertical nos ísquios.',
+          harmDone: highCopy?.harmDone || 'Concentra mais de 80% do peso nos ísquios e cóccix, transmitindo todas as pancadas do asfalto diretamente para a coluna vertebral sem o amortecimento dos braços.',
           status: 'warning',
           badge: '🟡 MUITO ERETO',
           measured: `${Math.round(back)}°`,
@@ -194,21 +270,22 @@ export class LiveTuningReportManager {
       }
     }
 
-    // 4. AFINAÇÃO DO ALCANCE DOS BRAÇOS (Cotovelo / Mesa)
+    // 4. AFINAÇÃO DO COCKPIT — REACH (comprimento do avanço) ← ângulo do cotovelo
     const armTarget = targets.elbow || [150, 165];
     const arm = liveAngles.braco;
     if (arm) {
       totalChecks++;
       const [minE, maxE] = armTarget;
+      const elbowOkCopy = copyFor('elbow', 'ok');
       if (arm >= minE && arm <= maxE) {
         compliancePoints += 100;
         items.push({
-          component: 'Alcance dos Braços / Cotovelo',
-          action: 'Comprimento de mesa adequado',
-          whatToDo: 'Manter a distância atual do cockpit.',
+          component: elbowOkCopy?.component || 'Cockpit — Reach (Avanço/Mesa)',
+          action: elbowOkCopy?.action || 'Comprimento de avanço adequado',
+          whatToDo: elbowOkCopy?.whatToDo || 'Manter a distância atual do cockpit.',
           degreesInfo: `Ângulo medido: ${Math.round(arm)}° | Meta ergonómica: ${minE}° a ${maxE}°.`,
-          why: 'A flexão de 15°-20° no cotovelo funciona como suspensão ativa, absorvendo vibrações da estrada antes de chegarem à coluna.',
-          harmDone: 'Nenhum. Ombros descontraídos e circulação sanguínea desobstruída nas mãos.',
+          why: elbowOkCopy?.why || 'A flexão de 15°-20° no cotovelo funciona como suspensão ativa, absorvendo vibrações da estrada antes de chegarem à coluna.',
+          harmDone: elbowOkCopy?.harmDone || 'Nenhum. Ombros descontraídos e circulação sanguínea desobstruída nas mãos.',
           status: 'ok',
           badge: '✅ CONFORTÁVEL',
           measured: `${Math.round(arm)}°`,
@@ -217,14 +294,15 @@ export class LiveTuningReportManager {
         });
       } else if (arm > maxE) {
         const delta = Math.round(arm) - maxE;
+        const elbowHighCopy = copyFor('elbow', 'high');
         compliancePoints += 45;
         items.push({
-          component: 'Alcance dos Braços / Mesa',
-          action: 'Encurtar mesa ~15-20 mm ou aproximar manetes',
-          whatToDo: 'Substituir o avanço por um mais curto (15 a 20 mm menor) ou aproximar os manetes de travão.',
+          component: elbowHighCopy?.component || 'Cockpit — Reach (Avanço/Mesa)',
+          action: elbowHighCopy?.action || 'Encurtar avanço ~15-20 mm ou aproximar manetes',
+          whatToDo: elbowHighCopy?.whatToDo || 'Substituir o avanço por um mais curto (15 a 20 mm menor) ou aproximar os manetes de travão.',
           degreesInfo: `Ângulo medido: ${Math.round(arm)}° | Devia ter: ${minE}° a ${maxE}° (${delta}° de hiperextensão - braços bloqueados).`,
-          why: 'Encurtar o cockpit permite fletir naturalmente os cotovelos, desarmando o bloqueio ósseo dos membros superiores.',
-          harmDone: 'Bloqueio articular transmite todos os impactos do solo para os ombros e cervical. Comprime o nervo ulnar e mediano no punho, causando dormência, formigueiro e perda de força nas mãos (Paralisia do Ciclista).',
+          why: elbowHighCopy?.why || 'Encurtar o cockpit permite fletir naturalmente os cotovelos, desarmando o bloqueio ósseo dos membros superiores.',
+          harmDone: elbowHighCopy?.harmDone || 'Bloqueio articular transmite todos os impactos do solo para os ombros e cervical. Comprime o nervo ulnar e mediano no punho, causando dormência, formigueiro e perda de força nas mãos (Paralisia do Ciclista).',
           status: 'danger',
           badge: '🔴 BRAÇOS BLOQUEADOS',
           measured: `${Math.round(arm)}°`,
@@ -233,13 +311,14 @@ export class LiveTuningReportManager {
         });
       } else {
         compliancePoints += 60;
+        const elbowLowCopy = copyFor('elbow', 'low');
         items.push({
-          component: 'Alcance dos Braços / Mesa',
-          action: 'Alongar mesa ~10 mm para abrir cockpit',
-          whatToDo: 'Alongar o avanço da mesa em cerca de 10 mm.',
+          component: elbowLowCopy?.component || 'Cockpit — Reach (Avanço/Mesa)',
+          action: elbowLowCopy?.action || 'Alongar avanço ~10 mm para abrir cockpit',
+          whatToDo: elbowLowCopy?.whatToDo || 'Alongar o avanço da mesa em cerca de 10 mm.',
           degreesInfo: `Ângulo medido: ${Math.round(arm)}° | Devia ter: ${minE}° a ${maxE}° (Cotovelos excessivamente fletidos).`,
-          why: 'Abre espaço no habitáculo para manobrar com estabilidade e respirar livremente.',
-          harmDone: 'Tensão isométrica contínua nos tríceps e bíceps, sensação de aperto e risco dos joelhos baterem nos cotovelos ao pedalar em pé.',
+          why: elbowLowCopy?.why || 'Abre espaço no habitáculo para manobrar com estabilidade e respirar livremente.',
+          harmDone: elbowLowCopy?.harmDone || 'Tensão isométrica contínua nos tríceps e bíceps, sensação de aperto e risco dos joelhos baterem nos cotovelos ao pedalar em pé.',
           status: 'warning',
           badge: '🟡 COCKPIT CURTO',
           measured: `${Math.round(arm)}°`,
@@ -250,9 +329,25 @@ export class LiveTuningReportManager {
     }
 
     // 5. AFINAÇÃO DA CABEÇA / CERVICAL
-    const headTarget = targets.head || [35, 55];
+    const headTarget = targets.head;
     const head = liveAngles.cabeca;
-    if (head) {
+    if (head && authority.head === 'descriptive') {
+      // EM AERO a cabeça baixa é o OBJETIVO, não um desvio: não há alvo numérico que se aplique.
+      items.push({
+        component: 'Aero — Cabeça/Cervical',
+        action: 'Sem alteração prescrita',
+        whatToDo: 'Manter: em posição aero a cabeça baixa é parte do objetivo aerodinâmico. O que importa é manter a linha de visão à frente sem forçar o pescoço.',
+        degreesInfo: `Inclinação medida: ${Math.round(head)}° (ombro→cabeça), sem alvo validado para aero.`,
+        why: 'A evidência de posições aero descreve cabeça baixa e ombros à frente como característica da posição; não existe valor de corte validado para prescrever.',
+        harmDone: 'Nenhum por não prescrever. O risco real (secundário) é a perda de campo de visão, que se avalia por observação e não por um ângulo inventado.',
+        status: 'ok',
+        badge: 'ℹ️ DESCRITIVO',
+        measured: `${Math.round(head)}°`,
+        target: null,
+        detail: 'Medição descritiva: serve de registo, não de ordem de afinação.',
+        descriptive: true,
+      });
+    } else if (head && headTarget) {
       totalChecks++;
       const [minH, maxH] = headTarget;
       if (head >= minH && head <= maxH) {
@@ -359,6 +454,32 @@ export class LiveTuningReportManager {
       }
     }
 
+    // 7. ANTEBRAÇO — alvo só existe na posição AERO (referência 0–20°, partida 5–10°)
+    const forearmTarget = targets.antebraco;
+    const forearm = liveAngles.antebraco;
+    if (Array.isArray(forearmTarget) && typeof forearm === 'number') {
+      totalChecks++;
+      const [minF, maxF] = forearmTarget;
+      let variant = 'ok';
+      if (forearm > maxF) variant = 'high';
+      else if (forearm < minF) variant = 'low';
+      const forearmCopy = copyFor('forearm', variant) || {};
+      compliancePoints += variant === 'ok' ? 100 : 50;
+      items.push({
+        component: forearmCopy.component || 'Aero — Antebraço',
+        action: forearmCopy.action || 'Manter antebraço nivelado',
+        whatToDo: forearmCopy.whatToDo || 'Manter o antebraço praticamente horizontal sobre as almofadas.',
+        degreesInfo: `Ângulo medido: ${Math.round(forearm)}° face à horizontal | Meta em aero: ${minF}° a ${maxF}°.`,
+        why: forearmCopy.why || 'O antebraço quase nivelado é a referência de tri/TT.',
+        harmDone: forearmCopy.harmDone || 'Nenhum. Punhos e ombros descarregados.',
+        status: variant === 'ok' ? 'ok' : 'warning',
+        badge: variant === 'ok' ? '✅ NIVELADO' : '🟡 ANTEBRAÇO FORA DO PLANO',
+        measured: `${Math.round(forearm)}°`,
+        target: `${minF}° - ${maxF}°`,
+        detail: 'Elevação do antebraço (cotovelo→punho) face à horizontal.',
+      });
+    }
+
     const score = totalChecks > 0 ? Math.round(compliancePoints / totalChecks) : 100;
     let verdict = 'Excelente Ajuste (Ótimo)';
     let verdictColor = '#10b981';
@@ -379,6 +500,18 @@ export class LiveTuningReportManager {
       rpm,
       psi,
       timestamp: new Date().toLocaleTimeString('pt-PT'),
+      // Bloco de postura: com que perfil foi feita a análise, o que é prescritivo e com que fontes.
+      posture: {
+        id: posture,
+        icon: mode.icon,
+        label: mode.label,
+        shortLabel: mode.shortLabel,
+        summary: mode.summary,
+        sources: mode.sources,
+        targetsLine: formatTargetsLine(posture, targets),
+        authority,
+        detection: postureDetection,
+      },
     };
   }
 
@@ -391,7 +524,15 @@ export class LiveTuningReportManager {
     txt += `========================================================\n`;
     txt += `Atleta: ${athleteName} | Bicicleta: ${bikeModel}\nHora: ${report.timestamp}\n`;
     txt += `Conformidade Geral: ${report.score}% (${report.verdict})\n`;
-    txt += `Cadência: ${report.rpm || '--'} RPM | Suavidade (PSI): ${report.psi}%\n\n`;
+    txt += `Cadência: ${report.rpm || '--'} RPM | Suavidade (PSI): ${report.psi}%\n`;
+    if (report.posture?.targetsLine) {
+      txt += `${report.posture.targetsLine}\n`;
+      txt += `   Fonte dos alvos: ${(report.posture.sources || []).join(' · ')}\n`;
+    }
+    if (report.posture?.detection?.sufficient) {
+      txt += `   Deteção automática: ${report.posture.detection.reasons.join(' | ')}\n`;
+    }
+    txt += `\n`;
     txt += `DIAGNÓSTICO E CORREÇÕES PASSO A PASSO:\n`;
     report.items.forEach((item, idx) => {
       txt += `--------------------------------------------------------\n`;
@@ -405,76 +546,5 @@ export class LiveTuningReportManager {
     return txt;
   }
 
-  /**
-   * Converte o relatório consolidado de todas as fotos analisadas num documento estruturado.
-   */
-  static formatPhotoConsolidatedSummary(imageItems = [], athleteName = 'Ciclista', bikeModel = 'Bicicleta') {
-    const analyzed = imageItems.filter((i) => i.status === 'done' && i.report);
-    let txt = `======================================================================\n`;
-    txt += `  ATHLETE MOTION - RESUMO FINAL CONSOLIDADO DE AFINAÇÕES (FOTOS)\n`;
-    txt += `======================================================================\n`;
-    txt += `Atleta: ${athleteName} | Bicicleta: ${bikeModel}\n`;
-    txt += `Data/Hora: ${new Date().toLocaleString('pt-PT')}\n`;
-    txt += `Total de Fotos Analisadas: ${analyzed.length} de ${imageItems.length}\n\n`;
-
-    if (!analyzed.length) {
-      txt += `Nenhuma foto foi analisada com sucesso ainda.\n`;
-      txt += `======================================================================\n`;
-      return txt;
-    }
-
-    // 1. Resumo por foto individual
-    txt += `1. DETALHE DAS FOTOS ANALISADAS:\n`;
-    analyzed.forEach((item, idx) => {
-      txt += `----------------------------------------------------------------------\n`;
-      txt += `[Foto ${idx + 1}] ${item.name} (${item.crankPosition?.toUpperCase() || 'LIVRE'})\n`;
-      if (item.angles) {
-        txt += `   - Joelho: ${item.angles.joelho ? Math.round(item.angles.joelho) + '°' : '--'}\n`;
-        txt += `   - Tronco: ${item.angles.costas ? Math.round(item.angles.costas) + '°' : '--'}\n`;
-        txt += `   - Braço:  ${item.angles.braco ? Math.round(item.angles.braco) + '°' : '--'}\n`;
-        txt += `   - Anca:   ${item.angles.anca ? Math.round(item.angles.anca) + '°' : '--'}\n`;
-      }
-      if (item.report?.score !== undefined) {
-        txt += `   - Conformidade: ${item.report.score}% (${item.report.verdict})\n`;
-      }
-    });
-
-    // 2. Ações consolidadas do que se deve fazer (sem duplicações)
-    const map = new Map();
-    analyzed.forEach((it) => {
-      it.report?.items?.forEach((repItem) => {
-        if (repItem.status !== 'ok') {
-          const key = repItem.component;
-          if (!map.has(key) || repItem.status === 'danger') {
-            map.set(key, repItem);
-          }
-        }
-      });
-    });
-
-    txt += `\n======================================================================\n`;
-    txt += `2. PRESCRIÇÃO CONSOLIDADA DE AFINAÇÕES DA BICICLETA (O QUE FAZER):\n`;
-    txt += `======================================================================\n`;
-
-    if (map.size === 0) {
-      txt += `✅ EXCELENTE: Todos os parâmetros analisados cumprem os intervalos ideais de bike fit!\n`;
-      txt += `Nenhuma alteração mecânica necessária na bicicleta.\n`;
-    } else {
-      let counter = 1;
-      map.forEach((item) => {
-        txt += `${counter}. [${item.component}] - ${item.badge}\n`;
-        txt += `   🔧 O QUE SE DEVE FAZER: ${item.whatToDo}\n`;
-        txt += `   📐 ONDE ESTÁ MAL / GRAUS: ${item.degreesInfo}\n`;
-        txt += `   💡 PORQUÊ: ${item.why}\n`;
-        txt += `   ⚠️ O DANO / MALEFÍCIO QUE CAUSA: ${item.harmDone}\n`;
-        txt += `----------------------------------------------------------------------\n`;
-        counter++;
-      });
-    }
-
-    txt += `======================================================================\n`;
-    txt += `Relatório gerado automaticamente por Athlete Motion Biomechanics AI.\n`;
-    return txt;
-  }
 }
 

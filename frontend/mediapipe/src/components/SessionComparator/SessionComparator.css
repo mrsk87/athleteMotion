@@ -12,14 +12,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: var(--bg-surface);
   padding: 1.25rem 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(var(--scrim-rgb), 0.05);
 }
 
 .subtitle {
-  color: #64748b;
+  color: var(--text-3);
   margin-top: 0.25rem;
   font-size: 0.9rem;
 }
@@ -30,10 +30,10 @@
   align-items: center;
   justify-content: space-around;
   gap: 1rem;
-  background: white;
+  background: var(--bg-surface);
   padding: 1.25rem;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(var(--scrim-rgb), 0.05);
   flex-wrap: wrap;
 }
 
@@ -46,14 +46,14 @@
 
 .form-select {
   padding: 0.6rem 0.8rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.95rem;
 }
 
 .comparator-vs-badge {
-  background: #3b82f6;
-  color: white;
+  background: var(--accent);
+  color: var(--accent-contrast);
   font-weight: 800;
   padding: 0.5rem 1rem;
   border-radius: 9999px;
@@ -68,75 +68,75 @@
 }
 
 .comparison-column {
-  background: white;
+  background: var(--bg-surface);
   padding: 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(var(--scrim-rgb), 0.05);
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
 .column-before {
-  border-top: 4px solid #f59e0b;
+  border-top: 4px solid var(--warn-border);
 }
 
 .column-after {
-  border-top: 4px solid #10b981;
+  border-top: 4px solid var(--ok-border);
 }
 
 .column-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 0.75rem;
 }
 
 .badge-before {
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warn);
+  color: var(--warn-text);
 }
 
 .badge-after {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--ok);
+  color: var(--ok-text);
 }
 
 .session-date {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-3);
 }
 
 .metric-card {
-  background: #f8fafc;
+  background: var(--bg-surface-2);
   padding: 0.85rem 1rem;
   border-radius: 8px;
 }
 
 .metric-title {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-3);
 }
 
 .metric-value {
   font-size: 1.6rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-1);
   margin: 0.25rem 0;
 }
 
 .metric-range {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-3);
 }
 
 /* Tabela de Deltas */
 .deltas-card {
-  background: white;
+  background: var(--bg-surface);
   padding: 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(var(--scrim-rgb), 0.05);
 }
 
 .deltas-table {
@@ -148,7 +148,7 @@
 .deltas-table th,
 .deltas-table td {
   padding: 0.85rem 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-subtle);
   text-align: left;
 }
 
@@ -161,13 +161,13 @@
 }
 
 .delta-pos {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--ok);
+  color: var(--ok-text);
 }
 
 .delta-neg {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--danger);
+  color: var(--danger-text);
 }
 
 .status-pill {
@@ -178,8 +178,8 @@
 }
 
 .status-opt {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--accent);
+  color: var(--accent-strong);
 }
 
 .btn {
@@ -192,8 +192,8 @@
 }
 
 .btn-secondary {
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg-inset);
+  color: var(--text-2);
 }
 
 @media (max-width: 768px) {

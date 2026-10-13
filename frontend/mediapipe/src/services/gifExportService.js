@@ -6,7 +6,7 @@
  * - Fornecer fallback autónomo client-side para descarregar animação diretamente.
  * - Despoletar o download de ficheiro no navegador do utilizador.
  */
-import axios from 'axios';
+import { apiClient } from './api';
 
 export class GifExportService {
   /**
@@ -36,7 +36,9 @@ export class GifExportService {
     }
 
     try {
-      const response = await axios.post(
+      // Pelo cliente partilhado (base URL correta para PC/telemóvel); um pedido relativo caía no
+      // servidor de desenvolvimento e a exportação saía como PNG estático em vez de GIF.
+      const response = await apiClient.post(
         '/api/v1/video/export-gif',
         {
           frames: framesDataUrls.slice(0, 100), // Limite razoável de frames para GIF ágil

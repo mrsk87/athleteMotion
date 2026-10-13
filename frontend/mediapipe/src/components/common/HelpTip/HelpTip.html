@@ -1,0 +1,63 @@
+<!--
+  Selo de ajuda "?" com painel explicativo (desenho + fórmula + passos + fonte).
+  Abre com o rato (hover), com o teclado (foco) e com o toque (clique).
+-->
+<span class="help-tip" :class="`help-tip-${placement}`">
+  <!--
+    `tabindex="-1"`: o selo fica fora da ordem do Tab para que, no formulário inicial, o Tab
+    salte de caixa de texto em caixa de texto (sem parar em cada "?"). Continua a abrir com o
+    rato (hover), com o toque (clique) e com o clique a partir do rótulo do campo.
+  -->
+  <button
+    type="button"
+    class="help-tip-badge"
+    tabindex="-1"
+    :aria-expanded="open ? 'true' : 'false'"
+    :aria-describedby="open ? uniqueId : null"
+    :aria-label="`Ajuda: ${title}`"
+    @mouseenter="show"
+    @mouseleave="scheduleHide"
+    @focus="show"
+    @blur="scheduleHide"
+    @click.stop="toggle"
+    @keydown.escape="hide"
+  >?</button>
+
+  <transition name="help-tip-fade">
+    <div
+      v-if="open"
+      :id="uniqueId"
+      class="help-tip-panel"
+      role="tooltip"
+      @mouseenter="show"
+      @mouseleave="scheduleHide"
+    >
+      <div class="help-tip-header">
+        <h5>{{ title }}</h5>
+        <button type="button" class="help-tip-close" aria-label="Fechar" @click.stop="hide">✕</button>
+      </div>
+
+      <p v-if="summary" class="help-tip-summary">
+        <template v-for="(part, index) in summaryParts" :key="index">
+          <strong v-if="part.strong">{{ part.text }}</strong>
+          <template v-else>{{ part.text }}</template>
+        </template>
+      </p>
+
+      <div v-if="diagramSvg" class="help-tip-diagram" v-html="diagramSvg"></div>
+
+      <ul v-if="steps.length" class="help-tip-steps">
+        <li v-for="(step, index) in steps" :key="index">{{ step }}</li>
+      </ul>
+
+      <div v-if="formula" class="help-tip-formula">
+        <span class="help-tip-formula-tag">Cálculo</span>
+        <code>{{ formula }}</code>
+      </div>
+
+      <p v-if="source" class="help-tip-source">
+        <span class="help-tip-source-tag">Fonte</span>{{ source }}
+      </p>
+    </div>
+  </transition>
+</span>

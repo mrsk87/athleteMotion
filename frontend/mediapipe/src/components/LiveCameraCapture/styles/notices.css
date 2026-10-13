@@ -1,0 +1,168 @@
+/* =========================================================================
+   AVISOS, PROMPTS, MENU DE MARCADORES E NOTIFICAÇÕES
+   -------------------------------------------------------------------------
+   Estes elementos existiam no template mas não tinham um único estilo
+   (nem o banner de erro da câmara, nem o botão "Tentar Ligar", nem os
+   prompts de calibração, nem o menu de marcadores, nem o toast). Ficavam com
+   o aspeto cru do navegador — a parte mais visível do "não está organizado".
+   Agora usam os tokens do tema ativo.
+   ========================================================================= */
+
+/* --- Banner de erro/bloqueio da câmara --- */
+.camera-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background-color: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius);
+  color: var(--danger-text);
+}
+
+.camera-error-banner .error-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.camera-error-banner .error-text {
+  flex: 1 1 260px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-1);
+}
+
+.camera-error-banner .error-text strong {
+  color: var(--danger-text);
+}
+
+.btn-retry {
+  background-color: var(--danger);
+  color: var(--text-inverse);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-retry:hover {
+  background-color: var(--danger-text);
+}
+
+.btn-retry:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* --- Prompts de calibração (roda, marcadores manuais) --- */
+.calibration-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.calibration-prompt p {
+  flex: 1 1 260px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-1);
+}
+
+.calibration-prompt strong {
+  color: var(--accent-text);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* --- Menu de seleção de articulação para calibração manual --- */
+.marker-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.btn-marker-joint {
+  background-color: var(--bg-inset);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-marker-joint:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.btn-marker-joint.active {
+  background-color: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+.btn-clear-markers {
+  background-color: var(--danger-soft);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-clear-markers:hover {
+  background-color: var(--danger);
+  color: var(--text-inverse);
+}
+
+/* --- Notificação (toast) --- */
+.toast-notification {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 90;
+  max-width: min(520px, 90vw);
+  padding: 10px 16px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--accent-border);
+  border-left: 4px solid var(--ok);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-3);
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 600;
+}

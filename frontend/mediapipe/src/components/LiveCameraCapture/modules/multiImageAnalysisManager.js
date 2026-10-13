@@ -72,6 +72,8 @@ export class MultiImageAnalysisManager {
         kopsResult: null,
         report: null,
         analyzedCanvasDataUrl: null,
+        allSamples: [],
+        medianJointPositions: null,
       };
 
       this.items.push(item);
@@ -178,6 +180,21 @@ export class MultiImageAnalysisManager {
       txt += `  - Tronco (Horizontal): ${it.angles.costas !== null ? `${Math.round(it.angles.costas)}°` : '--'}\n`;
       txt += `  - Braço: ${it.angles.braco !== null ? `${Math.round(it.angles.braco)}°` : '--'}\n`;
       txt += `  - Tornozelo: ${it.angles.tornozelo !== null ? `${Math.round(it.angles.tornozelo)}°` : '--'}\n`;
+      // Rasto da estabilidade: de quantas passagens veio o desenho e quanto variaram. Sem isto,
+      // não se sabe se o número veio de uma leitura só (que muda a cada re-análise) ou de um ponto médio.
+      if (it.stabilization) {
+        const spread = it.stabilization.spreadPercent;
+        txt += `  - Estabilidade: ponto médio de ${it.stabilization.passes} passagem(ns)`;
+        txt += `${it.stabilization.converged ? ' (convergiu)' : ' (NÃO convergiu)'}`;
+        txt += `${spread === null || spread === undefined ? '' : `, desvio ≤ ${spread}%`}\n`;
+      }
+      if (it.medianJointPositions) {
+        const pts = [];
+        if (it.medianJointPositions.joelho) pts.push(`Joelho (${it.medianJointPositions.joelho.pctX}, ${it.medianJointPositions.joelho.pctY})`);
+        if (it.medianJointPositions.tornozelo) pts.push(`Tornozelo (${it.medianJointPositions.tornozelo.pctX}, ${it.medianJointPositions.tornozelo.pctY})`);
+        if (it.medianJointPositions.anca) pts.push(`Anca (${it.medianJointPositions.anca.pctX}, ${it.medianJointPositions.anca.pctY})`);
+        if (pts.length) txt += `  - Posição dos Pontos Médios: ${pts.join(' · ')}\n`;
+      }
       if (it.kopsResult) {
         txt += `  - KOPS: ${it.kopsResult.actionPt} (${it.kopsResult.offsetMm} mm)\n`;
       }

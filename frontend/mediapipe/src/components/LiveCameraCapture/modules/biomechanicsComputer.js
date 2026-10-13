@@ -5,6 +5,22 @@
  * - Calcular ângulos articulares seguros via produto escalar com clamping estrito anti-NaN.
  * - Calcular inclinação angular face à horizontal.
  * - Extrair pontos ajustados (manuais vs landmarks brutos) e avaliar limiares ergonómicos.
+ *
+ * MÉTRICA DO PÉ (`pe`):
+ * Inclinação da linha tornozelo→ponta do pé face à horizontal, em graus, com SINAL: positivo =
+ * ponta do pé ABAIXO do tornozelo (toe-down), negativo = ponta acima. É a métrica que o
+ * `FOOT_TOE_DOWN_RANGE` de cada posição do cranque descreve — o pé aponta para baixo de forma
+ * diferente às 12h (15–35°), às 6h (5–20°) e às 3h (0–12°). Sem ela, a faixa por posição existia
+ * na regra mas não tinha medição que a alimentasse.
+ * Limite: a convenção depende do marco `foot_index` do MediaPipe (ponta do pé) e não mede a
+ * inclinação da SAPATA em si; serve para comparar posições do MESMO atleta, não entre atletas.
+ *
+ * MÉTRICA DO ANTEBRAÇO (`antebraco`):
+ * A elevação do antebraço (cotovelo→punho) face à horizontal, em graus. O ângulo do cotovelo
+ * sozinho NÃO distingue "braços fletidos sobre o guiador" de "braços apoiados nas almofadas de
+ * uma posição aero", porque nos dois casos o cotovelo está fletido. A elevação do antebraço
+ * distingue-os: em aerobars o antebraço fica praticamente horizontal (referência 0–20°, com
+ * 5–10° como partida — Velogicfit, triathlon metrics).
  */
 
 export class BiomechanicsComputer {
@@ -40,6 +56,24 @@ export class BiomechanicsComputer {
   }
 
   /**
+   * Inclinação COM SINAL do pé face à horizontal (graus).
+   * Positivo = ponta do pé abaixo do tornozelo (toe-down); negativo = ponta acima do tornozelo.
+   * O eixo y da imagem cresce para baixo, pelo que `toe.y - ankle.y > 0` significa ponta mais baixa.
+   *
+   * @param {{x:number,y:number}} ankle tornozelo
+   * @param {{x:number,y:number}} toe ponta do pé (`foot_index`)
+   * @returns {number|null} graus arredondados a 0,1; `null` se os pontos não existirem
+   */
+  static calculateFootDownAngle(ankle, toe) {
+    if (!ankle || !toe) return null;
+    const dx = Math.abs(toe.x - ankle.x);
+    const dy = toe.y - ankle.y;
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return null;
+    const deg = Math.atan2(dy, dx) * (180 / Math.PI);
+    return Math.round(deg * 10) / 10;
+  }
+
+  /**
    * Verifica se um marco anatómico está visível e dentro do enquadramento da câmara.
    */
   static isLandmarkVisible(p, minVisibility = 0.35) {
@@ -52,7 +86,7 @@ export class BiomechanicsComputer {
   /**
    * Extrai e calcula todos os ângulos instantâneos e valida integridade de corpo inteiro.
    */
-  static computeFrameAngles({ lm, side, manualTracker }) {
+  static computeFrameAngles({ lm, side, manualTracker, resolvePoint = null }) {
     if (!lm || lm.length < 33) {
       return {
         joelho: null,
@@ -60,6 +94,9 @@ export class BiomechanicsComputer {
         braco: null,
         tornozelo: null,
         cabeca: null,
+        anca: null,
+        antebraco: null,
+        pe: null,
         points: {},
         isFullBodyVisible: false,
         missingSegments: ['Cabeça', 'Braços', 'Tronco', 'Pernas'],
@@ -78,12 +115,19 @@ export class BiomechanicsComputer {
     const elbowIdx = isLeft ? 13 : 14;
     const wristIdx = isLeft ? 15 : 16;
 
+    //
+    // `resolvePoint` é o ponto de extensão único para a origem dos pontos articulares. Sem ele,
+    // a única fonte era a calibração manual (`manualTracker`). Com ele, o CromaTrack (marcadores
+    // cromáticos) entra na MESMA cadeia: manual → cromático → marco bruto do modelo. O cálculo
+    // dos ângulos não precisa de saber de onde veio o ponto — só de o receber.
+    const resolve = resolvePoint || ((joint, fallback) => (manualTracker ? manualTracker.getAdjustedPoint(joint, fallback) : fallback));
+
     const headPt = lm[earIdx] || lm[noseIdx];
-    const kneePt = manualTracker ? manualTracker.getAdjustedPoint('knee', lm[kneeIdx]) : lm[kneeIdx];
-    const hipPt = manualTracker ? manualTracker.getAdjustedPoint('hip', lm[hipIdx]) : lm[hipIdx];
-    const anklePt = manualTracker ? manualTracker.getAdjustedPoint('ankle', lm[ankleIdx]) : lm[ankleIdx];
-    const shoulderPt = manualTracker ? manualTracker.getAdjustedPoint('shoulder', lm[shoulderIdx]) : lm[shoulderIdx];
-    const elbowPt = manualTracker ? manualTracker.getAdjustedPoint('elbow', lm[elbowIdx]) : lm[elbowIdx];
+    const kneePt = resolve('knee', lm[kneeIdx]);
+    const hipPt = resolve('hip', lm[hipIdx]);
+    const anklePt = resolve('ankle', lm[ankleIdx]);
+    const shoulderPt = resolve('shoulder', lm[shoulderIdx]);
+    const elbowPt = resolve('elbow', lm[elbowIdx]);
     const footPt = lm[footIdx];
     const wristPt = lm[wristIdx];
 
@@ -108,6 +152,8 @@ export class BiomechanicsComputer {
       tornozelo: this.calculateSafeAngle(kneePt, anklePt, footPt),
       cabeca: this.calculateInclination(shoulderPt, headPt),
       anca: this.calculateSafeAngle(shoulderPt, hipPt, kneePt),
+      antebraco: this.calculateInclination(elbowPt, wristPt),
+      pe: this.calculateFootDownAngle(anklePt, footPt),
       points: { kneePt, hipPt, anklePt, shoulderPt, elbowPt, footPt, wristPt, headPt },
       visibility: { headVisible, armVisible, torsoVisible, legVisible },
       isFullBodyVisible,

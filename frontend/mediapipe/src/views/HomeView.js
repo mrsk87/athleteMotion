@@ -15,6 +15,7 @@ import AthleteOnboarding from '../components/AthleteOnboarding';
 import LiveCameraCapture from '../components/LiveCameraCapture';
 import FitReportView from '../components/FitReportView';
 import SessionComparator from '../components/SessionComparator';
+import BiomechanicalWorkbench from '../components/workbench/BiomechanicalWorkbench.vue';
 
 export default {
   name: 'HomeView',
@@ -23,6 +24,7 @@ export default {
     LiveCameraCapture,
     FitReportView,
     SessionComparator,
+    BiomechanicalWorkbench,
   },
   setup() {
     const { t } = useI18n();
@@ -53,6 +55,14 @@ export default {
     };
 
     /**
+     * Navegação direta para o comparador de sessões (Antes vs Depois)
+     */
+    const handleOpenComparator = (report) => {
+      reportData.value = report;
+      currentTab.value = 'comparator';
+    };
+
+    /**
      * Reiniciar fluxo para uma nova sessão limpa
      */
     const handleRestartSession = () => {
@@ -68,6 +78,7 @@ export default {
       reportData,
       handleSessionCreated,
       handleSessionCompleted,
+      handleOpenComparator,
       handleRestartSession,
     };
   },

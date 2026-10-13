@@ -24,10 +24,14 @@ def create_bike(payload: BikeCreate):
             bike_type=payload.bike_type,
             brand_model=payload.brand_model,
             frame_size_cm=payload.frame_size_cm,
+            top_tube_mm=payload.top_tube_mm,
             handlebar_width_mm=payload.handlebar_width_mm,
+            handlebar_reach_mm=payload.handlebar_reach_mm,
+            handlebar_drop_mm=payload.handlebar_drop_mm,
             stem_length_mm=payload.stem_length_mm,
             crank_length_mm=payload.crank_length_mm,
             current_saddle_height_cm=payload.current_saddle_height_cm,
+            cleat_position=payload.cleat_position,
         )
         session.add(bike)
         session.flush()

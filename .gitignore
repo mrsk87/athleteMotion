@@ -76,4 +76,8 @@ test_*.db-shm
 node_modules/
 frontend/mediapipe/node_modules/
 frontend/mediapipe/dist/
-
+# Machine Learning Model Weights (see models/README.md)
+*.pt
+*.onnx
+*.task
+!models/README.md

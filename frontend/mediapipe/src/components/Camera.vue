@@ -1,9 +1,10 @@
 <template>
-  <Camera />
+  <CameraPage />
 </template>
 <script>
-import Camera from './Camera/Camera.vue';
+import CameraPage from './Camera/Camera.vue';
 export default {
-  components: { Camera }
+  name: 'CameraPage',
+  components: { CameraPage }
 };
 </script>

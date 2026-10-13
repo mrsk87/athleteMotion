@@ -97,6 +97,8 @@ erDiagram
         float current_saddle_height_cm
         float frame_size_cm
         float handlebar_width_mm
+        float handlebar_reach_mm
+        float handlebar_drop_mm
         float stem_length_mm
         float crank_length_mm
     }

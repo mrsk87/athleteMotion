@@ -1,22 +1,49 @@
 <!--
   Componente Raiz App
-  Responsabilidade: Layout mestre da aplicação, cabeçalho de marca, seletor i18n e rodapé
+  Responsabilidade: Layout mestre da aplicação, cabeçalho de marca, seletor de tema,
+  seletor i18n e rodapé
 -->
 <div id="app">
   <header class="app-header">
     <div class="header-brand">
-      <h1 class="app-title">{{ t('appName') }}</h1>
+      <span class="brand-mark" aria-hidden="true">🚴</span>
+      <div class="brand-text">
+        <h1 class="app-title">{{ t('appName') }}</h1>
+        <span class="brand-subtitle">{{ t('appSubtitle') || 'Bike fit com medição biomecânica' }}</span>
+      </div>
       <span class="version-tag" :title="t('versionLabel')">v{{ version }}</span>
     </div>
 
     <div class="header-controls">
+      <!-- Seletor de Tema: Claro · Escuro · Sóbrio -->
+      <div class="theme-picker" role="group" :aria-label="t('themeLabel') || 'Tema da interface'">
+        <span class="control-caption">{{ t('themeLabel') || 'Tema' }}</span>
+        <div class="theme-options">
+          <button
+            v-for="option in themes"
+            :key="option.id"
+            type="button"
+            class="theme-option"
+            :class="{ active: theme === option.id }"
+            :title="option.description"
+            :aria-label="option.label"
+            :aria-pressed="theme === option.id ? 'true' : 'false'"
+            @click="setTheme(option.id)"
+          >
+            <span class="theme-icon" aria-hidden="true">{{ option.icon }}</span>
+            <span class="theme-name">{{ option.label }}</span>
+          </button>
+        </div>
+      </div>
+
       <div class="language-picker">
-        <label for="language-select">{{ t('language') }}:</label>
+        <span class="control-caption">{{ t('language') }}</span>
         <select
           id="language-select"
           :value="locale"
           @change="setLocale($event.target.value)"
           class="lang-dropdown"
+          aria-label="Idioma / Language"
         >
           <option value="pt">{{ t('portuguese') }} (PT)</option>
           <option value="en">{{ t('english') }} (EN)</option>
@@ -37,4 +64,3 @@
     </p>
   </footer>
 </div>
-

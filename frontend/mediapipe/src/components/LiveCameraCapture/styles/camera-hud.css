@@ -2,79 +2,239 @@
    HUD OVERLAY, BADGES E STATUS ERGONÓMICOS EM TEMPO REAL
    ========================================================================= */
 
+/*
+ * HUD SOBRE O VÍDEO.
+ *
+ * As etiquetas são de larguras muito diferentes: umas cabem numa linha ("-- RPM"), outras
+ * precisam de duas ou três ("⚠️ CORPO INCOMPLETO (tornozelo, pé)") consoante a largura do
+ * vídeo. Com o alinhamento por omissão (`stretch`) as etiquetas de uma linha eram esticadas
+ * até à altura da vizinha de duas linhas, e a caixa que transbordava a largura do vídeo era
+ * cortada pelo `overflow: hidden` do contentor. Daqui:
+ *  - a faixa tem limites explícitos (left/right + max-height), para nada sair do vídeo;
+ *  - `align-items: flex-start` mantém cada etiqueta com a altura do seu próprio texto;
+ *  - `row-gap` separa as linhas em vez de deixar as caixas coladas umas às outras.
+ */
+/*
+ * CONTENTOR FLEXÍVEL DO PALCO DE VÍDEO & TELEMETRIA
+ *
+ * Permite que o HUD de telemetria seja exibido FORA do vídeo (no topo ou na base)
+ * sem obstruir a imagem do ciclista, ou em modo flutuante/sobreposto tradicional.
+ */
+.viewport-wrapper {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+}
+
+.viewport-wrapper.hud-pos-top .camera-hud-container {
+  order: 1;
+  margin-bottom: 8px;
+}
+.viewport-wrapper.hud-pos-top .video-canvas-container {
+  order: 2;
+}
+
+.viewport-wrapper.hud-pos-bottom .video-canvas-container {
+  order: 1;
+}
+.viewport-wrapper.hud-pos-bottom .camera-hud-container {
+  order: 2;
+  margin-top: 8px;
+}
+
+/* Modo sobreposto flutuante sobre o vídeo (legado/opcional) */
+.viewport-wrapper.hud-pos-overlay .camera-hud-container,
 .camera-hud-overlay {
   position: absolute;
   top: 10px;
   left: 10px;
+  right: 10px;
+  z-index: 12;
+  pointer-events: none;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
+  row-gap: 6px;
+  column-gap: 6px;
+  box-sizing: border-box;
+  max-height: calc(100% - 20px);
+}
+
+.viewport-wrapper.hud-pos-overlay .hud-item,
+.viewport-wrapper.hud-pos-overlay .btn-hud-pos-switch {
+  pointer-events: auto;
+}
+
+/* Modo totalmente oculto */
+.viewport-wrapper.hud-pos-hidden .camera-hud-container {
+  display: none !important;
+}
+
+/* Barra de Telemetria Externa (fora do vídeo - limpo, legível e não intrusivo) */
+.camera-hud-container.is-outside {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  box-sizing: border-box;
+  animation: fadeInDown 0.2s ease-out;
+}
+
+.hud-badges-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  pointer-events: none;
-  z-index: 10;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hud-position-control {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.btn-hud-pos-switch {
+  background-color: var(--bg-inset);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-hud-pos-switch:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-1);
+  border-color: var(--border-strong);
 }
 
 .hud-item {
-  background-color: rgba(0, 0, 0, 0.75);
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  background-color: var(--bg-inset);
+  padding: 3px 8px;
   border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #fff;
-  border: 1px solid #444;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--text-1);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.camera-hud-container.is-overlay .hud-item {
+  background-color: rgba(var(--scrim-rgb), 0.75);
+  border-color: var(--border);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hud-fullbody-warn {
+  border-color: var(--warn-border);
+  color: var(--warn-text);
+}
+
+/* Em ecrãs estreitos o vídeo é pequeno: menos recheio e texto ligeiramente menor. */
+@media (max-width: 640px) {
+  .camera-hud-overlay {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    row-gap: 4px;
+    column-gap: 4px;
+    max-height: calc(100% - 16px);
+  }
+
+  .hud-item {
+    padding: 3px 6px;
+    font-size: 10px;
+    border-radius: 5px;
+  }
 }
 
 .hud-active {
-  color: #00FF00;
-  border-color: #00FF00;
+  color: var(--accent-text);
+  border-color: var(--accent-border);
 }
 
 .hud-cadence {
-  color: #38bdf8;
-  border-color: #0284c7;
+  color: var(--accent-text);
+  border-color: var(--accent-border);
 }
 
 .hud-bdc {
-  color: #fbbf24;
-  border-color: #d97706;
+  color: var(--warn-text);
+  border-color: var(--warn-border);
 }
 
 .bdc-flash {
-  background-color: rgba(0, 255, 0, 0.4);
-  color: #00FF00;
-  border-color: #00FF00;
+  background-color: rgba(var(--accent-rgb), 0.4);
+  color: var(--accent-text);
+  border-color: var(--accent-border);
 }
 
 .hud-power {
-  color: #f43f5e;
-  border-color: #e11d48;
+  color: var(--danger-text);
+  border-color: var(--danger-border);
 }
 
 .hud-kops {
-  color: #a855f7;
-  border-color: #9333ea;
+  color: var(--info-text);
+  border-color: var(--info-border);
 }
 
 .hud-drop {
-  color: #10b981;
-  border-color: #059669;
+  color: var(--ok-text);
+  border-color: var(--ok-border);
 }
 
 .hud-frontal {
-  color: #38bdf8;
-  border-color: #0284c7;
+  color: var(--accent-text);
+  border-color: var(--accent-border);
 }
 
 .hud-psi {
-  color: #ec4899;
-  border-color: #db2777;
+  color: var(--info-text);
+  border-color: var(--danger-border);
+}
+
+.hud-crank-phase {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background-color: rgba(var(--scrim-rgb), 0.85);
+  letter-spacing: 0.02em;
 }
 
 .kops-ok {
-  color: #10b981;
+  color: var(--ok-text);
 }
 
 .kops-warn {
-  color: #f59e0b;
+  color: var(--warn-text);
 }
 
 /* Indicadores de status dos cartões de métricas */
@@ -87,28 +247,28 @@
 }
 
 .status-ok {
-  background-color: #00FF00;
-  box-shadow: 0 0 8px #00FF00;
+  background-color: var(--accent);
+  box-shadow: 0 0 8px var(--glow-warn);
 }
 
 .status-warn {
-  background-color: #FFCC00;
-  box-shadow: 0 0 8px #FFCC00;
+  background-color: var(--warn);
+  box-shadow: 0 0 8px var(--glow-warn);
 }
 
 .status-error {
-  background-color: #FF3333;
-  box-shadow: 0 0 8px #FF3333;
+  background-color: var(--danger);
+  box-shadow: 0 0 8px var(--glow-danger);
 }
 
 .status-idle {
-  background-color: #666;
+  background-color: var(--bg-inset);
 }
 
 /* Indicadores de conformidade ergonómica em tempo real */
 .metric-row {
-  background-color: #242424;
-  border: 1px solid #383838;
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 8px;
@@ -116,52 +276,89 @@
 }
 
 .metric-row.metric-compliant {
-  border-color: #10b981;
-  background-color: rgba(16, 185, 129, 0.1);
+  border-color: var(--ok-border);
+  background-color: rgba(var(--ok-rgb), 0.1);
 }
 
 .metric-row.metric-compliant .angle-badge {
-  color: #10b981;
-  border-color: #10b981;
-  background-color: rgba(16, 185, 129, 0.2);
+  color: var(--ok-text);
+  border-color: var(--ok-border);
+  background-color: rgba(var(--ok-rgb), 0.2);
 }
 
 .metric-row.metric-warning {
-  border-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.1);
+  border-color: var(--warn-border);
+  background-color: rgba(var(--warn-rgb), 0.1);
 }
 
 .metric-row.metric-warning .angle-badge {
-  color: #f59e0b;
-  border-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.2);
+  color: var(--warn-text);
+  border-color: var(--warn-border);
+  background-color: rgba(var(--warn-rgb), 0.2);
 }
 
 .metric-row.metric-danger,
 .metric-row.metric-non-compliant {
-  border-color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger-border);
+  background-color: rgba(var(--danger-rgb), 0.1);
 }
 
 .metric-row.metric-danger .angle-badge,
 .metric-row.metric-non-compliant .angle-badge {
-  color: #ef4444;
-  border-color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.2);
+  color: var(--danger-text);
+  border-color: var(--danger-border);
+  background-color: rgba(var(--danger-rgb), 0.2);
 }
 
 /* Indicadores de Enquadramento de Corpo Inteiro */
 .hud-fullbody-ok {
-  color: #10b981;
-  border-color: #10b981;
-  background-color: rgba(16, 185, 129, 0.2);
+  color: var(--ok-text);
+  border-color: var(--ok-border);
+  background-color: rgba(var(--ok-rgb), 0.2);
   font-weight: 700;
 }
 
 .hud-fullbody-warn {
-  color: #f59e0b;
-  border-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.2);
+  color: var(--warn-text);
+  border-color: var(--warn-border);
+  background-color: rgba(var(--warn-rgb), 0.2);
   font-weight: 700;
+  /*
+   * Este aviso é o mais longo do HUD ("⚠️ CORPO INCOMPLETO (tornozelo, pé, ...)"): ocupa a linha
+   * inteira da faixa em vez de partir em duas colunas e empurrar as etiquetas vizinhas.
+   */
+  flex: 1 1 100%;
+}
+
+/* Botão Flutuante de Restauro do HUD quando Oculto */
+.hud-restore-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 30;
+}
+
+.btn-restore-hud {
+  background-color: rgba(var(--scrim-rgb), 0.82);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 5px 12px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgba(var(--scrim-rgb), 0.5);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-restore-hud:hover {
+  background-color: var(--accent);
+  color: var(--text-inverse);
+  box-shadow: 0 0 12px var(--glow-accent);
+  transform: translateY(-1px);
 }
 

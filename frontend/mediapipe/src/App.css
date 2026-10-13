@@ -1,5 +1,9 @@
 /**
  * Estilos Globais e do Layout Raiz (App)
+ *
+ * Todas as cores vêm dos tokens semânticos de `src/styles/theme.css`.
+ * Nenhum nome de cor deve ser escrito aqui: é isso que faz os três temas
+ * (claro, escuro e sóbrio) funcionarem sem duplicar estilos.
  */
 
 /* Reset e estilos globais */
@@ -9,11 +13,19 @@
   padding: 0;
 }
 
+html,
 body {
-  background-color: #121212;
-  color: #e0e0e0;
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--bg-app);
+  color: var(--text-1);
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
@@ -22,96 +34,209 @@ body {
   min-height: 100vh;
 }
 
+/* --- Cabeçalho da aplicação --- */
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
-  background-color: #1a1a1a;
-  border-bottom: 2px solid #00FF00;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
 }
 
 .header-brand {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius);
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  font-size: 19px;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .app-title {
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
-  color: #00FF00;
-  letter-spacing: 0.5px;
+  color: var(--accent-text);
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+.brand-subtitle {
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 .version-tag {
-  background-color: #2a2a2a;
-  color: #00FF00;
-  border: 1px solid #00FF00;
+  background-color: var(--bg-inset);
+  color: var(--text-2);
+  border: 1px solid var(--border);
   padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
   font-weight: 600;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  align-self: flex-start;
 }
 
 .header-controls {
   display: flex;
   align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 
+.control-caption {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-3);
+  font-weight: 700;
+}
+
+/* --- Seletor de temas --- */
+.theme-picker,
 .language-picker {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.language-picker label {
-  color: #aaa;
-  font-size: 14px;
+.theme-options {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background-color: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
 }
 
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.theme-option:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.theme-option:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.theme-option.active {
+  background-color: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+.theme-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* --- Seletor de idioma --- */
 .lang-dropdown {
-  background-color: #242424;
-  color: #fff;
-  border: 1px solid #444;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 14px;
+  background-color: var(--bg-inset);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .lang-dropdown:hover,
 .lang-dropdown:focus {
-  border-color: #00FF00;
+  border-color: var(--accent-border);
 }
 
+.lang-dropdown:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* --- Conteúdo --- */
 .app-content {
   flex: 1;
-  padding: 16px;
+  width: 100%;
+  padding: 18px 20px 28px;
 }
 
 .app-footer {
-  padding: 14px 20px;
-  background-color: #181818;
-  border-top: 1px solid #2a2a2a;
+  padding: 12px 20px;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
   text-align: center;
-  font-size: 13px;
-  color: #888;
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 .app-footer code {
-  color: #00FF00;
-  background-color: #222;
+  color: var(--text-2);
+  background-color: var(--bg-inset);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .status-indicator {
-  color: #00FF00;
+  color: var(--ok-text);
   font-weight: 600;
 }
 
+@media (max-width: 640px) {
+  .app-header {
+    padding: 10px 12px;
+  }
+
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .theme-option .theme-name {
+    display: none;
+  }
+
+  .theme-option {
+    padding: 6px 9px;
+  }
+
+  .app-content {
+    padding: 12px 12px 24px;
+  }
+}

@@ -8,7 +8,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(var(--scrim-rgb), 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -17,23 +17,23 @@
 }
 
 .modal-box {
-  background: #1e293b;
-  border: 2px solid #3b82f6;
+  background: var(--bg-elevated);
+  border: 2px solid var(--accent-border);
   padding: 24px;
   border-radius: 12px;
   max-width: 440px;
   text-align: center;
-  color: white;
+  color: var(--accent-contrast);
 }
 
 .modal-box h3 {
   margin-top: 0;
   font-size: 18px;
-  color: #38bdf8;
+  color: var(--accent-text);
 }
 
 .turn-prompt {
-  color: #f59e0b;
+  color: var(--warn-text);
   font-size: 16px;
   margin: 12px 0;
   font-weight: 600;
@@ -42,7 +42,7 @@
 .countdown-bar {
   width: 100%;
   height: 8px;
-  background: #334155;
+  background: var(--bg-inset);
   border-radius: 4px;
   overflow: hidden;
   margin-top: 12px;
@@ -50,13 +50,13 @@
 
 .countdown-progress {
   height: 100%;
-  background: #10b981;
+  background: var(--ok);
   transition: width 1s linear;
 }
 
 .btn-bilateral-resume {
-  background: #10b981;
-  color: #fff;
+  background: var(--ok);
+  color: var(--text-1);
   border: none;
   padding: 10px 20px;
   border-radius: 6px;
@@ -67,5 +67,5 @@
 }
 
 .btn-bilateral-resume:hover {
-  background: #059669;
+  background: var(--ok);
 }
