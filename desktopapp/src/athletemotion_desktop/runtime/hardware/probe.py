@@ -23,7 +23,7 @@ import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Final
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,9 @@ class HardwareInfo:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2, sort_keys=True)
 
 
-def _run_command(command: Sequence[str], timeout: float = EXTERNAL_COMMAND_TIMEOUT_SECONDS) -> str | None:
+def _run_command(
+    command: Sequence[str], timeout: float = EXTERNAL_COMMAND_TIMEOUT_SECONDS
+) -> str | None:
     """Executa um comando externo devolvendo o `stdout`.
 
     Args:
@@ -205,7 +207,9 @@ def parse_video_controller_json(raw_output: str | None) -> tuple[Mapping[str, st
     for entry in payload:
         if not isinstance(entry, Mapping):
             continue
-        records.append({str(key): "" if value is None else str(value) for key, value in entry.items()})
+        records.append(
+            {str(key): "" if value is None else str(value) for key, value in entry.items()}
+        )
     return tuple(records)
 
 
@@ -308,7 +312,9 @@ def query_registry_vram_records() -> tuple[Mapping[str, str], ...]:
         "QWMemorySize = $entry.'HardwareInformation.qwMemorySize' } } } "
         "| ConvertTo-Json -Compress"
     )
-    raw_output = _run_command(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command])
+    raw_output = _run_command(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command]
+    )
     return parse_registry_vram_json(raw_output)
 
 
@@ -433,8 +439,8 @@ def parse_gpu_records(
                     "(o WMI trunca valores acima de 4 GiB)."
                 )
         driver_version = (
-            (record.get("DriverVersion") or record.get("driverversion") or "").strip() or None
-        )
+            record.get("DriverVersion") or record.get("driverversion") or ""
+        ).strip() or None
         gpus.append(
             GpuInfo(
                 name=name,
@@ -585,7 +591,9 @@ def collect_hardware_info() -> HardwareInfo:
     ort_providers, ort_warnings = probe_ort_providers()
     openvino_devices, openvino_warnings = probe_openvino_devices()
 
-    warnings = list(cpu_warnings) + list(gpu_warnings) + list(ort_warnings) + list(openvino_warnings)
+    warnings = (
+        list(cpu_warnings) + list(gpu_warnings) + list(ort_warnings) + list(openvino_warnings)
+    )
     if not gpu_records:
         warnings.append(
             "Nenhum adaptador gráfico foi reportado pelo Windows (WMI/PowerShell): "
@@ -594,7 +602,7 @@ def collect_hardware_info() -> HardwareInfo:
 
     hardware_info = HardwareInfo(
         schema_version=PROBE_SCHEMA_VERSION,
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
         cpu=cpu_info,
         gpus=gpus,
         total_ram_gb=probe_total_ram_gb(),
@@ -635,8 +643,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     print(f"Sistema: {describe_system_name()}")
-    print(f"CPU: {hardware_info.cpu.model} ({hardware_info.cpu.physical_cores} físicos / "
-          f"{hardware_info.cpu.logical_cores} lógicos)")
+    print(
+        f"CPU: {hardware_info.cpu.model} ({hardware_info.cpu.physical_cores} físicos / "
+        f"{hardware_info.cpu.logical_cores} lógicos)"
+    )
     print(
         "Flags: "
         f"AVX2={hardware_info.cpu.has_avx2} AVX-512={hardware_info.cpu.has_avx512} "
@@ -644,7 +654,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print(f"RAM: {hardware_info.total_ram_gb} GB")
     for gpu in hardware_info.gpus:
-        print(f"GPU: {gpu.name} ({gpu.vendor}, VRAM={gpu.vram_gb} GiB, driver={gpu.driver_version})")
+        print(
+            f"GPU: {gpu.name} ({gpu.vendor}, VRAM={gpu.vram_gb} GiB, driver={gpu.driver_version})"
+        )
     print(f"Providers ORT: {', '.join(hardware_info.ort_providers) or 'nenhum'}")
     print(f"Dispositivos OpenVINO: {', '.join(hardware_info.openvino_devices) or 'nenhum'}")
     for warning in hardware_info.warnings:

@@ -74,7 +74,7 @@ def build_diagnostics(
                 "error",
                 "Nenhum runtime de inferência está instalado (ONNX Runtime): a análise de pose "
                 "não pode correr. Instale o extra apropriado (por exemplo `uv pip install -e "
-                "\".[directml]\"`).",
+                '".[directml]"`).',
             )
         )
         return _sorted_diagnostics(diagnostics)
@@ -109,9 +109,7 @@ def build_diagnostics(
     diagnostics.extend(_vram_diagnostics(hardware_info))
     diagnostics.extend(_cpu_diagnostics(hardware_info))
     diagnostics.extend(_gpu_order_diagnostics(hardware_info))
-    diagnostics.extend(
-        DiagnosticWarning("info", warning) for warning in hardware_info.warnings
-    )
+    diagnostics.extend(DiagnosticWarning("info", warning) for warning in hardware_info.warnings)
     return _sorted_diagnostics(diagnostics)
 
 

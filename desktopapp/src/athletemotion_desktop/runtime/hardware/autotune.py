@@ -124,14 +124,18 @@ class AutotuneProcess:
         #: Só o comando por omissão depende do módulo do backend; comandos injetados
         #: (testes) não são pré-validados contra o módulo real.
         self._uses_backend_module = command is None
-        self._command: list[str] = list(command) if command is not None else [
-            sys.executable,
-            "-m",
-            AUTOTUNE_MODULE,
-            "--output",
-            str(profile_file),
-            "--json-progress",
-        ]
+        self._command: list[str] = (
+            list(command)
+            if command is not None
+            else [
+                sys.executable,
+                "-m",
+                AUTOTUNE_MODULE,
+                "--output",
+                str(profile_file),
+                "--json-progress",
+            ]
+        )
         self._process: subprocess.Popen[str] | None = None
         self._progress_queue: queue.Queue[AutotuneProgress] = queue.Queue()
         self._reader_thread: threading.Thread | None = None
@@ -192,9 +196,7 @@ class AutotuneProcess:
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except OSError as exc:
-            raise AutotuneUnavailableError(
-                f"Não foi possível lançar o autotune ({exc})."
-            ) from exc
+            raise AutotuneUnavailableError(f"Não foi possível lançar o autotune ({exc}).") from exc
 
         self._progress_queue = queue.Queue()
         self._stderr_lines = []

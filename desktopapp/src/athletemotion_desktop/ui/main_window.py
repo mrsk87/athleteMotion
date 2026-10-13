@@ -51,6 +51,10 @@ class NavigationEntry:
     description_source: str
 
 
+#: Identificador da vista de Definições. É partilhado com o `app.py`, que injeta a
+#: vista funcional (D02) nesta posição da pilha.
+SETTINGS_VIEW_ID: Final[int] = 4
+
 NAVIGATION_ENTRIES: Final[tuple[NavigationEntry, ...]] = (
     NavigationEntry(
         view_id=0,
@@ -85,7 +89,7 @@ NAVIGATION_ENTRIES: Final[tuple[NavigationEntry, ...]] = (
         ),
     ),
     NavigationEntry(
-        view_id=4,
+        view_id=SETTINGS_VIEW_ID,
         icon="⚙️",
         title_source=QT_TRANSLATE_NOOP("MainWindow", "Definições"),
         description_source=QT_TRANSLATE_NOOP(
@@ -178,6 +182,32 @@ class MainWindow(QMainWindow):
         self.language_selector.blockSignals(True)
         self.language_selector.setCurrentIndex(selector_index)
         self.language_selector.blockSignals(False)
+
+    def set_view_widget(self, view_id: int, widget: QWidget) -> None:
+        """Substitui a página provisória de uma vista pelo widget funcional.
+
+        As páginas de exemplo são criadas no arranque e cada tarefa (D02, D07, D09…)
+        entrega o seu widget; esta substituição evita que a janela conheça todas as
+        vistas concretas.
+
+        Args:
+            view_id: identificador da vista (posição em `NAVIGATION_ENTRIES`).
+            widget: widget que passa a ocupar a posição da vista.
+
+        Raises:
+            IndexError: se a vista indicada não existir.
+        """
+        if not 0 <= view_id < self.view_stack.count():
+            raise IndexError(
+                f"Vista {view_id} não existe (intervalo válido: 0..{self.view_stack.count() - 1})."
+            )
+
+        current_index = self.view_stack.currentIndex()
+        placeholder = self.view_stack.widget(view_id)
+        self.view_stack.removeWidget(placeholder)
+        placeholder.deleteLater()
+        self.view_stack.insertWidget(view_id, widget)
+        self.view_stack.setCurrentIndex(current_index)
 
     @property
     def navigation_buttons(self) -> tuple[QPushButton, ...]:

@@ -7,7 +7,7 @@
 
 | ID | Tarefa | Prio | Depende de | Status | Progresso | Atribuído | Atualizado |
 |---|---|---|---|---|---|---|---|
-| [R01](R01_REPO_RESTRUCTURE.md) | Reestruturação `backend/ frontend/ desktopapp/` + pacote `athletemotion` | P0 | — | 🟡 IN_PROGRESS | 0/9 | Antigravity | 2026-10-13 |
+| [R01](R01_REPO_RESTRUCTURE.md) | Reestruturação `backend/ frontend/ desktopapp/` + pacote `athletemotion` | P0 | — | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-13 |
 | [R02](R02_DOMAIN_ANGLES_FEET_STABILIZER.md) | Correção biomecânica: ângulos em pixels, pés, estabilizador | P0 | R01 | 🔴 TODO | 0/8 | — | 2026-10-13 |
 | [R03](R03_ENGINE_SESSIONS_CONCURRENCY.md) | Motor por ligação, concorrência DML, lifespan | P0 | R01 | 🔴 TODO | 0/8 | — | 2026-10-13 |
 | [R04](R04_SECURITY_AUTH_CORS_HEADERS.md) | Auth, bind local, CORS, headers, erros, rate limit | P0 | R01 | 🔴 TODO | 0/9 | — | 2026-10-13 |

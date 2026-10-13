@@ -13,6 +13,7 @@ trabalho** (*draft*) e só chegam ao disco em `save()`, através de gravação a
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
@@ -55,6 +56,7 @@ class SettingsViewModel(QObject):
     """
 
     hardware_reloaded = pyqtSignal()
+    hardware_loading_changed = pyqtSignal(bool)
     diagnostics_changed = pyqtSignal()
     autotune_progress = pyqtSignal(int, str)
     autotune_finished = pyqtSignal(bool, str)
@@ -89,10 +91,14 @@ class SettingsViewModel(QObject):
         self._hardware_probe = hardware_probe
         self._autotune_factory = autotune_factory
 
-        self.hardware_info: HardwareInfo = hardware_probe()
-        self.profile_status: ProfileStatus = load_profile(
-            profile_file, self.hardware_info.signature
-        )
+        # A sondagem fica por fazer: consultar GPU/registo via PowerShell leva alguns
+        # segundos e bloquearia o arranque e a thread da interface (orçamento: 2 s de
+        # arranque, 8 ms por slot de UI). Quem cria o view-model chama
+        # `start_hardware_probe()` depois de a janela estar visível.
+        self.hardware_info: HardwareInfo | None = None
+        self.profile_status: ProfileStatus | None = None
+        self._hardware_lock = threading.Lock()
+        self._is_hardware_loading = False
         self._autotune: AutotuneProcess | None = None
         self._autotune_timer = QTimer(self)
         self._autotune_timer.setInterval(AUTOTUNE_POLL_INTERVAL_MS)
@@ -117,11 +123,22 @@ class SettingsViewModel(QObject):
 
     @property
     def diagnostics(self) -> tuple[DiagnosticWarning, ...]:
-        """Avisos atuais para o hardware e o backend selecionados."""
+        """Avisos atuais para o hardware e o backend selecionados.
+
+        Enquanto a sonda não terminar não existem dados suficientes para avaliar o
+        sistema, pelo que a lista fica vazia (a vista mostra o estado de carregamento).
+        """
+        if self.hardware_info is None:
+            return ()
         return build_diagnostics(
             self.hardware_info,
             selected_backend=self._draft_settings.inference.preferred_backend,
         )
+
+    @property
+    def is_hardware_loading(self) -> bool:
+        """Indica se a sondagem de hardware está em curso."""
+        return self._is_hardware_loading
 
     @property
     def autotune_available(self) -> bool:
@@ -135,15 +152,48 @@ class SettingsViewModel(QObject):
 
     # --------------------------------------------------------------- hardware
 
-    def reload_hardware(self) -> None:
-        """Volta a sondar o hardware e a reavaliar o perfil de autotune.
+    def start_hardware_probe(self) -> None:
+        """Sonda o hardware numa thread separada, sem bloquear a interface.
 
-        Se existir um perfil válido e o utilizador não tiver substituído a
+        Os sinais emitidos a partir da thread de trabalho são entregues pelo Qt na
+        thread da UI (ligação em fila), logo nenhum widget é tocado fora dela.
+        """
+        with self._hardware_lock:
+            if self._is_hardware_loading:
+                logger.debug("Sondagem de hardware já em curso; pedido ignorado.")
+                return
+            self._is_hardware_loading = True
+        self.hardware_loading_changed.emit(True)
+
+        threading.Thread(
+            target=self.collect_hardware, name="hardware-probe", daemon=True
+        ).start()
+
+    def reload_hardware(self) -> None:
+        """Volta a sondar o hardware (botão «Detetar novamente»)."""
+        self.start_hardware_probe()
+
+    def collect_hardware(self) -> None:
+        """Sonda o hardware na thread chamadora e publica o resultado.
+
+        Bloqueia (alguns segundos, por causa do PowerShell). É o trabalho executado
+        pela thread de `start_hardware_probe()` e também o caminho usado por testes e
+        por código de linha de comandos que queira o resultado de forma síncrona.
+
+        Se existir um perfil válido de autotune e o utilizador não tiver substituído a
         recomendação manualmente, o *draft* passa a refletir essa recomendação.
         """
-        self.hardware_info = self._hardware_probe()
-        self.profile_status = load_profile(self._profile_file, self.hardware_info.signature)
+        try:
+            hardware_info = self._hardware_probe()
+            profile_status = load_profile(self._profile_file, hardware_info.signature)
+        finally:
+            with self._hardware_lock:
+                self._is_hardware_loading = False
+
+        self.hardware_info = hardware_info
+        self.profile_status = profile_status
         self.apply_recommendation(emit_signals=False)
+        self.hardware_loading_changed.emit(False)
         self.hardware_reloaded.emit()
         self.diagnostics_changed.emit()
 
@@ -156,7 +206,7 @@ class SettingsViewModel(QObject):
         Returns:
             `True` se a recomendação foi aplicada.
         """
-        profile = self.profile_status.profile
+        profile = self.profile_status.profile if self.profile_status else None
         if profile is None or self._draft_settings.inference.manual_override:
             return False
 
@@ -262,7 +312,7 @@ class SettingsViewModel(QObject):
         exit_code = autotune.exit_code
         self._autotune = None
         if exit_code == 0:
-            self.reload_hardware()
+            self.start_hardware_probe()
             self.autotune_finished.emit(True, "Autotune concluído: perfil de hardware atualizado.")
             return
 

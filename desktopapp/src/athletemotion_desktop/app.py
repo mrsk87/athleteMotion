@@ -30,8 +30,10 @@ from athletemotion_desktop.ui.i18n import (
     TranslationService,
     UnsupportedLanguageError,
 )
-from athletemotion_desktop.ui.main_window import MainWindow
+from athletemotion_desktop.ui.main_window import SETTINGS_VIEW_ID, MainWindow
 from athletemotion_desktop.ui.theme import get_dark_stylesheet
+from athletemotion_desktop.ui.viewmodels.settings_vm import SettingsViewModel
+from athletemotion_desktop.ui.views.settings_view import SettingsView
 
 logger = logging.getLogger("athletemotion_desktop")
 
@@ -103,6 +105,42 @@ def install_shutdown_signal_handlers(application: QApplication) -> QTimer:
     wakeup_timer.timeout.connect(lambda: None)
     wakeup_timer.start()
     return wakeup_timer
+
+
+def _apply_theme(application: QApplication, theme: str) -> None:
+    """Aplica o tema escolhido à aplicação em execução.
+
+    Args:
+        application: instância de `QApplication`.
+        theme: tema pretendido (`dark` ou `light`).
+    """
+    if theme == "dark":
+        application.setStyleSheet(get_dark_stylesheet())
+        return
+    # O tema claro usa a paleta nativa do sistema até existir uma folha própria
+    # (tarefa D07); não se inventa um tema claro incompleto.
+    application.setStyleSheet("")
+    logger.info("Tema 'claro': a usar a paleta nativa do sistema.")
+
+
+def _on_settings_saved(
+    *,
+    translation_service: TranslationService,
+    window: MainWindow,
+    settings: AppSettings,
+) -> None:
+    """Reage à gravação das definições na vista D02 (idioma + repor o seletor da janela).
+
+    Args:
+        translation_service: serviço de traduções da aplicação.
+        window: janela principal (seletor de idioma da barra lateral).
+        settings: definições gravadas.
+    """
+    if settings.language != translation_service.language and translation_service.apply_language(
+        settings.language
+    ):
+        logger.info("Idioma aplicado a partir das definições: %s", settings.language)
+    window.set_current_language(translation_service.language)
 
 
 def _report_startup_blocker(message: str) -> None:
@@ -244,6 +282,26 @@ def main() -> int:
             application.setStyleSheet(get_dark_stylesheet())
 
         window = MainWindow(settings=settings)
+
+        settings_view_model = SettingsViewModel(
+            settings,
+            paths.settings_file,
+            profile_file=paths.hardware_profile_file,
+        )
+        window.set_view_widget(SETTINGS_VIEW_ID, SettingsView(settings_view_model))
+        settings_view_model.theme_change_requested.connect(
+            lambda theme: _apply_theme(application, theme)
+        )
+        settings_view_model.settings_saved.connect(
+            partial(
+                _on_settings_saved,
+                translation_service=translation_service,
+                window=window,
+                settings=settings_view_model.saved_settings,
+            )
+        )
+        window.closing.connect(settings_view_model.shutdown)
+
         window.language_change_requested.connect(
             partial(
                 handle_language_change_request,
