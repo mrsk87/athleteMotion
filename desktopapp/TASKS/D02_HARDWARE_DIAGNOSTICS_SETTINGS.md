@@ -2,7 +2,7 @@
 
 > **ID:** D02 · **Prioridade:** P1 · **Onda:** 1
 > **Status:** 🔵 REVIEW · **Progresso:** 7/7 · **Atribuído a:** Buffy (Codebuff) · **Início:** 2026-10-13 · **Última atualização:** 2026-10-13
-> **Depende de:** D01 · **Bloqueia:** D12 · **Branch:** `main` (trabalho local) · **PR:** —
+> **Depende de:** D01 · **Bloqueia:** D12 · **Branch:** `chore/r01-restructure` (checkout partilhado com o trabalho da R01) · **PR:** —
 > **Referência:** README_PLAN §4.4, §6 (Definições), CODE_REVIEW §5.1 · **Protocolo:** [00_PROTOCOLO_LLM.md](00_PROTOCOLO_LLM.md)
 
 ## 1. Contexto
