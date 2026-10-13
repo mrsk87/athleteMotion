@@ -17,6 +17,7 @@ class AppPaths:
     sessions_dir: Path
     settings_file: Path
     hardware_profile_file: Path
+    camera_presets_file: Path
 
 
 def get_app_paths() -> AppPaths:
@@ -36,6 +37,7 @@ def get_app_paths() -> AppPaths:
     sessions_dir = base_dir / "sessions"
     settings_file = base_dir / "settings.json"
     hardware_profile_file = base_dir / "hardware_profile.json"
+    camera_presets_file = base_dir / "camera_presets.json"
 
     # Criação garantida dos diretórios principais
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -49,4 +51,5 @@ def get_app_paths() -> AppPaths:
         sessions_dir=sessions_dir,
         settings_file=settings_file,
         hardware_profile_file=hardware_profile_file,
+        camera_presets_file=camera_presets_file,
     )

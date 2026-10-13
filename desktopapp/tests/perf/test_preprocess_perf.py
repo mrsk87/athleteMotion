@@ -94,7 +94,11 @@ def test_preprocess_720p_stays_within_budget(benchmark: BenchmarkFixture) -> Non
         f"n={len(timer.samples_ms)} (orçamento {BUDGET_MS_720P} ms)"
     )
 
-    assert median_ms < BUDGET_MS_720P / 2, f"p50 de {median_ms:.3f} ms é metade do orçamento"
+    # O critério da tarefa é o orçamento de 2 ms para o pré-processamento a 720p. Não se
+    # aperta a mediana para "metade do orçamento": essa margem auto-imposta transformava
+    # uma variação de turbo/load da máquina (0,84 → 1,10 ms entre execuções) numa falha,
+    # sem relação com o requisito. O valor medido fica impresso acima e registado na tarefa.
+    assert median_ms < BUDGET_MS_720P, f"p50 de {median_ms:.3f} ms excede {BUDGET_MS_720P} ms"
     assert p95_ms < BUDGET_MS_720P, f"p95 de {p95_ms:.3f} ms excede {BUDGET_MS_720P} ms"
 
 

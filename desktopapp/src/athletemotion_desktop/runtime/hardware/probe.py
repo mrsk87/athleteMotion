@@ -18,21 +18,17 @@ import json
 import logging
 import platform
 import re
-import shutil
-import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Final
 
+from athletemotion_desktop.runtime.process import run_external_command
+
 logger = logging.getLogger(__name__)
 
 PROBE_SCHEMA_VERSION: Final[int] = 1
-
-#: Limite de tempo para comandos externos (PowerShell/wmic). Uma sonda de hardware
-#: nunca pode bloquear o arranque por causa de um comando pendurado.
-EXTERNAL_COMMAND_TIMEOUT_SECONDS: Final[float] = 10.0
 
 #: Abaixo deste valor a resolução de entrada deve ser reduzida (ver avisos da D02).
 MIN_USABLE_VRAM_GB: Final[float] = 2.0
@@ -104,56 +100,6 @@ class HardwareInfo:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2, sort_keys=True)
 
 
-def _run_command(
-    command: Sequence[str], timeout: float = EXTERNAL_COMMAND_TIMEOUT_SECONDS
-) -> str | None:
-    """Executa um comando externo devolvendo o `stdout`.
-
-    Args:
-        command: comando e argumentos a executar.
-        timeout: limite em segundos.
-
-    Returns:
-        `stdout` em texto, ou `None` se o comando não existir, expirar ou falhar
-        (a razão fica no log, nunca propagada como exceção).
-    """
-    if shutil.which(command[0]) is None:
-        logger.debug("Comando '%s' indisponível neste sistema.", command[0])
-        return None
-    try:
-        completed = subprocess.run(
-            list(command),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-            # Sem janela de consola a piscar quando a app corre em modo gráfico.
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        logger.warning("Falha ao executar '%s': %s", " ".join(command), exc)
-        return None
-
-    if completed.returncode != 0:
-        # O PowerShell devolve código 1 em erros *não-terminantes* (por exemplo, sem
-        # permissão em subchaves do registo) mesmo produzindo saída válida. Quando há
-        # `stdout` útil, aproveita-se: a mensagem de erro fica só em `debug` para
-        # diagnóstico. Sem saída, o comando falhou mesmo e o registo sobe a `warning`.
-        stderr_excerpt = (completed.stderr or "").strip().splitlines()
-        log_message = "Comando '%s' terminou com código %d: %s"
-        log_args = (
-            " ".join(command),
-            completed.returncode,
-            stderr_excerpt[-1][:200] if stderr_excerpt else "(sem mensagem)",
-        )
-        if (completed.stdout or "").strip():
-            logger.debug(log_message, *log_args)
-        else:
-            logger.warning(log_message, *log_args)
-            return None
-    return completed.stdout
-
-
 def query_video_controller_records() -> tuple[Mapping[str, str], ...]:
     """Consulta os adaptadores gráficos do Windows.
 
@@ -163,7 +109,7 @@ def query_video_controller_records() -> tuple[Mapping[str, str], ...]:
     Returns:
         Registos de adaptadores; tupla vazia quando nada pode ser lido.
     """
-    powershell_output = _run_command(
+    powershell_output = run_external_command(
         [
             "powershell.exe",
             "-NoProfile",
@@ -176,7 +122,7 @@ def query_video_controller_records() -> tuple[Mapping[str, str], ...]:
     if records:
         return records
 
-    wmic_output = _run_command(
+    wmic_output = run_external_command(
         [
             "wmic",
             "path",
@@ -321,7 +267,7 @@ def query_registry_vram_records() -> tuple[Mapping[str, str], ...]:
         "QWMemorySize = $entry.'HardwareInformation.qwMemorySize' } } } "
         "| ConvertTo-Json -Compress"
     )
-    raw_output = _run_command(
+    raw_output = run_external_command(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command]
     )
     return parse_registry_vram_json(raw_output)

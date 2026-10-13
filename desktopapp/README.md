@@ -2,7 +2,7 @@
 
 Aplicação desktop nativa Windows para análise biomecânica e bikefit em tempo real, concebida para extrair o máximo desempenho do computador físico (AMD Radeon RX 580 DirectML + Intel Xeon E5-1660 v3 AVX2 OpenVINO).
 
-**Estado atual:** D01, D02 e D04 em 🔵 REVIEW — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado, **vista de Definições com diagnóstico de hardware** (GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual) e o **motor de tempo real**: anel SPSC em memória partilhada (sem cópias, *latest-frame-wins*) e pré-processamento (ROI + letterbox + tensor NCHW) numericamente idêntico ao domínio. Captura e inferência chegam nas tarefas D03+ (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
+**Estado atual:** D01, D02, D03 e D04 em 🔵 REVIEW — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado, **vista de Definições com diagnóstico de hardware** (GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual) e o **motor de tempo real**: captura de câmara e ficheiros (*latest-frame-wins*, reconexão, controlos), anel SPSC em memória partilhada (sem cópias) e pré-processamento (ROI + letterbox + tensor NCHW) numericamente idêntico ao domínio. A inferência chega na D05 (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
 
 ---
 
@@ -50,11 +50,19 @@ $env:QT_QPA_PLATFORM="offscreen"; .venv\Scripts\python.exe -m pytest -q
 ```
 
 ### 5. Motor de tempo real (sem interface gráfica)
-O `runtime/` é testável sem Qt, o que permite medir o anel e o pré-processamento isoladamente:
+O `runtime/` é testável sem Qt, o que permite medir captura, anel e pré-processamento isoladamente:
 ```powershell
-.venv\Scripts\python.exe -m pytest tests/unit/ring_buffer tests/unit/preprocess -q
+.venv\Scripts\python.exe -m pytest tests/unit/capture tests/unit/ring_buffer tests/unit/preprocess -q
 ```
-Orçamentos medidos nesta máquina (Xeon E5-1660 v3): anel 720p **0,018 ms** por frame (orçamento 0,2 ms), pré-processamento 720p→320 **0,836 ms** p50 / 0,946 ms p95 (orçamento 2 ms) e equivalência **bit-idêntica** com `athletemotion.domain.inference.onnx_utils`.
+Orçamentos medidos nesta máquina (Xeon E5-1660 v3): captura **0,0035 ms** por leitura de frame pronto e ≈35 000 frames/s em modo *batch*; anel 720p **0,018 ms** por frame (orçamento 0,2 ms); pré-processamento 720p→320 **0,836 ms** p50 / 0,946 ms p95 (orçamento 2 ms) e equivalência **bit-idêntica** com `athletemotion.domain.inference.onnx_utils`.
+
+### 6. Captura: câmaras e ficheiros
+```powershell
+.venv\Scripts\python.exe -m athletemotion_desktop.runtime.capture.devices --list     # câmaras e índices
+.venv\Scripts\python.exe -m athletemotion_desktop.runtime.capture.camera `
+  --index 0 --fourcc MJPG --size 1280x720 --fps 60 --seconds 10 --lock-exposure       # mede o que a câmara dá
+```
+A captura **regista o que a câmara realmente entrega** (resolução, FPS e formato efetivos): pedir 720p60 e obter 640x480@30 produz avisos, não números inventados. Os controlos (exposição, ganho, foco) são verificados no driver antes de serem oferecidos, e a reconexão é automática com *backoff* se o cabo sair a meio de uma sessão.
 
 ---
 
@@ -91,7 +99,15 @@ desktopapp/
 │   │   ├── settings.py                # Definições Pydantic + gravação atómica
 │   │   ├── logging_setup.py           # Logging JSON rotativo + relatório de falhas nativas
 │   │   └── environment.py             # Integridade do ambiente (conflito ORT CPU/DirectML)
-│   ├── runtime/                       # MOTOR DE TEMPO REAL (sem Qt) — capture/inference em D03/D05
+│   ├── runtime/                       # MOTOR DE TEMPO REAL (sem Qt) — inference em D05
+│   │   ├── capture/                   #   câmara (DSHOW/MSMF) e ficheiros, latest-frame-wins
+│   │   │   ├── base.py                #   CaptureSource + thread dedicada, estados, reconexão
+│   │   │   ├── camera.py              #   CameraSource: MJPG, buffer do driver = 1, valores reais
+│   │   │   ├── file_source.py         #   FileSource: seek/step exatos, velocidade, loop A-B
+│   │   │   ├── controls.py            #   exposição/ganho/foco verificados + presets atómicos
+│   │   │   ├── devices.py             #   enumeração de câmaras e hot-plug
+│   │   │   └── device.py              #   protocolo do dispositivo + adaptador do cv2
+│   │   ├── process.py                 #   execução de comandos externos (partilhado)
 │   │   ├── ring_buffer/               #   anel SPSC em shared memory (frames sem cópias)
 │   │   │   ├── layout.py              #   cabeçalho + registos por slot (protocolo)
 │   │   │   ├── shm_ring.py            #   ShmRing: acquire/commit/read/release, telemetria
@@ -116,10 +132,11 @@ desktopapp/
 │       └── views/ widgets/ viewmodels/  # settings_view/settings_vm (D02); Live/Benchmark em D07–D12
 └── tests/
     ├── unit/                          # Configuração, logging, ambiente, i18n, sonda/perfil/avisos,
-    │                                  #   ring_buffer (protocolo, posse, dois processos) e preprocess
+    │                                  #   capture (câmara simulada/ficheiros), ring_buffer e preprocess
     ├── ui/                            # pytest-qt: janela, navegação, idioma, vista de Definições
     ├── integration/                   # Arranque real, locks, sinais, falha nativa
-    ├── perf/                          # Portões: arranque (< 2 s), anel (< 0,2 ms), pré-processamento (< 2 ms)
+    ├── perf/                          # Portões: arranque (< 2 s), captura (< 1 ms), anel (< 0,2 ms),
+    │                                  #   pré-processamento (< 2 ms)
     └── support/                       # Lançador headless reutilizado pelos testes
 ```
 

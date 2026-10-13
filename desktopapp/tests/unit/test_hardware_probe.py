@@ -15,6 +15,7 @@ from dataclasses import replace
 import pytest
 
 from athletemotion_desktop.runtime.hardware import probe
+from athletemotion_desktop.runtime.process import run_external_command
 
 POWERSHELL_TWO_GPUS = json.dumps(
     [
@@ -283,14 +284,14 @@ def test_probe_openvino_devices_reports_failure(monkeypatch: pytest.MonkeyPatch)
 
 def test_run_command_returns_none_for_missing_executable() -> None:
     """Um comando inexistente não é executado nem levanta exceção."""
-    assert probe._run_command(["comando-que-nao-existe-xyz", "--version"]) is None
+    assert run_external_command(["comando-que-nao-existe-xyz", "--version"]) is None
 
 
 def test_run_command_accepts_output_despite_error_exit_code() -> None:
     """Erros não-terminantes do PowerShell (código 1) com saída útil são aproveitados."""
     import sys
 
-    output = probe._run_command(
+    output = run_external_command(
         [sys.executable, "-c", "import sys; print('dados uteis'); sys.exit(1)"]
     )
 
@@ -302,7 +303,7 @@ def test_run_command_returns_none_when_nothing_is_produced() -> None:
     """Sem saída, um erro do comando significa falha (nada a aproveitar)."""
     import sys
 
-    assert probe._run_command([sys.executable, "-c", "import sys; sys.exit(3)"]) is None
+    assert run_external_command([sys.executable, "-c", "import sys; sys.exit(3)"]) is None
 
 
 def test_build_hardware_signature_changes_with_driver() -> None:
@@ -409,7 +410,7 @@ def test_run_command_reports_execution_failure(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(subprocess, "run", raising_run)
 
-    assert probe._run_command(["powershell.exe", "-Command", "Get-Date"]) is None
+    assert run_external_command(["powershell.exe", "-Command", "Get-Date"]) is None
 
 
 def test_query_video_controller_records_prefers_powershell(
@@ -422,7 +423,8 @@ def test_query_video_controller_records_prefers_powershell(
         commands.append(command)
         return POWERSHELL_TWO_GPUS
 
-    monkeypatch.setattr(probe, "_run_command", fake_run)
+    # O executor partilhado é substituído no namespace do `probe`, que é quem o chama.
+    monkeypatch.setattr(probe, "run_external_command", fake_run)
 
     records = probe.query_video_controller_records()
 
@@ -444,7 +446,8 @@ def test_query_video_controller_records_falls_back_to_wmic(
             return csv_output
         return None
 
-    monkeypatch.setattr(probe, "_run_command", fake_run)
+    # O executor partilhado é substituído no namespace do `probe`, que é quem o chama.
+    monkeypatch.setattr(probe, "run_external_command", fake_run)
 
     records = probe.query_video_controller_records()
 
@@ -460,7 +463,8 @@ def test_query_registry_vram_records_reads_the_registry(monkeypatch: pytest.Monk
         commands.append(command)
         return REGISTRY_VRAM
 
-    monkeypatch.setattr(probe, "_run_command", fake_run)
+    # O executor partilhado é substituído no namespace do `probe`, que é quem o chama.
+    monkeypatch.setattr(probe, "run_external_command", fake_run)
 
     records = probe.query_registry_vram_records()
 

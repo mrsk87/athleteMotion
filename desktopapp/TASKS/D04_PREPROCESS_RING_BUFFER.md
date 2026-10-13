@@ -84,6 +84,8 @@ Inclui ROIs encostados às bordas, a começar fora da frame, maiores que a frame
 [preprocess rt 192x256]   p50=0.429 ms                (orçamento 2,0 ms)        ✅
 [anel 720p]               p50=0.0178 ms p95=0.0302 ms n=40819 (orçamento 0,2 ms) ✅
 ```
+
+> Repetindo a medição com a máquina mais carregada (a suíte completa a correr), o 720p sobe para **p50 1,096 ms / p95 1,130 ms** e o 1080p para 3,109 ms — ou seja, o p50 varia 0,84–1,10 ms entre execuções sem nunca se aproximar do orçamento de 2 ms. O portão verifica o **orçamento** (p50 e p95 < 2 ms); apertá-lo para metade do orçamento tornava uma variação de turbo/load numa falha sem relação com o requisito.
 O anel custa **~0,02 ms por frame** (0,1 % do orçamento de 16,6 ms), ou seja, a contabilidade de slots/semáforos não é o gargalo. A 1080p o pré-processamento sobe para 2,8 ms de mediana: continua dentro de 1/10 do orçamento de 30 FPS, e o número fica registado para o autotune (R14/D12) decidir resolução por máquina.
 
 ### 9.4. Cobertura dos módulos novos
