@@ -13,11 +13,12 @@ import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.v1.inference_ws import ws_router
-from src.api.v1.router import api_v1_router
-from src.infrastructure.database import init_db
-from src.schemas.fit import FrameValidationResponse
-from version import __version__
+from athletemotion.api.v1.inference_ws import ws_router
+from athletemotion.api.v1.router import api_v1_router
+from athletemotion.infrastructure.database import init_db
+from athletemotion.schemas.fit import FrameValidationResponse
+from athletemotion.version import __version__
+from athletemotion.config.settings import settings
 
 # Limites de segurança para upload de imagens
 MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -135,4 +136,4 @@ async def process_frame(file: UploadFile = File(...)):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("athletemotion.api.app:app", host=settings.host, port=settings.port, reload=settings.reload)

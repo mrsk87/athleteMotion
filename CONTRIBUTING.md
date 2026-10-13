@@ -26,23 +26,23 @@ O projeto utiliza um sistema automático de incremento SemVer (`MAJOR.MINOR.PATC
 Pode verificar ou incrementar a versão manualmente a qualquer momento através do utilitário:
 ```bash
 # Ver a versão atual
-python scripts/bump_version.py --current
+python backend/scripts/bump_version.py --current
 
 # Simular próximo incremento (dry-run)
-python scripts/bump_version.py --dry-run patch
+python backend/scripts/bump_version.py --dry-run patch
 
 # Incrementar manualmente
-python scripts/bump_version.py patch
-python scripts/bump_version.py minor
-python scripts/bump_version.py major
+python backend/scripts/bump_version.py patch
+python backend/scripts/bump_version.py minor
+python backend/scripts/bump_version.py major
 
 # Auto-detetar incremento com base no último commit
-python scripts/bump_version.py --auto
+python backend/scripts/bump_version.py --auto
 ```
 
 Para instalar os hooks automáticos do Git no seu ambiente de desenvolvimento:
 ```bash
-python scripts/install_hooks.py
+python backend/scripts/install_hooks.py
 ```
 
 ### 1.4. Regra de Atualização do `STATUS.md`

@@ -21,9 +21,9 @@ import cv2
 import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from src.domain.inference.base import PoseEngineRegistry
-import src.domain.inference  # noqa: F401  Registo dos motores
-from src.domain.inference.filters import LandmarkFilterPipeline
+from athletemotion.domain.inference.base import PoseEngineRegistry
+import athletemotion.domain.inference  # noqa: F401  Registo dos motores
+from athletemotion.domain.inference.filters import LandmarkFilterPipeline
 
 logger = logging.getLogger("athlete_motion.api.inference_ws")
 ws_router = APIRouter()

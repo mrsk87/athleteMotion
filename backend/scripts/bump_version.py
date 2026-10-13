@@ -15,10 +15,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-VERSION_FILE = ROOT / "VERSION"
-PACKAGE_FILE = ROOT / "frontend" / "mediapipe" / "package.json"
-PACKAGE_LOCK_FILE = ROOT / "frontend" / "mediapipe" / "package-lock.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+VERSION_FILE = BACKEND_ROOT / "VERSION"
+PACKAGE_FILE = REPO_ROOT / "frontend" / "web" / "package.json"
+PACKAGE_LOCK_FILE = REPO_ROOT / "frontend" / "web" / "package-lock.json"
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
 

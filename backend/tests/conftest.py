@@ -8,10 +8,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import src.infrastructure.database as db_module
-import src.infrastructure.uow as uow_module
-from src.infrastructure.database import Base, get_db
-from server import app
+import athletemotion.infrastructure.database as db_module
+import athletemotion.infrastructure.uow as uow_module
+from athletemotion.infrastructure.database import Base, get_db
+from athletemotion.api.app import app
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 

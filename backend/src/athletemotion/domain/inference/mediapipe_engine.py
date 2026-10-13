@@ -20,7 +20,7 @@ from typing import Dict, Optional, Tuple
 import cv2
 import numpy as np
 
-from src.domain.calculator import calculate_safe_angle, Point2D
+from athletemotion.domain.calculator import calculate_safe_angle, Point2D
 from .base import BasePoseEngine, PoseEngineRegistry
 from .types import InferenceOutput, Landmark2D, BiomechanicalAngles, SegmentValidation
 
@@ -53,7 +53,7 @@ COMPLEXITY_TO_MODEL = {
     2: "pose_landmarker_heavy.task",
 }
 
-MODELS_DIR = Path(__file__).resolve().parents[3] / "models"
+from athletemotion.config.paths import MODELS_DIR
 
 
 def resolve_landmarker_model(model_complexity: int = 2, model: Optional[str] = None) -> Optional[Path]:

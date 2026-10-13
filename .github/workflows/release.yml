@@ -39,18 +39,18 @@ jobs:
 
       - name: Increment Version
         run: |
-          python scripts/bump_version.py "${{ steps.bump.outputs.part }}"
+          python backend/scripts/bump_version.py "${{ steps.bump.outputs.part }}"
 
       - name: Commit, Tag and Release
         shell: bash
         run: |
-          new_version=$(cat VERSION | tr -d '[:space:]')
+          new_version=$(cat backend/VERSION | tr -d '[:space:]')
           echo "New release version: v${new_version}"
           
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          git add VERSION frontend/mediapipe/package.json
+          git add backend/VERSION frontend/web/package.json
           git commit -m "chore(release): v${new_version} [skip ci]"
           git tag "v${new_version}"
           git push origin main --tags
@@ -58,5 +58,3 @@ jobs:
           gh release create "v${new_version}" \
             --title "Athlete Motion v${new_version}" \
             --generate-notes
-        env:
-          GH_TOKEN: ${{ github.token }}

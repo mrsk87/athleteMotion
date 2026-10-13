@@ -21,8 +21,9 @@ from typing import Dict, Optional, Sequence, Tuple
 import numpy as np
 import onnxruntime as ort
 
-from src.infrastructure.hardware import hardware_manager
-from src.domain.calculator import calculate_safe_angle, Point2D
+from athletemotion.config.paths import MODELS_DIR
+from athletemotion.infrastructure.hardware import hardware_manager
+from athletemotion.domain.calculator import calculate_safe_angle, Point2D
 from .base import BasePoseEngine, PoseEngineRegistry
 from .onnx_utils import preprocess_roi_for_onnx
 from .person_tracker import PersonTracker, box_to_pixels
@@ -67,7 +68,10 @@ class RTMPoseEngine(BasePoseEngine):
         super().__init__(name="rtmpose")
         self.side = side.lower()
         self.use_gpu = use_gpu
-        self.model_path = Path(model_path)
+        p = Path(model_path)
+        if not p.exists() and (MODELS_DIR / p.name).exists():
+            p = MODELS_DIR / p.name
+        self.model_path = p
         self.session: Optional[ort.InferenceSession] = None
         self.input_name: Optional[str] = None
         self.input_size = 256

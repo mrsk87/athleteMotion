@@ -9,8 +9,8 @@ Cobrem exatamente as decisões que fazem o motor acompanhar o movimento:
 import numpy as np
 import pytest
 
-from src.infrastructure.hardware import HardwareManager, hardware_manager, _detect_physical_cores
-from src.domain.inference.person_tracker import (
+from athletemotion.infrastructure.hardware import HardwareManager, hardware_manager, _detect_physical_cores
+from athletemotion.domain.inference.person_tracker import (
     PersonTracker,
     box_to_pixels,
     clamp_box,
@@ -121,8 +121,8 @@ def test_physical_core_detection_never_returns_zero():
 # ------------------------------------------------------------------- motores
 
 def test_yolo_reads_input_size_from_the_model():
-    from src.domain.inference.base import PoseEngineRegistry
-    from src.domain.inference.yolo_engine import FAST_MODEL_CANDIDATES
+    from athletemotion.domain.inference.base import PoseEngineRegistry
+    from athletemotion.domain.inference.yolo_engine import FAST_MODEL_CANDIDATES
 
     if not any(__import__("pathlib").Path(c).exists() for c in FAST_MODEL_CANDIDATES):
         pytest.skip("modelo YOLO 320/416 não exportado nesta máquina")
@@ -137,7 +137,7 @@ def test_yolo_reads_input_size_from_the_model():
 def test_mediapipe_resolves_an_existing_task_model():
     from pathlib import Path
 
-    from src.domain.inference.mediapipe_engine import resolve_landmarker_model
+    from athletemotion.domain.inference.mediapipe_engine import resolve_landmarker_model
 
     resolved = resolve_landmarker_model(2)
     if resolved is None:
@@ -147,7 +147,7 @@ def test_mediapipe_resolves_an_existing_task_model():
 
 
 def test_rtmpose_simcc_decoding_maps_argmax_to_normalised_coordinates():
-    from src.domain.inference.rtmpose_engine import decode_simcc
+    from athletemotion.domain.inference.rtmpose_engine import decode_simcc
 
     # Distribuição com pico no índice 320 de 640 bins → 320/2/320 = 0.5
     distribution = np.zeros((2, 640), dtype=np.float32)

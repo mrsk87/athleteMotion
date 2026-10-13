@@ -34,12 +34,12 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-# Correr a partir da raiz do repositório sem instalar o pacote.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Correr a partir da pasta backend sem instalar o pacote.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-import src.domain.inference  # noqa: E402,F401  (regista todos os motores no Factory)
-from src.domain.inference.base import PoseEngineRegistry
-from src.infrastructure.hardware import hardware_manager
+import athletemotion.domain.inference  # noqa: E402,F401  (regista todos os motores no Factory)
+from athletemotion.domain.inference.base import PoseEngineRegistry
+from athletemotion.infrastructure.hardware import hardware_manager
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
 

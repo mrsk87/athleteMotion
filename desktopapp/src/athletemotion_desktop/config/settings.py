@@ -20,21 +20,50 @@ LanguageCode = Literal["pt_PT", "en_US"]
 
 
 class InferenceSettings(BaseModel):
-    """Configurações do subsistema de inferência e aceleração por hardware."""
+    """Configurações do subsistema de inferência e aceleração por hardware.
+
+    O utilizador pode sobrepor-se ao perfil recomendado pelo autotune: nesse caso
+    `manual_override` fica `True` e a recomendação deixa de ser aplicada
+    automaticamente (requisito de aceitação da D02).
+    """
 
     preferred_backend: Literal["auto", "directml", "openvino", "cpu"] = Field(
         default="auto",
         description="Backend preferencial para execução de modelos",
     )
-    model_name: str = Field(
-        default="yolo11n-pose",
-        description="Modelo de pose ativo por omissão",
+    pose_model: str = Field(
+        default="pose_yolo11n_320",
+        description="Identificador do modelo de pose (ver model zoo do plano §5)",
+    )
+    detector_model: str = Field(
+        default="det_yolo11n",
+        description="Identificador do detetor de pessoa usado na redeteção periódica",
+    )
+    input_resolution: int = Field(
+        default=320,
+        ge=160,
+        le=1280,
+        description="Lado maior da entrada do modelo de pose, em píxeis",
+    )
+    redetect_interval: int = Field(
+        default=10,
+        ge=1,
+        le=120,
+        description="Número de frames entre redeteções completas da pessoa",
     )
     confidence_threshold: float = Field(
         default=0.45,
         ge=0.0,
         le=1.0,
         description="Limiar mínimo de confiança para aceitação de keypoints",
+    )
+    mode: Literal["real_time", "precision", "batch"] = Field(
+        default="real_time",
+        description="Perfil de desempenho pretendido (tempo real, precisão ou batch)",
+    )
+    manual_override: bool = Field(
+        default=False,
+        description="Indica que o utilizador substituiu manualmente a recomendação do autotune",
     )
 
 
@@ -48,13 +77,43 @@ class CameraSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
-    """Configurações globais persistidas da aplicação desktop."""
+    """Configurações globais persistidas da aplicação desktop.
+
+    Os campos acrescentados nas tarefas seguintes têm valores por omissão, pelo que
+    um ficheiro gravado por uma versão anterior continua a carregar sem migração.
+    """
 
     schema_version: int = Field(default=1, description="Versão do esquema para migrações")
     language: LanguageCode = Field(default="pt_PT", description="Idioma da interface")
     theme: Literal["dark", "light"] = Field(default="dark", description="Tema visual")
+    record_sessions: bool = Field(
+        default=False,
+        description=(
+            "Gravar vídeo das sessões (decisão E4 do plano: desligado por omissão, "
+            "exige consentimento explícito)"
+        ),
+    )
     inference: InferenceSettings = Field(default_factory=InferenceSettings)
     camera: CameraSettings = Field(default_factory=CameraSettings)
+
+    def reset_to_defaults(self) -> AppSettings:
+        """Devolve um novo conjunto de definições nos valores padrão.
+
+        O idioma e o tema são preservados: são preferências de acessibilidade do
+        utilizador e não parte do desempenho que se está a repor.
+
+        Returns:
+            Nova instância de `AppSettings` com o desempenho, a câmara e a política
+            de gravação nos valores de fábrica.
+        """
+        defaults = AppSettings()
+        return self.model_copy(
+            update={
+                "record_sessions": defaults.record_sessions,
+                "inference": defaults.inference,
+                "camera": defaults.camera,
+            }
+        )
 
 
 def load_settings(custom_path: Path | None = None) -> AppSettings:

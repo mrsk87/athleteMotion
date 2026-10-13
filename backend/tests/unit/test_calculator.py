@@ -1,6 +1,6 @@
 """Testes unitários para o módulo matemático de cálculo de ângulos."""
 import math
-from src.domain.calculator import Point2D, Point3D, calculate_safe_angle, calculate_inclination_angle
+from athletemotion.domain.calculator import Point2D, Point3D, calculate_safe_angle, calculate_inclination_angle
 
 
 def test_calculate_safe_angle_right_angle():

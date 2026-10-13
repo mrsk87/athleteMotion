@@ -9,7 +9,7 @@ import os
 import stat
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 GIT_HOOKS_DIR = ROOT / ".git" / "hooks"
 PRE_PUSH_HOOK = GIT_HOOKS_DIR / "pre-push"
 
@@ -33,11 +33,11 @@ $PYTHON_CMD -c "
 import json
 from pathlib import Path
 root = Path('.').resolve()
-v_file = (root / 'VERSION').read_text(encoding='utf-8').strip()
-p_json = json.loads((root / 'frontend' / 'mediapipe' / 'package.json').read_text(encoding='utf-8'))
+v_file = (root / 'backend' / 'VERSION').read_text(encoding='utf-8').strip()
+p_json = json.loads((root / 'frontend' / 'web' / 'package.json').read_text(encoding='utf-8'))
 if v_file != p_json.get('version'):
     print(f'[Git Hook - ERRO] Inconsistência de versão! VERSION ({v_file}) != package.json ({p_json.get(\"version\")})')
-    print('Execute: python scripts/bump_version.py [patch|minor|major]')
+    print('Execute: python backend/scripts/bump_version.py [patch|minor|major]')
     exit(1)
 print(f'[Git Hook] Versão SemVer sincronizada: v{v_file}')
 "

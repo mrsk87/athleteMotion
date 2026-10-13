@@ -5,7 +5,7 @@ from typing import Dict, Tuple
 import cv2
 import numpy as np
 
-from src.domain.calculator import calculate_safe_angle, Point2D
+from athletemotion.domain.calculator import calculate_safe_angle, Point2D
 from .base import BasePoseEngine, PoseEngineRegistry
 from .types import InferenceOutput, Landmark2D, BiomechanicalAngles, SegmentValidation
 

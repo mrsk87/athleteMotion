@@ -1,8 +1,8 @@
 """Testes unitários para o motor MediaPipe Pose e validação biomecânica."""
 import numpy as np
 import pytest
-from src.domain.inference.mediapipe_engine import MediaPipePoseEngine
-from src.domain.inference.types import Landmark2D
+from athletemotion.domain.inference.mediapipe_engine import MediaPipePoseEngine
+from athletemotion.domain.inference.types import Landmark2D
 
 
 def test_mediapipe_engine_instantiation_and_side():

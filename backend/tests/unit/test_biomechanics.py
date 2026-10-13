@@ -1,5 +1,5 @@
 """Testes unitários para regras de negócio biomecânicas de ciclismo."""
-from src.domain.biomechanics import (
+from athletemotion.domain.biomechanics import (
     RidingStyle,
     calculate_lemond_saddle_height,
     calculate_109_saddle_height,
@@ -53,7 +53,7 @@ def test_posture_angle_diagnostics():
 
 
 def test_kops_alignment_diagnostics():
-    from src.domain.biomechanics import evaluate_kops_alignment
+    from athletemotion.domain.biomechanics import evaluate_kops_alignment
 
     # Alinhado (< 5mm)
     neutral = evaluate_kops_alignment(2.3)
@@ -73,7 +73,7 @@ def test_kops_alignment_diagnostics():
 
 
 def test_symmetry_index_calculation():
-    from src.domain.biomechanics import calculate_symmetry_index
+    from athletemotion.domain.biomechanics import calculate_symmetry_index
 
     # Simétrico (148 vs 149)
     report_good = calculate_symmetry_index(148.0, 149.0, "joelho")
@@ -88,7 +88,7 @@ def test_symmetry_index_calculation():
 
 
 def test_saddle_drop_diagnostics():
-    from src.domain.biomechanics import evaluate_saddle_drop, FlexibilityLevel
+    from athletemotion.domain.biomechanics import evaluate_saddle_drop, FlexibilityLevel
 
     # Drop normal estrada (6.5 cm com flexibilidade média)
     diag_ok = evaluate_saddle_drop(6.5, RidingStyle.ROAD, FlexibilityLevel.MEDIUM)
@@ -101,7 +101,7 @@ def test_saddle_drop_diagnostics():
 
 
 def test_frontal_knee_tracking():
-    from src.domain.biomechanics import evaluate_frontal_knee_tracking
+    from athletemotion.domain.biomechanics import evaluate_frontal_knee_tracking
 
     # Neutro (<= 10mm)
     neutral = evaluate_frontal_knee_tracking(4.5, "right")

@@ -25,9 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DATABASE_PATH = ROOT_DIR / "athlete_motion.db"
-DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+from athletemotion.config.paths import DATABASE_URL, ensure_app_directories
 
 engine = create_engine(
     DATABASE_URL,
@@ -188,6 +186,7 @@ def _ensure_added_columns() -> None:
 
 def init_db() -> None:
     """Inicializa as tabelas da base de dados com as restrições ACID."""
+    ensure_app_directories()
     Base.metadata.create_all(bind=engine)
     _ensure_added_columns()
 

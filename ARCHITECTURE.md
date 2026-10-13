@@ -47,13 +47,13 @@ A arquitetura adota a **Clean Architecture** (Arquitetura Limpa), dividida em 4 
 
 ## 2. Camadas do Sistema / Detailed Layers
 
-### 2.1. Camada de Domínio (`src/domain/`)
+### 2.1. Camada de Domínio (`backend/src/athletemotion/domain/`)
 - **Independência Estrita:** Zero importações de frameworks (sem FastAPI, sem SQLAlchemy, sem Vue).
 - **Submódulos:**
-  - [`calculator.py`](file:///d:/Projects/athleteMotion/src/domain/calculator.py):
+  - `calculator.py`:
     - `calculate_safe_angle(a, b, c)`: Cálculo de ângulo no vértice B usando produto escalar e magnitudes, com clamping estrito do cosseno entre $[-1.0, 1.0]$ para impedir `NaN` por imprecisão de ponto flutuante e retorno seguro de `0.0` para vetores coincidentes.
     - `calculate_inclination_angle(bottom, top)`: Inclinação angular face à horizontal.
-  - Pacote Modular [`src/domain/biomechanics/`](file:///d:/Projects/athleteMotion/src/domain/biomechanics/):
+  - Pacote Modular `backend/src/athletemotion/domain/biomechanics/`:
     - Submódulos desacoplados de alta legibilidade (< 150 linhas cada):
       - `thresholds.py`: Enums (`RidingStyle`, `FlexibilityLevel`) e matriz ergonómica `BIOMECHANIC_THRESHOLDS`.
       - `fitting.py`: Fórmulas canónicas de ajuste (LeMond $Cavalo \times 0.883$, Hamley 109%, tamanho de quadro, crenques, guiador).

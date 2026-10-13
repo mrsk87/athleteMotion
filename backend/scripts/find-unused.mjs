@@ -9,8 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const frontRoot = path.join(root, 'frontend', 'mediapipe', 'src');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const frontRoot = path.join(root, 'frontend', 'web', 'src');
 const exts = new Set(['.js', '.vue', '.html', '.css', '.mjs']);
 
 const walk = (dir) =>

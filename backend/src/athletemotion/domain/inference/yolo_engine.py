@@ -19,8 +19,9 @@ from typing import Dict, Optional, Sequence, Tuple
 import numpy as np
 import onnxruntime as ort
 
-from src.infrastructure.hardware import hardware_manager
-from src.domain.calculator import calculate_safe_angle, Point2D
+from athletemotion.config.paths import MODELS_DIR
+from athletemotion.infrastructure.hardware import hardware_manager
+from athletemotion.domain.calculator import calculate_safe_angle, Point2D
 from .base import BasePoseEngine, PoseEngineRegistry
 from .onnx_utils import preprocess_roi_for_onnx
 from .person_tracker import PersonTracker, box_to_pixels
@@ -124,10 +125,13 @@ class YOLO11PoseEngine(BasePoseEngine):
         candidates = (FAST_MODEL_CANDIDATES + DEFAULT_MODEL_CANDIDATES) if prefer_fast \
             else DEFAULT_MODEL_CANDIDATES
         for candidate in candidates:
-            path = Path(candidate)
-            if path.exists():
-                return path
-        return Path(DEFAULT_MODEL_CANDIDATES[0])
+            p = Path(candidate)
+            if p.exists():
+                return p
+            model_candidate = MODELS_DIR / p.name
+            if model_candidate.exists():
+                return model_candidate
+        return MODELS_DIR / Path(DEFAULT_MODEL_CANDIDATES[0]).name
 
     # ------------------------------------------------------------------ interface
     def set_side(self, side: str) -> None:

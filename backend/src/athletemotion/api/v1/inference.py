@@ -6,12 +6,13 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, status
 
-from src.infrastructure.hardware import hardware_manager
-from src.domain.inference.base import PoseEngineRegistry
-import src.domain.inference  # noqa: F401  Assegura que todos os motores estão registados no Factory
-from src.domain.inference.yolo_engine import DEFAULT_MODEL_CANDIDATES, FAST_MODEL_CANDIDATES
-from src.domain.inference.mediapipe_engine import resolve_landmarker_model
-from src.schemas.inference import EngineListResponse, EngineInfo, SwitchEngineRequest
+from athletemotion.config.paths import MODELS_DIR
+from athletemotion.infrastructure.hardware import hardware_manager
+from athletemotion.domain.inference.base import PoseEngineRegistry
+import athletemotion.domain.inference  # noqa: F401  Assegura que todos os motores estão registados no Factory
+from athletemotion.domain.inference.yolo_engine import DEFAULT_MODEL_CANDIDATES, FAST_MODEL_CANDIDATES
+from athletemotion.domain.inference.mediapipe_engine import resolve_landmarker_model
+from athletemotion.schemas.inference import EngineListResponse, EngineInfo, SwitchEngineRequest
 
 logger = logging.getLogger("athlete_motion.api.inference")
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/inference", tags=["Inference Management"])
 
 
 def _model_exists(candidates) -> bool:
-    return any(Path(candidate).exists() for candidate in candidates)
+    return any(Path(c).exists() or (MODELS_DIR / Path(c).name).exists() for c in candidates)
 
 
 def _ensure_active_engine():

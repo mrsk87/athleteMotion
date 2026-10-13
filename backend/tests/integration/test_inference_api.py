@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 import numpy as np
 import pytest
 
-from server import app
+from athletemotion.api.app import app
 
 client = TestClient(app)
 

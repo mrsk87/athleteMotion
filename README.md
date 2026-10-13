@@ -47,20 +47,21 @@ O projeto foi auditado e reestruturado para seguir **Clean Architecture**, **pri
 
 ### 4.2. Instalação do Backend
 ```bash
-# Criar e ativar ambiente virtual limpo
-python -m venv .venv
+cd backend
+uv venv --python 3.11
 # No Windows:
 .venv\Scripts\activate
 # No Linux/macOS:
 source .venv/bin/activate
 
-# Instalar dependências
-pip install -r requirements.txt
+# Instalar pacote em modo editável com dependências
+pip install -e ".[dev,directml]"
+cd ..
 ```
 
 ### 4.3. Instalação do Frontend
 ```bash
-cd frontend/mediapipe
+cd frontend/web
 npm install
 cd ../..
 ```
@@ -70,7 +71,7 @@ Em terminais separados:
 
 **1. Servidor Backend (FastAPI):**
 ```bash
-uvicorn server:app --reload --port 8000
+python -m athletemotion.api
 ```
 - API Swagger / OpenAPI: `http://localhost:8000/docs`
 - Health check: `http://localhost:8000/health`
@@ -78,35 +79,39 @@ uvicorn server:app --reload --port 8000
 
 **2. Aplicação Frontend (Vue 3):**
 ```bash
-cd frontend/mediapipe
+cd frontend/web
 npm run serve
 ```
 - Aceda no browser em: `http://localhost:8080`
+
+**Ou Início Rápido Unificado:**
+- Windows PowerShell: `.\start.ps1`
+- Windows CMD: `start.bat`
 
 ---
 
 ## 5. Sistema de Versionamento SemVer Automático
 
-A versão da aplicação é gerida centralmente pelo ficheiro [`VERSION`](VERSION) e sincronizada automaticamente com o `package.json` do frontend e com a API backend.
+A versão da aplicação é gerida centralmente pelo ficheiro [`backend/VERSION`](backend/VERSION) e sincronizada automaticamente com o `package.json` do frontend e com a API backend.
 
 ### 5.1. Instalação dos Git Hooks Locais
 Para garantir que o Git valida o versionamento antes de qualquer envio remoto (`push`):
 ```bash
-python scripts/install_hooks.py
+python backend/scripts/install_hooks.py
 ```
 
 ### 5.2. Comandos do Utilitário de Versão
 ```bash
 # Consultar a versão atual
-python scripts/bump_version.py --current
+python backend/scripts/bump_version.py --current
 
 # Simular o próximo incremento
-python scripts/bump_version.py --dry-run patch
+python backend/scripts/bump_version.py --dry-run patch
 
 # Incrementar manualmente
-python scripts/bump_version.py patch   # 0.1.0 -> 0.1.1
-python scripts/bump_version.py minor   # 0.1.0 -> 0.2.0
-python scripts/bump_version.py major   # 0.1.0 -> 1.0.0
+python backend/scripts/bump_version.py patch
+python backend/scripts/bump_version.py minor
+python backend/scripts/bump_version.py major
 
 # Auto-detetar pelo último commit convencional
 python scripts/bump_version.py --auto

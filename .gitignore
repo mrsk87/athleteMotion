@@ -8,6 +8,8 @@ __pycache__/
 venv/
 env/
 .venv/
+backend/.venv/
+desktopapp/.venv/
 
 # Environment variables files
 .env
@@ -74,10 +76,16 @@ test_*.db-shm
 
 # Frontend dependencies and builds
 node_modules/
+frontend/web/node_modules/
+frontend/web/dist/
 frontend/mediapipe/node_modules/
 frontend/mediapipe/dist/
-# Machine Learning Model Weights (see models/README.md)
+
+# Machine Learning Model Weights
 *.pt
 *.onnx
 *.task
+backend/models/*
+!backend/models/README.md
+!backend/models/manifest.json
 !models/README.md

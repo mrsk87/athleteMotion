@@ -4,9 +4,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ...infrastructure.database import AthleteModel, get_db
-from ...infrastructure.uow import unit_of_work
-from ...schemas.fit import AthleteCreate, AthleteResponse
+from athletemotion.infrastructure.database import AthleteModel, get_db
+from athletemotion.infrastructure.uow import unit_of_work
+from athletemotion.schemas.fit import AthleteCreate, AthleteResponse
 
 router = APIRouter(prefix="/athletes", tags=["athletes"])
 

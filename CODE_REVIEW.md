@@ -17,7 +17,7 @@
 | §2.8, 5.3 Modelos/tracking | R13 | 🔴 |
 | §2.9 Serviço de sessões | R08 | 🔴 |
 | §2.10 Base de dados | R07 | 🔴 |
-| §2.11, 6 Estrutura/Documentação | R01, R18 | 🔴 |
+| §2.11, 6 Estrutura/Documentação | R01, R18 | 🟡 (R01 ✅) |
 | §3 Frontend | R16 | 🔴 |
 | §4.2 Calibração | R11 | 🔴 |
 | §4.3, 4.4 Medidas/qualidade | R12 | 🔴 |
@@ -301,7 +301,7 @@ Sem chaves de API, usar **llama.cpp (Vulkan)** ou **Ollama** com um modelo 3–8
 
 ---
 
-## 6. REESTRUTURAÇÃO PROPOSTA (frontend / backend / desktopapp)
+## 6. REESTRUTURAÇÃO PROPOSTA (frontend / backend / desktopapp) — ✅ Resolvido em R01
 
 Estado atual: o backend vive na **raiz** (`src/`, `server.py`, `main.py`, `models/`, `scripts/`, `tests/`, `athlete_motion.db`) e o frontend em `frontend/mediapipe/`. Destino:
 

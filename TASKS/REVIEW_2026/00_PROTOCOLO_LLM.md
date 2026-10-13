@@ -16,16 +16,16 @@ Este ficheiro é a **fonte única de regras** para qualquer LLM ou pessoa que ex
 - **Língua:** código e identificadores em inglês; **docstrings, comentários e mensagens ao utilizador em português europeu** (como no código existente), com `pt`/`en` onde já existe i18n.
 - **Arquitetura:** Clean/Hexagonal — o **domínio não importa frameworks** (sem FastAPI, SQLAlchemy, Vue).
 
-### Mapa de caminhos (antes → depois da tarefa R01)
-| Antes (hoje) | Depois de R01 |
+### Mapa de caminhos (consolidado após R01)
+| Caminho legado | Caminho consolidado (R01 ✅) |
 |---|---|
 | `src/` (pacote `src.*`) | `backend/src/athletemotion/` (pacote `athletemotion.*`) |
 | `server.py`, `main.py`, `start.*` | `backend/` (um único entry point `python -m athletemotion.api`) |
 | `models/`, `scripts/`, `tests/`, `pyproject.toml`, `uv.lock`, `requirements.txt`, `VERSION` | `backend/…` |
 | `frontend/mediapipe/` | `frontend/web/` |
-| — | `desktopapp/` (já existe com o plano) |
+| — | `desktopapp/` (PyQt6 standalone) |
 
-> **Antes de R01 estar 🟢 DONE, só R01 e R18 podem ser iniciadas.** Todas as outras usam os caminhos *depois*.
+> **R01 está 🔵 REVIEW.** Todas as tarefas (R02–R17) usam os novos caminhos consolidados.
 
 ---
 

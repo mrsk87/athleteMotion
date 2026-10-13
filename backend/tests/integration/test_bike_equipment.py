@@ -10,10 +10,10 @@ O teste simula exatamente esse cenário: uma base ANTIGA, criada com o esquema a
 
 import sqlite3
 
-import src.infrastructure.database as db_module
+import athletemotion.infrastructure.database as db_module
 from sqlalchemy import create_engine
 
-from src.schemas.fit import BikeCreate, BikeResponse
+from athletemotion.schemas.fit import BikeCreate, BikeResponse
 
 
 def _old_bikes_schema(path: str) -> None:

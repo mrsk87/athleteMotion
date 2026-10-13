@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from ...domain.biomechanics import (
+from athletemotion.domain.biomechanics import (
     BIOMECHANIC_THRESHOLDS,
     RidingStyle,
     calculate_109_saddle_height,
@@ -12,7 +12,7 @@ from ...domain.biomechanics import (
     recommend_crank_length,
     recommend_handlebar_width,
 )
-from ...schemas.fit import EstimateRequest, TheoreticalFitEstimate
+from athletemotion.schemas.fit import EstimateRequest, TheoreticalFitEstimate
 
 router = APIRouter(prefix="/biomechanics", tags=["biomechanics"])
 

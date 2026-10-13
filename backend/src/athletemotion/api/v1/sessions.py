@@ -6,21 +6,21 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
-from ...domain.biomechanics import (
+from athletemotion.domain.biomechanics import (
     BIOMECHANIC_THRESHOLDS,
     RidingStyle,
     calculate_lemond_saddle_height,
     evaluate_posture_angles,
 )
-from ...infrastructure.database import (
+from athletemotion.infrastructure.database import (
     AthleteModel,
     BikeModel,
     FitSessionModel,
     PostureSnapshotModel,
     get_db,
 )
-from ...infrastructure.uow import unit_of_work
-from ...schemas.fit import (
+from athletemotion.infrastructure.uow import unit_of_work
+from athletemotion.schemas.fit import (
     DiagnosticItem,
     FitReportResponse,
     FitSessionCreate,
@@ -28,7 +28,7 @@ from ...schemas.fit import (
     SnapshotCreate,
     SnapshotResponse,
 )
-from ...services.report_generator import generate_bikefit_pdf
+from athletemotion.services.report_generator import generate_bikefit_pdf
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -317,7 +317,7 @@ def download_session_pdf(
     # Estruturar KOPS se fornecido
     kops_data = None
     if kops_offset is not None:
-        from ...domain.biomechanics import evaluate_kops_alignment
+        from athletemotion.domain.biomechanics import evaluate_kops_alignment
 
         kd = evaluate_kops_alignment(kops_offset)
         kops_data = {
@@ -329,7 +329,7 @@ def download_session_pdf(
     # Estruturar Saddle Drop se fornecido
     drop_data = None
     if saddle_drop is not None:
-        from ...domain.biomechanics import FlexibilityLevel, evaluate_saddle_drop
+        from athletemotion.domain.biomechanics import FlexibilityLevel, evaluate_saddle_drop
 
         flex = FlexibilityLevel(athlete.flexibility.lower()) if athlete and athlete.flexibility else FlexibilityLevel.MEDIUM
         sd = evaluate_saddle_drop(saddle_drop, modality, flex)
@@ -418,7 +418,7 @@ def get_ai_coaching_report(
         for d in diagnostics_raw
     ]
 
-    from ...services.ai_coach import generate_coaching_narrative
+    from athletemotion.services.ai_coach import generate_coaching_narrative
 
     kops_dict = {"offset_mm": kops_offset, "is_aligned": abs(kops_offset or 0) <= 5.0} if kops_offset is not None else None
 

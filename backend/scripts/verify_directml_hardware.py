@@ -4,15 +4,16 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-# Garantir que a raiz do projeto está no sys.path
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# Garantir que a pasta backend/src está no sys.path
+BACKEND_ROOT = Path(__file__).resolve().parent.parent
+SRC_DIR = BACKEND_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 import time
 import numpy as np
 import onnxruntime as ort
-from src.infrastructure.hardware import hardware_manager
+from athletemotion.infrastructure.hardware import hardware_manager
 
 
 def main():
