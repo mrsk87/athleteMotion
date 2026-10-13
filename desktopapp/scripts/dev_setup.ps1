@@ -1,4 +1,4 @@
-# Athlete Motion Desktop — Configuração do ambiente de desenvolvimento.
+﻿# Athlete Motion Desktop — Configuração do ambiente de desenvolvimento.
 #
 # Cria/reutiliza um ambiente virtual com Python 3.11 ou 3.12 (o projeto suporta
 # `>=3.11,<3.13`), instala o pacote em modo editável com as dependências de

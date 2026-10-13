@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,29 @@ from athletemotion_desktop.ui.i18n import (
 from athletemotion_desktop.ui.main_window import NAVIGATION_ENTRIES
 
 ENGLISH_TS_PATH = translation_file_path("en_US")
+SETTINGS_VIEW_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "athletemotion_desktop"
+    / "ui"
+    / "views"
+    / "settings_view.py"
+)
+
+_TR_CALL_RE = re.compile(r'self\.tr\(\s*"((?:[^"\\]|\\.)*)"', re.DOTALL)
+
+
+def _tr_literals_in(path: Path) -> set[str]:
+    """Extrai os literais passados a `self.tr(...)` num ficheiro de código.
+
+    Args:
+        path: ficheiro Python a analisar.
+
+    Returns:
+        Conjunto dos textos marcados para tradução.
+    """
+    content = path.read_text(encoding="utf-8")
+    return {literal for literal in _TR_CALL_RE.findall(content) if "\\" not in literal}
 
 
 def test_supported_languages_covers_every_translation_file() -> None:
@@ -50,6 +74,25 @@ def test_english_translation_covers_all_navigation_texts() -> None:
     ]
 
     assert missing == []
+
+
+def test_english_translation_covers_every_settings_view_text() -> None:
+    """Cada texto da vista de Definições tem de ter tradução inglesa (nada meio traduzido)."""
+    messages = parse_ts_file(ENGLISH_TS_PATH)
+    source_texts = _tr_literals_in(SETTINGS_VIEW_PATH)
+
+    assert source_texts, "a vista de Definições deve marcar os textos com tr()"
+    missing = [text for text in sorted(source_texts) if ("SettingsView", text) not in messages]
+
+    assert missing == []
+
+
+def test_translation_files_have_no_unfinished_entries() -> None:
+    """Uma entrada `unfinished` deixa a interface a meio caminho entre PT e EN."""
+    for language_code in SUPPORTED_LANGUAGES:
+        content = translation_file_path(language_code).read_text(encoding="utf-8")
+
+        assert "unfinished" not in content, language_code
 
 
 def test_portuguese_translation_never_contradicts_source() -> None:

@@ -204,6 +204,8 @@ class MainWindow(QMainWindow):
 
         current_index = self.view_stack.currentIndex()
         placeholder = self.view_stack.widget(view_id)
+        if placeholder is None:
+            raise IndexError(f"A pilha de vistas não tem widget na posição {view_id}.")
         self.view_stack.removeWidget(placeholder)
         placeholder.deleteLater()
         self.view_stack.insertWidget(view_id, widget)

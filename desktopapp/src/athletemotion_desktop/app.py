@@ -301,6 +301,9 @@ def main() -> int:
             )
         )
         window.closing.connect(settings_view_model.shutdown)
+        # A sondagem de hardware (PowerShell/registo) demora segundos: arranca só depois
+        # de a janela estar visível e corre numa thread separada, para não bloquear o
+        # arranque (orçamento de 2 s) nem o ciclo de eventos.
 
         window.language_change_requested.connect(
             partial(
@@ -313,6 +316,7 @@ def main() -> int:
         )
         translation_service.language_changed.connect(window.retranslate_ui)
         window.show()
+        settings_view_model.start_hardware_probe()
 
         try:
             exit_code = application.exec()

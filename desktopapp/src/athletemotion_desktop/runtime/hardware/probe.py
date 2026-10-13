@@ -44,6 +44,13 @@ MIN_USABLE_VRAM_GB: Final[float] = 2.0
 #: pelo que o campo é reportado como desconhecido e a sonda procura uma segunda fonte.
 _CAPPED_ADAPTER_RAM_BYTES: Final[int] = 0xFFF00000
 
+#: Consulta dos adaptadores gráficos (WMI/Win32_VideoController) em JSON compacto.
+_QUERY_VIDEO_CONTROLLERS_COMMAND: Final[str] = (
+    "Get-CimInstance Win32_VideoController | "
+    "Select-Object Name,AdapterRAM,DriverVersion,VideoProcessor,PNPDeviceID "
+    "| ConvertTo-Json -Compress"
+)
+
 #: Chave de classe dos adaptadores de ecrã no registo do Windows. A propriedade
 #: `HardwareInformation.qwMemorySize` é um QWORD com a VRAM real, ao contrário do WMI.
 _DISPLAY_CLASS_REGISTRY_PATH: Final[str] = (
@@ -130,15 +137,19 @@ def _run_command(
     if completed.returncode != 0:
         # O PowerShell devolve código 1 em erros *não-terminantes* (por exemplo, sem
         # permissão em subchaves do registo) mesmo produzindo saída válida. Quando há
-        # `stdout` útil, aproveita-se; a mensagem de erro fica registada para diagnóstico.
+        # `stdout` útil, aproveita-se: a mensagem de erro fica só em `debug` para
+        # diagnóstico. Sem saída, o comando falhou mesmo e o registo sobe a `warning`.
         stderr_excerpt = (completed.stderr or "").strip().splitlines()
-        logger.warning(
-            "Comando '%s' terminou com código %d: %s",
+        log_message = "Comando '%s' terminou com código %d: %s"
+        log_args = (
             " ".join(command),
             completed.returncode,
             stderr_excerpt[-1][:200] if stderr_excerpt else "(sem mensagem)",
         )
-        if not (completed.stdout or "").strip():
+        if (completed.stdout or "").strip():
+            logger.debug(log_message, *log_args)
+        else:
+            logger.warning(log_message, *log_args)
             return None
     return completed.stdout
 
@@ -158,9 +169,7 @@ def query_video_controller_records() -> tuple[Mapping[str, str], ...]:
             "-NoProfile",
             "-NonInteractive",
             "-Command",
-            "Get-CimInstance Win32_VideoController | "
-            "Select-Object Name,AdapterRAM,DriverVersion,VideoProcessor,PNPDeviceID "
-            "| ConvertTo-Json -Compress",
+            _QUERY_VIDEO_CONTROLLERS_COMMAND,
         ]
     )
     records = parse_video_controller_json(powershell_output)
@@ -288,7 +297,7 @@ def _adapter_ram_gb(raw_value: str | None, warnings: list[str], gpu_name: str) -
     if raw_bytes >= _CAPPED_ADAPTER_RAM_BYTES:
         warnings.append(
             f"VRAM de '{gpu_name}' reportada como {raw_bytes / 1024**3:.1f} GiB, que é o limite "
-            f"de 32 bits do WMI: valor não fiável, a procurar no registo (qwMemorySize)."
+            "de 32 bits do WMI: valor não fiável, a procurar no registo (qwMemorySize)."
         )
         return None
     return round(raw_bytes / 1024**3, 2)

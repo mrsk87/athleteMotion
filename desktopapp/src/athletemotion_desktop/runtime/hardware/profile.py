@@ -157,15 +157,19 @@ def load_profile(profile_file: Path, hardware_signature: str) -> ProfileStatus:
     try:
         profile = HardwareProfileModel.model_validate(payload)
     except ValidationError as exc:
-        first_error = exc.errors()[0] if exc.errors() else {}
-        location = ".".join(str(part) for part in first_error.get("loc", ())) or "?"
+        errors = exc.errors()
+        if errors:
+            location = ".".join(str(part) for part in errors[0]["loc"]) or "?"
+            message = errors[0]["msg"]
+        else:
+            location, message = "?", "erro desconhecido"
         logger.error("Perfil de hardware inválido em %s: %s", profile_file, exc)
         return ProfileStatus(
             state=ProfileState.INVALID,
             profile=None,
             reason=(
                 f"O perfil de hardware não cumpre o esquema v{PROFILE_SCHEMA_VERSION} "
-                f"(campo '{location}': {first_error.get('msg', 'erro desconhecido')})."
+                f"(campo '{location}': {message})."
             ),
         )
 

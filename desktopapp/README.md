@@ -2,7 +2,7 @@
 
 Aplicação desktop nativa Windows para análise biomecânica e bikefit em tempo real, concebida para extrair o máximo desempenho do computador físico (AMD Radeon RX 580 DirectML + Intel Xeon E5-1660 v3 AVX2 OpenVINO).
 
-**Estado atual:** Fase 0 (scaffold) — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado e testes. Captura, inferência e vistas funcionais chegam nas tarefas D03+ (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
+**Estado atual:** D01 concluída (🔵 REVIEW) e D02 em 🔵 REVIEW — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado e **vista de Definições com diagnóstico de hardware** (GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual). Captura e inferência chegam nas tarefas D03+ (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
 
 ---
 
@@ -30,7 +30,16 @@ uv pip install -e ".[dev]"
 ```
 Dados do utilizador (definições, logs, modelos, sessões) ficam em `%APPDATA%\AthleteMotion\`.
 
-### 3. Verificações (portões de qualidade)
+### 3. Diagnóstico de hardware (CLI, sem interface gráfica)
+
+A sonda é um módulo sem Qt, reutilizável fora da aplicação (scripts, CI, suporte remoto):
+```powershell
+.venv\Scripts\python.exe -m athletemotion_desktop.runtime.hardware.probe --summary  # resumo legível
+.venv\Scripts\python.exe -m athletemotion_desktop.runtime.hardware.probe --json      # JSON serializável
+```
+A saída **nunca inventa valores**: quando um componente não pode ser lido (pacote ausente, comando bloqueado) o campo fica `null`/vazio e a razão aparece em `warnings` — por exemplo, a VRAM reportada pelo WMI está truncada a 4 GiB e é recuperada do registo (`qwMemorySize`).
+
+### 4. Verificações (portões de qualidade)
 ```powershell
 cd desktopapp
 $env:QT_QPA_PLATFORM="offscreen"; .venv\Scripts\python.exe -m pytest -q
@@ -50,7 +59,8 @@ $env:QT_QPA_PLATFORM="offscreen"; .venv\Scripts\python.exe -m pytest -q
   ```powershell
   .\scripts\update_translations.ps1     # corre o pylupdate6 sobre o código
   ```
-  Mensagens sem tradução ficam `unfinished` e a interface mostra o texto PT-PT — nunca texto inventado.
+  Mensagens sem tradução ficam `unfinished` e a interface mostra o texto PT-PT — nunca texto inventado. Os testes `test_translation_files_have_no_unfinished_entries` e `test_english_translation_covers_every_settings_view_text` impedem que fiquem pendentes.
+- Os scripts `.ps1` são gravados **com BOM UTF-8**: o Windows PowerShell 5.1 lê ficheiros sem BOM como ANSI e o byte de um travessão (—) passa a ser interpretado como aspas tipográficas de fecho, partindo o *parser*.
 - O idioma escolhido no seletor da barra lateral é gravado atomicamente em `%APPDATA%\AthleteMotion\settings.json`.
 
 > Ao traduzir, preserve os marcadores (`{cores}`, `{ram}`, …): são preenchidos em runtime com medições reais do sistema.
@@ -74,16 +84,21 @@ desktopapp/
 │   │   ├── logging_setup.py           # Logging JSON rotativo + relatório de falhas nativas
 │   │   └── environment.py             # Integridade do ambiente (conflito ORT CPU/DirectML)
 │   ├── runtime/                       # MOTOR DE TEMPO REAL (sem Qt) — capture/preprocess/
-│   │   └── backends/ models/          #   ring_buffer/inference_worker chegam em D03–D05
+│   │   ├── hardware/                  #   ring_buffer/inference_worker chegam em D03–D05
+│   │   │   ├── probe.py               #   sonda CPU/GPU/RAM/providers (também por CLI)
+│   │   │   ├── profile.py             #   leitura/validação de hardware_profile.json
+│   │   │   ├── autotune.py            #   benchmark em subprocesso cancelável
+│   │   │   └── diagnostics.py         #   avisos inteligentes (sem Qt)
+│   │   └── backends/ models/
 │   ├── domain_bridge/ services/       # Pontes para o pacote athletemotion e sessões (D08/D10)
 │   └── ui/
 │       ├── main_window.py             # Janela, navegação, seletor de idioma, telemetria
 │       ├── i18n/                      # translator.py + pt_PT.ts + en.ts
 │       ├── theme/dark.qss             # Tema escuro
-│       └── views/ widgets/ viewmodels/  # Vistas funcionais chegam em D07–D12
+│       └── views/ widgets/ viewmodels/  # settings_view/settings_vm (D02); Live/Benchmark em D07–D12
 └── tests/
-    ├── unit/                          # Configuração, logging, ambiente, i18n
-    ├── ui/                            # pytest-qt: janela, navegação, idioma
+    ├── unit/                          # Configuração, logging, ambiente, i18n, sonda/perfil/avisos
+    ├── ui/                            # pytest-qt: janela, navegação, idioma, vista de Definições
     ├── integration/                   # Arranque real, locks, sinais, falha nativa
     ├── perf/                          # Portão de arranque (< 2 s)
     └── support/                       # Lançador headless reutilizado pelos testes

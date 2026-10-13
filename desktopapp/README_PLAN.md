@@ -1,6 +1,6 @@
 # Athlete Motion Desktop — Plano de Implementação (Python + PyQt6)
 
-> **Status:** 🔴 NÃO INICIADO (0/16 tarefas) · **Última atualização:** 2026-10-13 · **Hardware de referência:** Xeon E5-1660 v3 (8C/16T, AVX2) + RX 580 8 GB
+> **Status:** 🟡 EM CURSO (0/16 concluídas, 2 em REVIEW) · **Última atualização:** 2026-10-13 · **Hardware de referência:** Xeon E5-1660 v3 (8C/16T, AVX2) + RX 580 8 GB
 > **Tarefas para LLMs:** [`TASKS/STATUS_BOARD.md`](TASKS/STATUS_BOARD.md) · **Protocolo:** [`TASKS/00_PROTOCOLO_LLM.md`](TASKS/00_PROTOCOLO_LLM.md) · **Pré-requisitos do backend:** [`../TASKS/REVIEW_2026/STATUS_BOARD.md`](../TASKS/REVIEW_2026/STATUS_BOARD.md)
 > **Regra:** quem conclui ou altera uma tarefa atualiza este cabeçalho e a tabela abaixo (§12 → coluna *Tarefas*).
 
@@ -10,7 +10,7 @@
 | 1 Runtime mínimo | D03, D04, D07 | 🔴 |
 | 2 Pipeline paralelo | D05 | 🔴 |
 | 3 Modelo com pés | D06 (+R13) | 🔴 |
-| 4 Autotune e backends | D02, D12 (+R14) | 🔴 |
+| 4 Autotune e backends | D02 (🔵 REVIEW · 7/7), D12 (+R14) | 🟡 |
 | 5 Bikefit completo | D08, D09, D11 (+R10–R12, R17) | 🔴 |
 | 6 Persistência e sync | D10 (+R06–R08) | 🔴 |
 | 7 Robustez e release | D13, D15 | 🔴 |
@@ -318,6 +318,6 @@ Câmara: **exposição e ganho manuais** (evita *auto-exposure flicker* e desfoq
 1. 🟡 Criar `backend/` com `git mv` (ver CODE_REVIEW §6) e transformar `src/` em pacote `athletemotion` — **R01 em 🟡 IN_PROGRESS** (executada em paralelo por Antigravity em 2026-10-13): `backend/src/athletemotion` já existe e importa a partir do desktop; falta a R01 fechar para declarar `athletemotion @ file:../backend` no `pyproject.toml` do desktop.
 2. 🔵 `desktopapp/pyproject.toml` com dependências: `PyQt6`, `pyqtgraph`, `numpy`, `opencv-python`, `psutil`, `py-cpuinfo`, `pydantic-settings` (+ extras `directml`, `openvino` e `dev`) — falta `onnxruntime-directml`/`openvino`/`rtmlib`/`athletemotion`, que entram em D05/D06.
 3. ✅ `uv venv --python 3.11 && uv pip install -e .[dev]` (executado; o `-e ../backend` aguarda R01).
-4. 🟡 `python -m athletemotion_desktop` → janela com tema escuro, navegação e telemetria de sistema ✅; painel de diagnóstico de hardware (providers ORT/OpenVINO, GPU) ainda não existe — é o âmbito de **D02**.
+4. ✅ `python -m athletemotion_desktop` → janela com tema escuro, navegação, telemetria de sistema e **diagnóstico de hardware** (§4.4: GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual) — **D02 em 🔵 REVIEW (7/7)**; falta `onnxruntime-directml` no ambiente, que só entra com a R01 fechada (a vista reporta-o como erro bloqueante com instrução de resolução).
 5. Portar `scripts/benchmark_inference.py` para `desktopapp/scripts/benchmark.py` usando a interface `InferenceBackend`.
 6. Abrir issues/ADRs para: formato do ring buffer, política de descarte, formato do manifest de modelos.

@@ -165,9 +165,7 @@ class SettingsViewModel(QObject):
             self._is_hardware_loading = True
         self.hardware_loading_changed.emit(True)
 
-        threading.Thread(
-            target=self.collect_hardware, name="hardware-probe", daemon=True
-        ).start()
+        threading.Thread(target=self.collect_hardware, name="hardware-probe", daemon=True).start()
 
     def reload_hardware(self) -> None:
         """Volta a sondar o hardware (botão «Detetar novamente»)."""

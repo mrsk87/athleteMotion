@@ -89,6 +89,9 @@ class SettingsView(QWidget):
         """Cria a secção com o hardware detetado."""
         self._hardware_group = QGroupBox(self)
         self._hardware_form = QFormLayout(self._hardware_group)
+        self.hardware_state_label = QLabel(self._hardware_group)
+        self.hardware_state_label.setObjectName("HardwareStateLabel")
+        self._hardware_form.addRow(self.hardware_state_label)
         self._hardware_value_labels: dict[str, QLabel] = {}
         for key in ("cpu", "flags", "ram", "gpu", "ort", "openvino", "signature"):
             value_label = QLabel(self._hardware_group)
@@ -245,6 +248,7 @@ class SettingsView(QWidget):
     def _connect_view_model(self) -> None:
         """Liga os sinais do *view-model* aos métodos da vista."""
         self._view_model.hardware_reloaded.connect(self.refresh)
+        self._view_model.hardware_loading_changed.connect(self._on_hardware_loading_changed)
         self._view_model.diagnostics_changed.connect(self.refresh_diagnostics)
         self._view_model.autotune_progress.connect(self._on_autotune_progress)
         self._view_model.autotune_finished.connect(self._on_autotune_finished)
@@ -266,9 +270,10 @@ class SettingsView(QWidget):
         }
         for key, source_label in hardware_keys.items():
             label = self._hardware_form.labelForField(self._hardware_value_labels[key])
-            if label is not None:
+            if isinstance(label, QLabel):
                 label.setText(source_label)
         self.refresh_hardware_button.setText(self.tr("Detetar novamente"))
+        self.hardware_state_label.setText(self.tr("A detetar hardware…"))
 
         self._diagnostics_group.setTitle(self.tr("Avisos e recomendações"))
         self._performance_group.setTitle(self.tr("Desempenho e inferência"))
@@ -342,7 +347,7 @@ class SettingsView(QWidget):
             return
         for field_widget, text in mapping.items():
             label = form_layout.labelForField(field_widget)
-            if label is not None:
+            if isinstance(label, QLabel):
                 label.setText(text)
 
     # ------------------------------------------------------------- atualização
@@ -360,8 +365,21 @@ class SettingsView(QWidget):
         self.refresh_autotune_controls()
 
     def refresh_hardware_values(self) -> None:
-        """Mostra a informação de hardware detetada."""
+        """Mostra a informação de hardware detetada (ou o estado de carregamento)."""
         hardware = self._view_model.hardware_info
+        if hardware is None:
+            self.hardware_state_label.setText(
+                self.tr("A detetar hardware…")
+                if self._view_model.is_hardware_loading
+                else self.tr("Hardware ainda não detetado.")
+            )
+            for label in self._hardware_value_labels.values():
+                label.setText("—")
+            return
+
+        self.hardware_state_label.setText(
+            self.tr("Sistema analisado. Use «Detetar novamente» após alterar hardware ou drivers.")
+        )
         cpu = hardware.cpu
         physical = cpu.physical_cores if cpu.physical_cores is not None else "?"
         logical = cpu.logical_cores if cpu.logical_cores else "?"
@@ -393,7 +411,12 @@ class SettingsView(QWidget):
         self._hardware_value_labels["signature"].setText(hardware.signature or "—")
 
     def refresh_draft_values(self) -> None:
-        """Sincroniza os controlos com o *draft* e o estado do perfil."""
+        """Escreve os valores do *draft* nos controlos.
+
+        Chamado a partir de `refresh()`, que é quem suspende a propagação dos sinais
+        dos controlos (`_loading`), para que a atualização programática não seja
+        interpretada como uma alteração do utilizador.
+        """
         draft_settings = self._view_model.draft
         self.backend_combo.setCurrentIndex(
             max(0, self.backend_combo.findData(draft_settings.inference.preferred_backend))
@@ -417,6 +440,9 @@ class SettingsView(QWidget):
         self.record_check.setChecked(draft_settings.record_sessions)
 
         profile_status = self._view_model.profile_status
+        if profile_status is None:
+            self.profile_state_label.setText(self.tr("Perfil de hardware por avaliar."))
+            return
         recommendation = profile_status.profile.recommendation if profile_status.profile else None
         if recommendation is not None:
             self.profile_state_label.setText(
@@ -453,6 +479,13 @@ class SettingsView(QWidget):
             else self.tr("Definições sincronizadas com o disco.")
         )
         self.save_button.setEnabled(self._view_model.is_dirty)
+
+    def _on_hardware_loading_changed(self, is_loading: bool) -> None:
+        """Atualiza a vista quando a sondagem de hardware começa ou termina."""
+        self.refresh_hardware_button.setEnabled(not is_loading)
+        if is_loading:
+            self.hardware_state_label.setText(self.tr("A detetar hardware…"))
+        self.refresh()
 
     def refresh_autotune_controls(self) -> None:
         """Habilita/desabilita os controlos do autotune conforme o estado real."""
@@ -564,10 +597,12 @@ class SettingsView(QWidget):
     @property
     def diagnostic_items(self) -> tuple[str, ...]:
         """Itens atualmente apresentados na lista de avisos."""
-        return tuple(
-            self.diagnostics_list.item(index).text()
-            for index in range(self.diagnostics_list.count())
-        )
+        items: list[str] = []
+        for index in range(self.diagnostics_list.count()):
+            item = self.diagnostics_list.item(index)
+            if item is not None:
+                items.append(item.text())
+        return tuple(items)
 
     @property
     def settings(self) -> AppSettings:

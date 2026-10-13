@@ -34,6 +34,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-qt>=4.4.0",
     "pytest-benchmark>=4.0.0",
+    "pytest-cov>=5.0.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
     "types-psutil>=5.9.0",
@@ -54,6 +55,14 @@ python_version = "3.11"
 strict = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+# O `py-cpuinfo` (usado pela sonda de hardware da D02) não publica stubs nem
+# `py.typed`, e não existe pacote `types-py-cpuinfo`. A alternativa a este override
+# seria espalhar `# type: ignore` pelo código de produção, o que esconderia erros
+# reais desse módulo; aqui a exceção fica declarada num único local, com o motivo.
+[[tool.mypy.overrides]]
+module = ["cpuinfo"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

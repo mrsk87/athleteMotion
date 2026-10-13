@@ -1,4 +1,4 @@
-# Athlete Motion Desktop — Atualização das traduções da interface (PT/EN).
+﻿# Athlete Motion Desktop — Atualização das traduções da interface (PT/EN).
 #
 # Fluxo:
 #   1. `pylupdate6` reextrai todos os textos marcados com `tr()`/`QT_TRANSLATE_NOOP`
