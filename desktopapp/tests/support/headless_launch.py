@@ -119,12 +119,14 @@ def main() -> int:
         class HeadlessApplication(QApplication):
             """`QApplication` que não entra no ciclo de eventos (devolve logo 0)."""
 
-            def exec(self) -> int:
+            def exec(self) -> int:  # type: ignore[override]  # stubs do PyQt6 declaram `exec` estático
                 return 0
 
         # A aplicação usa o nome global `QApplication`; substituí-lo aqui evita ter de
         # existirem caminhos alternativos no código de produção só para os testes.
-        desktop_app.QApplication = HeadlessApplication  # type: ignore[misc]
+        # O nome não é exportado explicitamente pelo módulo, mas em execução a
+        # atribuição é exatamente o global que a aplicação usa no arranque.
+        desktop_app.QApplication = HeadlessApplication  # type: ignore[attr-defined]
     else:
         requested_signal_name = str(arguments.signal_on_ready)
 
@@ -150,7 +152,7 @@ def main() -> int:
                 self._readiness_timer.stop()
                 _deliver_signal_from_thread(requested_signal_name)
 
-        desktop_app.QApplication = SignalApplication  # type: ignore[misc]
+        desktop_app.QApplication = SignalApplication  # type: ignore[attr-defined,assignment]
 
     # Os argumentos do lançador não devem chegar ao Qt (seriam interpretados como
     # opções desconhecidas da aplicação).

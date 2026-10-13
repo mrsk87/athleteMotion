@@ -44,6 +44,7 @@ def test_setup_logging_writes_json_records(tmp_path: Path) -> None:
     assert record["logger"] == "teste.json"
     assert record["message"] == "Medição p95 concluída"
     assert record["module"] == "test_logging_setup"
+    assert isinstance(record["process_id"], int)
     assert record["process_id"] > 0
     assert "T" in str(record["timestamp"])
 

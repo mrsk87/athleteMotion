@@ -6,6 +6,7 @@ import json
 import sys
 import textwrap
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -70,7 +71,7 @@ def _hardware_info() -> HardwareInfo:
 def _build_view(
     qtbot: QtBot,
     *,
-    hardware_probe=_hardware_info,
+    hardware_probe: Callable[[], HardwareInfo] = _hardware_info,
     profile_payload: dict[str, object] | None = None,
     autotune_command: list[str] | None = None,
 ) -> tuple[SettingsView, SettingsViewModel]:
@@ -347,7 +348,7 @@ def test_view_texts_follow_the_selected_language(qtbot: QtBot, qapp: QApplicatio
         qapp.removeTranslator(translator)
 
 
-def _slow_probe_wrapper(view_delay: float):
+def _slow_probe_wrapper(view_delay: float) -> Callable[[], HardwareInfo]:
     """Cria uma sonda lenta, para provar que a UI não espera por ela."""
 
     def slow_probe() -> HardwareInfo:

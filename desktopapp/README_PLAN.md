@@ -7,7 +7,7 @@
 | Fase (§12) | Tarefas | Estado |
 |---|---|---|
 | 0 Preparação | D01, D14 | 🔴 |
-| 1 Runtime mínimo | D03, D04, D07 | 🔴 |
+| 1 Runtime mínimo | D03, D04 (🔵 REVIEW · 8/8), D07 | 🟡 |
 | 2 Pipeline paralelo | D05 | 🔴 |
 | 3 Modelo com pés | D06 (+R13) | 🔴 |
 | 4 Autotune e backends | D02 (🔵 REVIEW · 7/7), D12 (+R14) | 🟡 |
@@ -74,10 +74,11 @@ desktopapp/
 │  ├─ runtime/                    # ★ motor de tempo real (sem Qt)
 │  │  ├─ pipeline.py              # orquestra estágios e filas
 │  │  ├─ capture.py               # CaptureWorker (câmara/ficheiro)
-│  │  ├─ preprocess.py            # letterbox, ROI, blobFromImage
+│  │  ├─ preprocess/              # ✅ ROI + letterbox + blob (equivalente ao domínio)
 │  │  ├─ inference_worker.py      # processo(s) de inferência
 │  │  ├─ postprocess.py           # decode keypoints, NMS, tracking
-│  │  ├─ ring_buffer.py           # memória partilhada (multiprocessing.shared_memory)
+│  │  ├─ ring_buffer/             # ✅ anel SPSC (multiprocessing.shared_memory)
+│  │  ├─ messages.py              # ✅ mensagens de controlo (nunca frames)
 │  │  ├─ backends/
 │  │  │  ├─ base.py               # Protocol InferenceBackend
 │  │  │  ├─ ort_directml.py
@@ -319,5 +320,6 @@ Câmara: **exposição e ganho manuais** (evita *auto-exposure flicker* e desfoq
 2. 🔵 `desktopapp/pyproject.toml` com dependências: `PyQt6`, `pyqtgraph`, `numpy`, `opencv-python`, `psutil`, `py-cpuinfo`, `pydantic-settings` (+ extras `directml`, `openvino` e `dev`) — falta `onnxruntime-directml`/`openvino`/`rtmlib`/`athletemotion`, que entram em D05/D06.
 3. ✅ `uv venv --python 3.11 && uv pip install -e .[dev]` (executado; o `-e ../backend` aguarda R01).
 4. ✅ `python -m athletemotion_desktop` → janela com tema escuro, navegação, telemetria de sistema e **diagnóstico de hardware** (§4.4: GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual) — **D02 em 🔵 REVIEW (7/7)**; falta `onnxruntime-directml` no ambiente, que só entra com a R01 fechada (a vista reporta-o como erro bloqueante com instrução de resolução).
-5. Portar `scripts/benchmark_inference.py` para `desktopapp/scripts/benchmark.py` usando a interface `InferenceBackend`.
-6. Abrir issues/ADRs para: formato do ring buffer, política de descarte, formato do manifest de modelos.
+5. ✅ Anel SPSC em memória partilhada (`runtime/ring_buffer`) e pré-processamento sem cópias (`runtime/preprocess`) — **D04 em 🔵 REVIEW (8/8)**: 10 000 frames entre dois processos sem um único frame rasgado, 0,84 ms p50 a 720p (orçamento 2 ms) e equivalência **bit-idêntica** com o domínio. O teste de dois processos encontrou e fechou uma janela não-atómica real (ver §10 do ficheiro da tarefa).
+6. Portar `scripts/benchmark_inference.py` para `desktopapp/scripts/benchmark.py` usando a interface `InferenceBackend`.
+7. Abrir issues/ADRs para: formato do ring buffer *(feito em D04: protocolo documentado no `layout.py` e §10 da tarefa)*, política de descarte, formato do manifest de modelos.

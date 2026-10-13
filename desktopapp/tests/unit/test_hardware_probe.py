@@ -6,7 +6,10 @@ respostas gravadas, garantindo determinismo em qualquer máquina (CI incluída).
 
 from __future__ import annotations
 
+import importlib
 import json
+import subprocess
+from collections.abc import Callable
 from dataclasses import replace
 
 import pytest
@@ -173,7 +176,9 @@ def test_probe_cpu_degrades_when_cpuinfo_fails(monkeypatch: pytest.MonkeyPatch) 
     """Sem `py-cpuinfo` o CPU é caracterizado parcialmente, com aviso em vez de erro."""
     import builtins
 
-    real_import = builtins.__import__
+    # O `__import__` real é reencaminhado tal como recebido; a assinatura exata não
+    # interessa ao teste, o que interessa é o nome pedido.
+    real_import: Callable[..., object] = builtins.__import__
 
     def failing_import(name: str, *args: object, **kwargs: object) -> object:
         if name == "cpuinfo":
@@ -194,7 +199,8 @@ def test_probe_ort_providers_without_onnxruntime(monkeypatch: pytest.MonkeyPatch
     def failing_import(name: str) -> object:
         raise ImportError(f"{name} ausente (teste)")
 
-    monkeypatch.setattr(probe.importlib, "import_module", failing_import)
+    # `probe` faz `import importlib`: o mesmo módulo, logo o mesmo efeito real.
+    monkeypatch.setattr(importlib, "import_module", failing_import)
 
     providers, warnings = probe.probe_ort_providers()
 
@@ -210,7 +216,7 @@ def test_probe_ort_providers_reports_available_providers(monkeypatch: pytest.Mon
         def get_available_providers() -> list[str]:
             return ["DmlExecutionProvider", "CPUExecutionProvider"]
 
-    monkeypatch.setattr(probe.importlib, "import_module", lambda _name: FakeOnnxRuntime())
+    monkeypatch.setattr(importlib, "import_module", lambda _name: FakeOnnxRuntime())
 
     providers, warnings = probe.probe_ort_providers()
 
@@ -226,7 +232,7 @@ def test_probe_ort_providers_handles_broken_installation(monkeypatch: pytest.Mon
         def get_available_providers() -> list[str]:
             raise RuntimeError("binários nativos em falta")
 
-    monkeypatch.setattr(probe.importlib, "import_module", lambda _name: BrokenOnnxRuntime())
+    monkeypatch.setattr(importlib, "import_module", lambda _name: BrokenOnnxRuntime())
 
     providers, warnings = probe.probe_ort_providers()
 
@@ -240,7 +246,7 @@ def test_probe_openvino_devices_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing_import(_name: str) -> object:
         raise ImportError("openvino ausente (teste)")
 
-    monkeypatch.setattr(probe.importlib, "import_module", missing_import)
+    monkeypatch.setattr(importlib, "import_module", missing_import)
     assert probe.probe_openvino_devices() == ((), ())
 
     class FakeCore:
@@ -250,7 +256,7 @@ def test_probe_openvino_devices_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeOpenVino:
         Core = FakeCore
 
-    monkeypatch.setattr(probe.importlib, "import_module", lambda _name: FakeOpenVino())
+    monkeypatch.setattr(importlib, "import_module", lambda _name: FakeOpenVino())
     devices, warnings = probe.probe_openvino_devices()
 
     assert devices == ("CPU", "GPU.0")
@@ -267,7 +273,7 @@ def test_probe_openvino_devices_reports_failure(monkeypatch: pytest.MonkeyPatch)
     class FakeOpenVino:
         Core = FakeCore
 
-    monkeypatch.setattr(probe.importlib, "import_module", lambda _name: FakeOpenVino())
+    monkeypatch.setattr(importlib, "import_module", lambda _name: FakeOpenVino())
 
     devices, warnings = probe.probe_openvino_devices()
 
@@ -401,7 +407,7 @@ def test_run_command_reports_execution_failure(monkeypatch: pytest.MonkeyPatch) 
     def raising_run(*_args: object, **_kwargs: object) -> object:
         raise OSError("processo não pode ser criado")
 
-    monkeypatch.setattr(probe.subprocess, "run", raising_run)
+    monkeypatch.setattr(subprocess, "run", raising_run)
 
     assert probe._run_command(["powershell.exe", "-Command", "Get-Date"]) is None
 
@@ -488,7 +494,7 @@ def test_probe_cpu_degrades_when_psutil_is_unavailable(monkeypatch: pytest.Monke
     """Sem `psutil` a contagem de núcleos fica por detetar, com aviso explícito."""
     import builtins
 
-    real_import = builtins.__import__
+    real_import: Callable[..., object] = builtins.__import__
 
     def failing_import(name: str, *args: object, **kwargs: object) -> object:
         if name == "psutil":
@@ -510,7 +516,7 @@ def test_probe_total_ram_gb_returns_none_when_psutil_is_unavailable(
     """Sem `psutil` a RAM total não é inventada."""
     import builtins
 
-    real_import = builtins.__import__
+    real_import: Callable[..., object] = builtins.__import__
 
     def failing_import(name: str, *args: object, **kwargs: object) -> object:
         if name == "psutil":

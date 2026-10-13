@@ -34,7 +34,8 @@ def test_headless_startup_succeeds_and_writes_json_logs(isolated_app_data: Path)
     records = _read_json_log(logs_dir / LOG_FILE_NAME)
 
     assert records, "o arranque deve produzir pelo menos um registo de log"
-    assert any(record["message"].startswith("A iniciar Athlete Motion") for record in records)
+    messages = [str(record["message"]) for record in records]
+    assert any(message.startswith("A iniciar Athlete Motion") for message in messages)
     assert all(
         record["level"] in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"} for record in records
     )

@@ -2,7 +2,7 @@
 
 Aplicação desktop nativa Windows para análise biomecânica e bikefit em tempo real, concebida para extrair o máximo desempenho do computador físico (AMD Radeon RX 580 DirectML + Intel Xeon E5-1660 v3 AVX2 OpenVINO).
 
-**Estado atual:** D01 concluída (🔵 REVIEW) e D02 em 🔵 REVIEW — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado e **vista de Definições com diagnóstico de hardware** (GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual). Captura e inferência chegam nas tarefas D03+ (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
+**Estado atual:** D01, D02 e D04 em 🔵 REVIEW — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado, **vista de Definições com diagnóstico de hardware** (GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual) e o **motor de tempo real**: anel SPSC em memória partilhada (sem cópias, *latest-frame-wins*) e pré-processamento (ROI + letterbox + tensor NCHW) numericamente idêntico ao domínio. Captura e inferência chegam nas tarefas D03+ (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
 
 ---
 
@@ -43,10 +43,18 @@ A saída **nunca inventa valores**: quando um componente não pode ser lido (pac
 ```powershell
 cd desktopapp
 $env:QT_QPA_PLATFORM="offscreen"; .venv\Scripts\python.exe -m pytest -q
-.venv\Scripts\ruff.exe check .
-.venv\Scripts\ruff.exe format --check src/athletemotion_desktop tests
-.venv\Scripts\mypy.exe src/athletemotion_desktop        # modo strict
+.venv\Scripts\python.exe -m pytest tests/perf -q -s            # portões de desempenho (p50/p95)
+.venv\Scripts\ruff.exe check src tests
+.venv\Scripts\ruff.exe format --check src tests scripts
+.venv\Scripts\mypy.exe src tests                     # modo strict
 ```
+
+### 5. Motor de tempo real (sem interface gráfica)
+O `runtime/` é testável sem Qt, o que permite medir o anel e o pré-processamento isoladamente:
+```powershell
+.venv\Scripts\python.exe -m pytest tests/unit/ring_buffer tests/unit/preprocess -q
+```
+Orçamentos medidos nesta máquina (Xeon E5-1660 v3): anel 720p **0,018 ms** por frame (orçamento 0,2 ms), pré-processamento 720p→320 **0,836 ms** p50 / 0,946 ms p95 (orçamento 2 ms) e equivalência **bit-idêntica** com `athletemotion.domain.inference.onnx_utils`.
 
 ---
 
@@ -83,8 +91,18 @@ desktopapp/
 │   │   ├── settings.py                # Definições Pydantic + gravação atómica
 │   │   ├── logging_setup.py           # Logging JSON rotativo + relatório de falhas nativas
 │   │   └── environment.py             # Integridade do ambiente (conflito ORT CPU/DirectML)
-│   ├── runtime/                       # MOTOR DE TEMPO REAL (sem Qt) — capture/preprocess/
-│   │   ├── hardware/                  #   ring_buffer/inference_worker chegam em D03–D05
+│   ├── runtime/                       # MOTOR DE TEMPO REAL (sem Qt) — capture/inference em D03/D05
+│   │   ├── ring_buffer/               #   anel SPSC em shared memory (frames sem cópias)
+│   │   │   ├── layout.py              #   cabeçalho + registos por slot (protocolo)
+│   │   │   ├── shm_ring.py            #   ShmRing: acquire/commit/read/release, telemetria
+│   │   │   └── errors.py              #   exceções tipadas (layout, posse, frame rasgado)
+│   │   ├── preprocess/                #   ROI + letterbox + tensor NCHW (equivalente ao domínio)
+│   │   │   ├── roi.py                 #   clamp/padding e mapeamento inverso de coordenadas
+│   │   │   ├── letterbox.py           #   canvas fixa sem ampliar (como no domínio)
+│   │   │   ├── blob.py                #   BGR→RGB + normalização escritas no buffer NCHW
+│   │   │   └── pipeline.py            #   Preprocessor com buffers reutilizados (sem alocação/frame)
+│   │   ├── messages.py                #   mensagens de controlo picklable (nunca frames)
+│   │   ├── hardware/
 │   │   │   ├── probe.py               #   sonda CPU/GPU/RAM/providers (também por CLI)
 │   │   │   ├── profile.py             #   leitura/validação de hardware_profile.json
 │   │   │   ├── autotune.py            #   benchmark em subprocesso cancelável
@@ -97,10 +115,11 @@ desktopapp/
 │       ├── theme/dark.qss             # Tema escuro
 │       └── views/ widgets/ viewmodels/  # settings_view/settings_vm (D02); Live/Benchmark em D07–D12
 └── tests/
-    ├── unit/                          # Configuração, logging, ambiente, i18n, sonda/perfil/avisos
+    ├── unit/                          # Configuração, logging, ambiente, i18n, sonda/perfil/avisos,
+    │                                  #   ring_buffer (protocolo, posse, dois processos) e preprocess
     ├── ui/                            # pytest-qt: janela, navegação, idioma, vista de Definições
     ├── integration/                   # Arranque real, locks, sinais, falha nativa
-    ├── perf/                          # Portão de arranque (< 2 s)
+    ├── perf/                          # Portões: arranque (< 2 s), anel (< 0,2 ms), pré-processamento (< 2 ms)
     └── support/                       # Lançador headless reutilizado pelos testes
 ```
 
@@ -109,6 +128,6 @@ desktopapp/
 ## 📌 Regras de Contribuição para LLMs
 Antes de iniciar qualquer tarefa em `desktopapp/TASKS/`:
 1. Consulta obrigatoriamente [AGENTS.md](AGENTS.md) e [TASKS/00_PROTOCOLO_LLM.md](TASKS/00_PROTOCOLO_LLM.md).
-2. O módulo `runtime/` **nunca deve importar PyQt6 / QtCore**.
+2. O módulo `runtime/` **nunca deve importar PyQt6 / QtCore** (a comunicação é por filas/memória partilhada; há um teste que o verifica).
 3. Toda a mutação de base de dados SQLite deve respeitar estritamente as propriedades **ACID**.
 4. A thread principal da UI **nunca deve bloquear** (> 8 ms).
