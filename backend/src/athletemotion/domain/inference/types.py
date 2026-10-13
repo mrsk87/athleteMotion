@@ -8,8 +8,9 @@ from pydantic import BaseModel, Field
 class Landmark2D(BaseModel):
     x: float = Field(..., ge=0.0, le=1.0, description="Coordenada X normalizada [0, 1]")
     y: float = Field(..., ge=0.0, le=1.0, description="Coordenada Y normalizada [0, 1]")
-    z: float = Field(0.0, description="Profundidade Z relativa")
-    visibility: float = Field(1.0, ge=0.0, le=1.0, description="Grau de confiança/visibilidade")
+    z: float = Field(default=0.0, description="Profundidade Z relativa")
+    visibility: float = Field(default=1.0, ge=0.0, le=1.0, description="Grau de confiança/visibilidade")
+    estimated: bool = Field(default=False, description="Indica se o marco foi estimado/inferido heuristicamente")
 
 
 class SegmentValidation(BaseModel):

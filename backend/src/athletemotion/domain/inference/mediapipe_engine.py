@@ -12,17 +12,25 @@ motor "mediapipe" nunca corria MediaPipe. Passou a usar a API atual
 """
 from __future__ import annotations
 
-from collections import deque
 import logging
 import math
+from collections import deque
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+
 import cv2
 import numpy as np
+from athletemotion.domain.biomechanics.angles import compute_joint_angles
+from athletemotion.domain.inference.foot_estimation import (
+    determine_facing_direction,
+    estimate_foot,
+)
+from athletemotion.domain.inference.stabilizer import (
+    StabilizerState,
+    stabilize,
+)
 
-from athletemotion.domain.calculator import calculate_safe_angle, Point2D
 from .base import BasePoseEngine, PoseEngineRegistry
-from .types import InferenceOutput, Landmark2D, BiomechanicalAngles, SegmentValidation
+from .types import BiomechanicalAngles, InferenceOutput, Landmark2D, SegmentValidation
 
 logger = logging.getLogger("athlete_motion.mediapipe_engine")
 
@@ -56,7 +64,7 @@ COMPLEXITY_TO_MODEL = {
 from athletemotion.config.paths import MODELS_DIR
 
 
-def resolve_landmarker_model(model_complexity: int = 2, model: Optional[str] = None) -> Optional[Path]:
+def resolve_landmarker_model(model_complexity: int = 2, model: str | None = None) -> Path | None:
     """Devolve o caminho do `.task` a usar, ou `None` se não existir nenhum."""
     if model:
         candidate = MODELS_DIR / model
@@ -73,7 +81,7 @@ def resolve_landmarker_model(model_complexity: int = 2, model: Optional[str] = N
 
 
 class MediaPipePoseEngine(BasePoseEngine):
-    def __init__(self, side: str = "right", model_complexity: int = 2, model: Optional[str] = None):
+    def __init__(self, side: str = "right", model_complexity: int = 2, model: str | None = None):
         super().__init__(name="mediapipe")
         self.side = side.lower()
         self.model_complexity = model_complexity
@@ -83,12 +91,22 @@ class MediaPipePoseEngine(BasePoseEngine):
         self.backend = "none"
         self.last_timestamp_ms = -1
 
-        # Histórico para validação de rigidez esquelética (janela móvel de 30 frames)
-        self.femur_history: deque[float] = deque(maxlen=30)
-        self.tibia_history: deque[float] = deque(maxlen=30)
-        self.last_valid_landmarks: Optional[Dict[str, Landmark2D]] = None
+        # Estado imutável do estabilizador de segmentos esqueléticos
+        self.stabilizer_state = StabilizerState()
 
         self._init_backend()
+
+    @property
+    def femur_history(self) -> deque[float]:
+        return deque(self.stabilizer_state.femur_history, maxlen=30)
+
+    @property
+    def tibia_history(self) -> deque[float]:
+        return deque(self.stabilizer_state.tibia_history, maxlen=30)
+
+    @property
+    def last_valid_landmarks(self) -> dict[str, Landmark2D] | None:
+        return self.stabilizer_state.last_valid_landmarks
 
     # ----------------------------------------------------------------- backend
     def _init_backend(self) -> None:
@@ -149,55 +167,21 @@ class MediaPipePoseEngine(BasePoseEngine):
         self.reset()
 
     def reset(self) -> None:
-        self.femur_history.clear()
-        self.tibia_history.clear()
-        self.last_valid_landmarks = None
+        self.stabilizer_state = StabilizerState()
         self.last_timestamp_ms = -1
 
-    def _dist(self, p1: Landmark2D, p2: Landmark2D) -> float:
-        return math.hypot(p1.x - p2.x, p1.y - p2.y)
-
     def _validate_rigid_segments(
-        self, hip: Landmark2D, knee: Landmark2D, ankle: Landmark2D
-    ) -> Tuple[SegmentValidation, bool]:
-        femur = self._dist(hip, knee)
-        tibia = self._dist(knee, ankle)
-
-        femur_valid = True
-        tibia_valid = True
-        err_pct = 0.0
-
-        if len(self.femur_history) >= 5:
-            med_femur = float(np.median(list(self.femur_history)))
-            med_tibia = float(np.median(list(self.tibia_history)))
-
-            femur_diff = abs(femur - med_femur) / med_femur if med_femur > 0 else 0.0
-            tibia_diff = abs(tibia - med_tibia) / med_tibia if med_tibia > 0 else 0.0
-            err_pct = max(femur_diff, tibia_diff) * 100.0
-
-            # Limiar anatómico rígido: máximo 12% de variação em perspetiva 2D
-            if femur_diff > 0.12:
-                femur_valid = False
-            if tibia_diff > 0.12:
-                tibia_valid = False
-
-        if femur_valid and tibia_valid:
-            self.femur_history.append(femur)
-            self.tibia_history.append(tibia)
-
-        val = SegmentValidation(
-            femur_length=round(femur, 4),
-            tibia_length=round(tibia, 4),
-            femur_valid=femur_valid,
-            tibia_valid=tibia_valid,
-            segment_error_pct=round(err_pct, 2),
-        )
-        return val, (femur_valid and tibia_valid)
+        self, hip: Landmark2D, knee: Landmark2D, ankle: Landmark2D, w: int = 1920, h: int = 1080
+    ) -> tuple[SegmentValidation, bool]:
+        """Valida a consistência biomecânica dos segmentos do membro inferior."""
+        lms = {"hip": hip, "knee": knee, "ankle": ankle}
+        _, self.stabilizer_state, val = stabilize(lms, self.stabilizer_state, w, h)
+        return val, (val.femur_valid and val.tibia_valid)
 
     # ------------------------------------------------------------------ deteção
     def _detect_tasks(
         self, frame_bgr: np.ndarray, timestamp_ms: int
-    ) -> Optional[Dict[str, Landmark2D]]:
+    ) -> dict[str, Landmark2D] | None:
         """Executa o landmarker (Tasks) e devolve os 33 pontos mapeados por nome.
 
         O `detect_for_video` exige timestamps ESTRITAMENTE crescentes; quando o
@@ -219,7 +203,7 @@ class MediaPipePoseEngine(BasePoseEngine):
             return None
 
         lm = result.pose_landmarks[0]
-        raw: Dict[str, Landmark2D] = {}
+        raw: dict[str, Landmark2D] = {}
         for name, index in MP_INDEX.items():
             if index >= len(lm):
                 continue
@@ -234,13 +218,13 @@ class MediaPipePoseEngine(BasePoseEngine):
 
     def _detect_legacy(
         self, frame_bgr: np.ndarray, timestamp_ms: int
-    ) -> Optional[Dict[str, Landmark2D]]:
+    ) -> dict[str, Landmark2D] | None:
         frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         results = self.pose.process(frame_rgb)
         if not results.pose_landmarks:
             return None
         lm = results.pose_landmarks.landmark
-        raw: Dict[str, Landmark2D] = {}
+        raw: dict[str, Landmark2D] = {}
         for name, index in MP_INDEX.items():
             if index >= len(lm):
                 continue
@@ -253,58 +237,55 @@ class MediaPipePoseEngine(BasePoseEngine):
             )
         return raw
 
-    def _apply_side(self, raw: Dict[str, Landmark2D]) -> Dict[str, Landmark2D]:
-        """Escolhe o lado observado e estima calcâneo/biqueira quando faltam.
+    def _apply_side(
+        self, raw: dict[str, Landmark2D], w: int = 1920, h: int = 1080
+    ) -> dict[str, Landmark2D]:
+        """Escolhe o lado observado e estima calcâneo/biqueira quando faltam ou com baixa confiança.
 
-        A estimativa do pé usa o tornozelo e a direção do movimento; sem ela o
-        ângulo do tornozelo e o recuo do travessão não teriam ponto de referência.
+        A estimativa do pé escala rigorosamente com o comprimento da tíbia em píxeis
+        e marca os pontos como estimados (estimated=True).
         """
         side = self.side if self.side in ("left", "right") else "right"
         other = "left" if side == "right" else "right"
 
-        resolved: Dict[str, Landmark2D] = {}
+        resolved: dict[str, Landmark2D] = {}
         for part, key in (
             ("hip", "hip"), ("knee", "knee"), ("ankle", "ankle"),
             ("shoulder", "shoulder"), ("elbow", "elbow"), ("wrist", "wrist"), ("ear", "ear"),
         ):
             primary = raw.get(f"{side}_{key}")
             secondary = raw.get(f"{other}_{key}")
-            if primary is None:
-                primary = secondary
-            elif secondary is not None and primary.visibility < 0.20 and secondary.visibility > 0.50:
+            if primary is None or secondary is not None and primary.visibility < 0.20 and secondary.visibility > 0.50:
                 primary = secondary
             if primary is not None:
                 resolved[part] = primary
 
-        # Calcâneo / biqueira: usa o do próprio lado se existir; senão estima do tornozelo.
+        # Calcâneo / biqueira: se existirem com visibilidade >= 0.20, usa-os; senão estima da tíbia
         anchor = resolved.get("ankle")
         heel = raw.get(f"{side}_heel")
         toe = raw.get(f"{side}_foot_index")
-        if anchor is not None:
-            facing_right = True
-            if "left_shoulder" in raw and "left_hip" in raw:
-                facing_right = raw["left_shoulder"].x >= raw["left_hip"].x
-            if heel is None:
-                offset = -0.018 if facing_right else 0.018
-                heel = Landmark2D(
-                    x=float(np.clip(anchor.x + offset, 0.0, 1.0)),
-                    y=float(np.clip(anchor.y + 0.012, 0.0, 1.0)),
-                    visibility=float(anchor.visibility * 0.9),
-                )
-            if toe is None:
-                offset = 0.035 if facing_right else -0.035
-                toe = Landmark2D(
-                    x=float(np.clip(anchor.x + offset, 0.0, 1.0)),
-                    y=float(np.clip(anchor.y + 0.018, 0.0, 1.0)),
-                    visibility=float(anchor.visibility * 0.9),
-                )
-        if heel is not None:
+
+        has_valid_heel = heel is not None and heel.visibility >= 0.20
+        has_valid_toe = toe is not None and toe.visibility >= 0.20
+
+        if has_valid_heel and has_valid_toe and heel is not None and toe is not None:
             resolved["heel"] = heel
-        if toe is not None:
             resolved["toe"] = toe
+        elif anchor is not None:
+            knee = resolved.get("knee")
+            facing_right = determine_facing_direction(raw, side=side)
+            tibia_px = 0.0
+            if knee is not None:
+                tibia_px = math.hypot((knee.x - anchor.x) * float(w), (knee.y - anchor.y) * float(h))
+            estimated_foot = estimate_foot(anchor, knee, facing_right, tibia_px, w, h)
+            resolved["heel"] = heel if (has_valid_heel and heel is not None) else estimated_foot["heel"]
+            resolved["toe"] = toe if (has_valid_toe and toe is not None) else estimated_foot["toe"]
+
         return resolved
 
     def process_frame(self, frame_bgr: np.ndarray, timestamp_ms: int) -> InferenceOutput:
+        h_orig, w_orig = frame_bgr.shape[:2]
+
         if not self.is_ready:
             if not hasattr(self, "_fallback_yolo") or self._fallback_yolo is None:
                 from .yolo_engine import YOLO11PoseEngine
@@ -331,53 +312,15 @@ class MediaPipePoseEngine(BasePoseEngine):
                 validation=SegmentValidation(femur_length=0.0, tibia_length=0.0, femur_valid=False, tibia_valid=False),
             )
 
-        landmarks = self._apply_side(raw)
+        landmarks = self._apply_side(raw, w_orig, h_orig)
 
-        # Validação de integridade de segmentos rígidos
-        if "hip" in landmarks and "knee" in landmarks and "ankle" in landmarks:
-            val, is_valid = self._validate_rigid_segments(
-                landmarks["hip"], landmarks["knee"], landmarks["ankle"]
-            )
-            if not is_valid and self.last_valid_landmarks is not None:
-                # Interpolar suavemente com o último frame estável se houver salto anómalo
-                for k in ("hip", "knee", "ankle"):
-                    if k in self.last_valid_landmarks:
-                        landmarks[k].x = landmarks[k].x * 0.3 + self.last_valid_landmarks[k].x * 0.7
-                        landmarks[k].y = landmarks[k].y * 0.3 + self.last_valid_landmarks[k].y * 0.7
-            else:
-                self.last_valid_landmarks = landmarks
-        else:
-            val = SegmentValidation(
-                femur_length=0.0, tibia_length=0.0, femur_valid=False, tibia_valid=False
-            )
+        # Validação e estabilização de integridade de segmentos rígidos (função pura em píxeis)
+        landmarks, self.stabilizer_state, val = stabilize(
+            landmarks, self.stabilizer_state, w_orig, h_orig
+        )
 
-        # Cálculo Angular Biomecânico
-        angles = BiomechanicalAngles()
-        if "hip" in landmarks and "knee" in landmarks and "ankle" in landmarks:
-            angles.knee = round(calculate_safe_angle(
-                Point2D(landmarks["hip"].x, landmarks["hip"].y),
-                Point2D(landmarks["knee"].x, landmarks["knee"].y),
-                Point2D(landmarks["ankle"].x, landmarks["ankle"].y),
-            ), 1)
-
-        if "shoulder" in landmarks and "hip" in landmarks:
-            dx = abs(landmarks["shoulder"].x - landmarks["hip"].x)
-            dy = landmarks["hip"].y - landmarks["shoulder"].y
-            angles.torso = round(math.degrees(math.atan2(dy, dx)), 1) if dx > 0 else 90.0
-
-        if "shoulder" in landmarks and "elbow" in landmarks and "wrist" in landmarks:
-            angles.arm_elbow = round(calculate_safe_angle(
-                Point2D(landmarks["shoulder"].x, landmarks["shoulder"].y),
-                Point2D(landmarks["elbow"].x, landmarks["elbow"].y),
-                Point2D(landmarks["wrist"].x, landmarks["wrist"].y),
-            ), 1)
-
-        if "knee" in landmarks and "ankle" in landmarks and "toe" in landmarks:
-            angles.ankle = round(calculate_safe_angle(
-                Point2D(landmarks["knee"].x, landmarks["knee"].y),
-                Point2D(landmarks["ankle"].x, landmarks["ankle"].y),
-                Point2D(landmarks["toe"].x, landmarks["toe"].y),
-            ), 1)
+        # Cálculo Angular Biomecânico em píxeis (imune a distorções de proporção de ecrã)
+        angles = compute_joint_angles(landmarks, w_orig, h_orig)
 
         return InferenceOutput(
             engine_name=self.name,

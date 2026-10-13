@@ -115,11 +115,11 @@ Ficheiro `src/api/v1/inference_ws.py`:
 
 ## 2. CORREÇÃO / BOAS PRÁTICAS NO BACKEND
 
-### 2.1 [P0] Ângulos do MediaPipe calculados em coordenadas normalizadas — `mediapipe_engine.py:355-380`
+### 2.1 [P0] Ângulos do MediaPipe calculados em coordenadas normalizadas — `mediapipe_engine.py:355-380` · ✅ Resolvido em R02
 `calculate_safe_angle` recebe `x,y ∈ [0,1]` **sem multiplicar por largura/altura**. Num frame 16:9 o eixo X está comprimido ~1.78× face ao Y → **todos os ângulos (joelho, cotovelo, tornozelo, tronco) ficam distorcidos**. O `yolo_engine.py` faz bem (`to_pt` multiplica por `full_w/full_h`, linha 274), o que significa que os dois motores dão números diferentes para a mesma pose.
 - **Fazer:** passar `frame_w/frame_h` e converter para pixels antes de qualquer ângulo ou distância; o mesmo em `_validate_rigid_segments` (usa `math.hypot` em normalizado, a tolerância de 12% é afetada). Criar um único `compute_angles(landmarks, w, h)` no domínio e **remover a duplicação** dos três motores. Adicionar teste de regressão com frame 1920×1080 vs 1080×1080.
 
-### 2.2 [P0] Calcanhar/biqueira "inventados" com offsets fixos — `yolo_engine.py:235-251`, `mediapipe_engine.py:287-300`
+### 2.2 [P0] Calcanhar/biqueira "inventados" com offsets fixos — `yolo_engine.py:235-251`, `mediapipe_engine.py:287-300` · ✅ Resolvido em R02
 - `toe_offset_x = 0.035`, `heel_offset_x = -0.018` em unidades normalizadas **não escalam** com a distância câmara-atleta nem com a resolução → o **ângulo do tornozelo** e o **recuo do cleat** que daí saem não têm significado físico.
 - YOLO11-pose (COCO-17) **não tem pontos de pé**.
 - **Fazer:** usar modelos com pés (RTMPose **Halpe26 / Body8-Halpe26** ou **RTMW / Wholebody**, 133 pts) — ver secção 5; se se mantiver estimativa, escalar pela tíbia (`foot_len ≈ 0.28·altura`, `tibia_px`) e **marcar `visibility=0` e `estimated=True`** para a UI não apresentar como medido.
@@ -144,7 +144,7 @@ Ficheiro `src/api/v1/inference_ws.py`:
 ### 2.6 [P1] Efeitos laterais na importação — `inference.py:36-41`
 Criar o motor MediaPipe (carrega 30 MB .task) ao importar o router atrasa arranque e testes e engole falhas (`except Exception`). Mover para `lifespan` do FastAPI (`app.state.engines`), com *warmup* assíncrono.
 
-### 2.7 [P1] Segmentos rígidos mutam landmarks e estado — `mediapipe_engine.py:337-352`
+### 2.7 [P1] Segmentos rígidos mutam landmarks e estado — `mediapipe_engine.py:337-352` · ✅ Resolvido em R02
 - Mutação in-place (`landmarks[k].x = ...`) de objetos que também estão em `last_valid_landmarks` → o "último válido" fica contaminado.
 - Quando **inválido sem histórico** não se atualiza `last_valid`, quando válido também só no `else`; a lógica do ramo `else` mistura casos. Reescrever como função pura `stabilize(landmarks, state) -> (landmarks, state)` com testes.
 

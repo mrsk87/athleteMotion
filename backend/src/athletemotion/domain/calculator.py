@@ -37,9 +37,9 @@ def calculate_safe_angle(
     3. Retorna o ângulo em graus no intervalo [0.0, 180.0].
     """
     # Extrair coordenadas X e Y
-    ax, ay = (a.x, a.y) if hasattr(a, "x") else (a[0], a[1])
-    bx, by = (b.x, b.y) if hasattr(b, "x") else (b[0], b[1])
-    cx, cy = (c.x, c.y) if hasattr(c, "x") else (c[0], c[1])
+    ax, ay = (a.x, a.y) if isinstance(a, (Point2D, Point3D)) else (a[0], a[1])
+    bx, by = (b.x, b.y) if isinstance(b, (Point2D, Point3D)) else (b[0], b[1])
+    cx, cy = (c.x, c.y) if isinstance(c, (Point2D, Point3D)) else (c[0], c[1])
 
     # Vetores BA e BC
     v1_x, v1_y = ax - bx, ay - by
@@ -74,8 +74,8 @@ def calculate_inclination_angle(
     Retorna o ângulo em graus [0.0, 90.0] onde 0° é totalmente horizontal
     e 90° é totalmente vertical.
     """
-    bx, by = (bottom.x, bottom.y) if hasattr(bottom, "x") else (bottom[0], bottom[1])
-    tx, ty = (top.x, top.y) if hasattr(top, "x") else (top[0], top[1])
+    bx, by = (bottom.x, bottom.y) if isinstance(bottom, (Point2D, Point3D)) else (bottom[0], bottom[1])
+    tx, ty = (top.x, top.y) if isinstance(top, (Point2D, Point3D)) else (top[0], top[1])
 
     dx = abs(tx - bx)
     dy = abs(by - ty)  # Coordenada Y em telas cresce para baixo

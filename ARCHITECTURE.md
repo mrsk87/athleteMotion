@@ -53,8 +53,18 @@ A arquitetura adota a **Clean Architecture** (Arquitetura Limpa), dividida em 4 
   - `calculator.py`:
     - `calculate_safe_angle(a, b, c)`: Cálculo de ângulo no vértice B usando produto escalar e magnitudes, com clamping estrito do cosseno entre $[-1.0, 1.0]$ para impedir `NaN` por imprecisão de ponto flutuante e retorno seguro de `0.0` para vetores coincidentes.
     - `calculate_inclination_angle(bottom, top)`: Inclinação angular face à horizontal.
+  - `inference/types.py`:
+    - `Landmark2D`: Marcos anatómicos normalizados [0, 1] com campo retrocompatível `estimated: bool = False` (sinaliza heuristicamente calcâneo/biqueira ou interpolações de oclusão).
+    - `BiomechanicalAngles`: Ângulos clínicos essenciais (`knee`, `torso`, `arm_elbow`, `ankle`, `shoulder`) com `Optional[float] = None` quando a visibilidade for insuficiente (nunca inventa zeros ou padrões).
+    - `SegmentValidation`: Diagnóstico de integridade esquelética com comprimentos em píxeis e tolerância percentual.
+  - `inference/foot_estimation.py`:
+    - `estimate_foot(ankle, knee, facing_right, tibia_px, w, h)`: Síntese de calcâneo e biqueira baseada nas tabelas antropométricas de Winter (2009), rigorosamente escalada pelo comprimento da tíbia em píxeis reais (`foot_len = 0.50 * tibia_px`). Assegura invariância métrica à distância câmara-atleta e atribui `estimated=True` com visibilidade atenuada.
+    - `determine_facing_direction(landmarks, side)`: Deteção determinística do sentido de pedalada (sagital direito/esquerdo).
+  - `inference/stabilizer.py`:
+    - `stabilize(landmarks, state, w, h, params) -> (landmarks, state, validation)`: Função puramente funcional sem mutação dos dados de entrada. Valida rigidez esquelética em píxeis (tolerância anatómica de 12%) e suaviza saltos espúrios sem poluir o histórico.
   - Pacote Modular `backend/src/athletemotion/domain/biomechanics/`:
     - Submódulos desacoplados de alta legibilidade (< 150 linhas cada):
+      - `angles.py`: Converte marcos normalizados para coordenadas de píxeis (`to_pixels`) e computa `compute_joint_angles` de forma imune a distorções de proporção de ecrã (ex.: 16:9 vs 1:1), devolvendo `None` quando faltarem pontos.
       - `thresholds.py`: Enums (`RidingStyle`, `FlexibilityLevel`) e matriz ergonómica `BIOMECHANIC_THRESHOLDS`.
       - `fitting.py`: Fórmulas canónicas de ajuste (LeMond $Cavalo \times 0.883$, Hamley 109%, tamanho de quadro, crenques, guiador).
       - `posture.py`: Avaliação sagital angular de joelho, tronco e cotovelo com deltas quantificados de ajuste.

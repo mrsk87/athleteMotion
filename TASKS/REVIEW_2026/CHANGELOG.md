@@ -5,6 +5,8 @@
 
 | Data (ISO) | Autor (LLM/humano) | Tarefa | Evento | Ficheiros / áreas | Resumo |
 |---|---|---|---|---|---|
+| 2026-10-13 | Antigravity | R02 | completed | domain biomechanics | Correção biomecânica concluída: ângulos em pixels, estimativa de pés (Winter 2009) com flag estimated, estabilizador funcional, paridade entre motores e 14 novos testes unitários (52/52 verdes) |
+| 2026-10-13 | Antigravity | R02 | started | domain biomechanics | Início da correção biomecânica de ângulos em pixels, estimativa de pés e estabilizador puro |
 | 2026-10-13 | Antigravity | R01 | completed | repo structure | Reestruturação concluída: backend/src/athletemotion, frontend/web, entry point unificado, testes 100% verdes (39/39) |
 | 2026-10-13 | Antigravity | R01 | started | repo structure | Início da reestruturação backend/ frontend/ desktopapp/ e pacote athletemotion |
 | 2026-10-13 | Antigravity (Claude) | — | created | `TASKS/REVIEW_2026/*`, `desktopapp/TASKS/*` | Criação do plano de tarefas R01–R18 e D01–D16 a partir do CODE_REVIEW.md |

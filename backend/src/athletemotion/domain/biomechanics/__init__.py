@@ -28,6 +28,11 @@ from .diagnostics import (
     SaddleDropDiagnostic,
     evaluate_saddle_drop,
 )
+from .angles import (
+    compute_joint_angles,
+    segment_lengths_px,
+    to_pixels,
+)
 
 __all__ = [
     "BIOMECHANIC_THRESHOLDS",
@@ -49,4 +54,7 @@ __all__ = [
     "evaluate_kops_alignment",
     "SaddleDropDiagnostic",
     "evaluate_saddle_drop",
+    "to_pixels",
+    "compute_joint_angles",
+    "segment_lengths_px",
 ]

@@ -16,18 +16,28 @@ o nome, para o frontend continuar a funcionar.
 from __future__ import annotations
 
 import logging
+import math
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, Optional, Sequence, Tuple
+
 import numpy as np
 import onnxruntime as ort
-
 from athletemotion.config.paths import MODELS_DIR
+from athletemotion.domain.biomechanics.angles import compute_joint_angles
+from athletemotion.domain.inference.foot_estimation import (
+    determine_facing_direction,
+    estimate_foot,
+)
+from athletemotion.domain.inference.stabilizer import (
+    StabilizerState,
+    stabilize,
+)
 from athletemotion.infrastructure.hardware import hardware_manager
-from athletemotion.domain.calculator import calculate_safe_angle, Point2D
+
 from .base import BasePoseEngine, PoseEngineRegistry
 from .onnx_utils import preprocess_roi_for_onnx
 from .person_tracker import PersonTracker, box_to_pixels
-from .types import InferenceOutput, Landmark2D, BiomechanicalAngles, SegmentValidation
+from .types import InferenceOutput, Landmark2D
 
 logger = logging.getLogger("athlete_motion.rtmpose_engine")
 
@@ -63,7 +73,7 @@ class RTMPoseEngine(BasePoseEngine):
         model_path: str = DEFAULT_RTMPOSE_PATH,
         side: str = "right",
         use_gpu: bool = True,
-        tracker: Optional[PersonTracker] = None,
+        tracker: PersonTracker | None = None,
     ):
         super().__init__(name="rtmpose")
         self.side = side.lower()
@@ -72,14 +82,15 @@ class RTMPoseEngine(BasePoseEngine):
         if not p.exists() and (MODELS_DIR / p.name).exists():
             p = MODELS_DIR / p.name
         self.model_path = p
-        self.session: Optional[ort.InferenceSession] = None
-        self.input_name: Optional[str] = None
+        self.session: ort.InferenceSession | None = None
+        self.input_name: str | None = None
         self.input_size = 256
         self.output_names: list[str] = []
         self.warmup_ms = 0.0
 
         # Rastreio partilhado com o detetor de apoio (a caixa vem do YOLO).
         self.tracker = tracker or PersonTracker(redetect_interval=12)
+        self.stabilizer_state = StabilizerState()
         self._detector = None
 
         if not self.model_path.exists():
@@ -105,12 +116,13 @@ class RTMPoseEngine(BasePoseEngine):
     # ------------------------------------------------------------------ interface
     def set_side(self, side: str) -> None:
         self.side = side.lower()
-        self.tracker.reset()
+        self.reset()
         if self._detector is not None:
             self._detector.set_side(self.side)
 
     def reset(self) -> None:
         self.tracker.reset()
+        self.stabilizer_state = StabilizerState()
 
     @property
     def is_ready(self) -> bool:
@@ -130,13 +142,13 @@ class RTMPoseEngine(BasePoseEngine):
     # ---------------------------------------------------------------- decodificação
     def _parse_outputs(
         self, outputs: Sequence[np.ndarray], rect, full_w: int, full_h: int
-    ) -> Dict[str, Landmark2D]:
+    ) -> dict[str, Landmark2D]:
         """Aceita SimCC (2 saídas) ou keypoints diretos [1, N, 3]."""
-        landmarks_raw: Dict[str, Landmark2D] = {}
+        landmarks_raw: dict[str, Landmark2D] = {}
 
-        xs: Optional[np.ndarray] = None
-        ys: Optional[np.ndarray] = None
-        scores: Optional[np.ndarray] = None
+        xs: np.ndarray | None = None
+        ys: np.ndarray | None = None
+        scores: np.ndarray | None = None
 
         if len(outputs) >= 2 and np.squeeze(outputs[0]).ndim == 2 and np.squeeze(outputs[1]).ndim == 2:
             # SimCC: por convenção (x, y) — se as formas indicarem o contrário, corrige-se.
@@ -189,14 +201,25 @@ class RTMPoseEngine(BasePoseEngine):
             kconf = float(scores[i]) if scores is not None and i < len(scores) else 0.8
             landmarks_raw[joint] = Landmark2D(x=px, y=py, visibility=kconf)
 
-            if joint == "ankle":
-                # Recuo/avanço do pé: ponto de referência para o travessão (cleat).
-                landmarks_raw["heel"] = Landmark2D(
-                    x=float(max(0.0, px - 0.015)), y=float(min(1.0, py + 0.01)), visibility=kconf * 0.9
-                )
-                landmarks_raw["toe"] = Landmark2D(
-                    x=float(min(1.0, px + 0.035)), y=float(min(1.0, py + 0.015)), visibility=kconf * 0.9
-                )
+        # Estimativa anatómica de pés calibrada pela tíbia em píxeis
+        ankle = landmarks_raw.get(f"{side_prefix}_ankle")
+        knee = landmarks_raw.get(f"{side_prefix}_knee")
+        if ankle is not None:
+            facing_right = determine_facing_direction(landmarks_raw, side=self.side)
+            tibia_px = 0.0
+            if knee is not None:
+                tibia_px = math.hypot((knee.x - ankle.x) * float(full_w), (knee.y - ankle.y) * float(full_h))
+            foot = estimate_foot(ankle, knee, facing_right, tibia_px, full_w, full_h)
+            landmarks_raw["heel"] = foot["heel"]
+            landmarks_raw["toe"] = foot["toe"]
+            landmarks_raw[f"{side_prefix}_heel"] = foot["heel"]
+            landmarks_raw[f"{side_prefix}_toe"] = foot["toe"]
+
+        # Garantir aliases canónicos sem prefixo para o analisador biomecânico
+        for part in ("hip", "knee", "ankle", "heel", "toe", "shoulder", "elbow", "wrist", "ear"):
+            prefixed = f"{side_prefix}_{part}"
+            if prefixed in landmarks_raw and part not in landmarks_raw:
+                landmarks_raw[part] = landmarks_raw[prefixed]
 
         return landmarks_raw
 
@@ -245,15 +268,11 @@ class RTMPoseEngine(BasePoseEngine):
 
         self.tracker.tick(pose_found=True)
 
-        angles = BiomechanicalAngles()
-        if "hip" in landmarks_raw and "knee" in landmarks_raw and "ankle" in landmarks_raw:
-            angles.knee = round(calculate_safe_angle(
-                Point2D(landmarks_raw["hip"].x, landmarks_raw["hip"].y),
-                Point2D(landmarks_raw["knee"].x, landmarks_raw["knee"].y),
-                Point2D(landmarks_raw["ankle"].x, landmarks_raw["ankle"].y),
-            ), 1)
-
-        val = SegmentValidation(femur_length=0.25, tibia_length=0.22, femur_valid=True, tibia_valid=True)
+        # Validação/estabilização de segmentos e ângulos em píxeis
+        landmarks_raw, self.stabilizer_state, val = stabilize(
+            landmarks_raw, self.stabilizer_state, w_orig, h_orig
+        )
+        angles = compute_joint_angles(landmarks_raw, w_orig, h_orig)
 
         return InferenceOutput(
             engine_name=self.name,

@@ -14,18 +14,28 @@ Três mudanças que tornam o motor "instantâneo" a acompanhar a pedalada:
 from __future__ import annotations
 
 import logging
+import math
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, Optional, Sequence, Tuple
+
 import numpy as np
 import onnxruntime as ort
-
 from athletemotion.config.paths import MODELS_DIR
+from athletemotion.domain.biomechanics.angles import compute_joint_angles
+from athletemotion.domain.inference.foot_estimation import (
+    determine_facing_direction,
+    estimate_foot,
+)
+from athletemotion.domain.inference.stabilizer import (
+    StabilizerState,
+    stabilize,
+)
 from athletemotion.infrastructure.hardware import hardware_manager
-from athletemotion.domain.calculator import calculate_safe_angle, Point2D
+
 from .base import BasePoseEngine, PoseEngineRegistry
 from .onnx_utils import preprocess_roi_for_onnx
 from .person_tracker import PersonTracker, box_to_pixels
-from .types import InferenceOutput, Landmark2D, BiomechanicalAngles, SegmentValidation
+from .types import BiomechanicalAngles, InferenceOutput, Landmark2D, SegmentValidation
 
 logger = logging.getLogger("athlete_motion.yolo_engine")
 
@@ -48,7 +58,7 @@ FAST_MODEL_CANDIDATES = (
 )
 
 
-def _static_input_size(session: ort.InferenceSession) -> Optional[int]:
+def _static_input_size(session: ort.InferenceSession) -> int | None:
     """Lê o lado quadrado estático da entrada da sessão (ou `None` se dinâmico)."""
     try:
         shape = session.get_inputs()[0].shape
@@ -63,7 +73,7 @@ def _static_input_size(session: ort.InferenceSession) -> Optional[int]:
 class YOLO11PoseEngine(BasePoseEngine):
     def __init__(
         self,
-        model_path: Optional[str] = None,
+        model_path: str | None = None,
         side: str = "right",
         use_gpu: bool = True,
         tracking: bool = True,
@@ -71,7 +81,7 @@ class YOLO11PoseEngine(BasePoseEngine):
         min_confidence: float = 0.25,
         warmup: bool = True,
         prefer_fast_model: bool = False,
-        name: Optional[str] = None,
+        name: str | None = None,
     ):
         # O nome distingue a variante para a telemetria: o painel tem de saber se os
         # números que está a ver vêm da rede a 640px ou da rede rápida a 320px.
@@ -84,12 +94,13 @@ class YOLO11PoseEngine(BasePoseEngine):
         self.prefer_fast_model = bool(prefer_fast_model)
 
         self.model_path = self._resolve_model_path(model_path, prefer_fast_model)
-        self.session: Optional[ort.InferenceSession] = None
-        self.input_name: Optional[str] = None
+        self.session: ort.InferenceSession | None = None
+        self.input_name: str | None = None
         self.input_size = 640
         self.warmup_ms = 0.0
 
         self.tracker = PersonTracker(redetect_interval=redetect_interval)
+        self.stabilizer_state = StabilizerState()
 
         if self.model_path is None or not self.model_path.exists():
             logger.warning("Modelo YOLO-Pose não encontrado (%s). Usando fallback seguro.", model_path)
@@ -119,7 +130,7 @@ class YOLO11PoseEngine(BasePoseEngine):
             self.input_name = None
 
     @staticmethod
-    def _resolve_model_path(explicit: Optional[str], prefer_fast: bool) -> Optional[Path]:
+    def _resolve_model_path(explicit: str | None, prefer_fast: bool) -> Path | None:
         if explicit:
             return Path(explicit)
         candidates = (FAST_MODEL_CANDIDATES + DEFAULT_MODEL_CANDIDATES) if prefer_fast \
@@ -136,10 +147,11 @@ class YOLO11PoseEngine(BasePoseEngine):
     # ------------------------------------------------------------------ interface
     def set_side(self, side: str) -> None:
         self.side = side.lower()
-        self.tracker.reset()
+        self.reset()
 
     def reset(self) -> None:
         self.tracker.reset()
+        self.stabilizer_state = StabilizerState()
 
     @property
     def is_ready(self) -> bool:
@@ -157,8 +169,8 @@ class YOLO11PoseEngine(BasePoseEngine):
         )
 
     def _extract_person(
-        self, preds: np.ndarray, ratio: float, pad: Tuple[float, float], rect, full_w: int, full_h: int
-    ) -> Optional[Tuple[np.ndarray, Tuple[float, float, float, float]]]:
+        self, preds: np.ndarray, ratio: float, pad: tuple[float, float], rect, full_w: int, full_h: int
+    ) -> tuple[np.ndarray, tuple[float, float, float, float]] | None:
         """Escolhe a pessoa com maior confiança e devolve (keypoints, caixa normalizada)."""
         if preds.shape[0] < 5:
             return None
@@ -194,17 +206,17 @@ class YOLO11PoseEngine(BasePoseEngine):
         self,
         best: np.ndarray,
         ratio: float,
-        pad: Tuple[float, float],
+        pad: tuple[float, float],
         rect,
         full_w: int,
         full_h: int,
-    ) -> Dict[str, Landmark2D]:
+    ) -> dict[str, Landmark2D]:
         pad_w, pad_h = pad
         off_x = float(rect[0]) if rect else 0.0
         off_y = float(rect[1]) if rect else 0.0
         kpts_raw = best[5:]
 
-        landmarks_raw: Dict[str, Landmark2D] = {}
+        landmarks_raw: dict[str, Landmark2D] = {}
         for i, name in enumerate(COCO_KP_NAMES):
             kx = float(kpts_raw[i * 3])
             ky = float(kpts_raw[i * 3 + 1])
@@ -222,39 +234,29 @@ class YOLO11PoseEngine(BasePoseEngine):
             )
         return landmarks_raw
 
-    def _add_foot_estimates(self, landmarks_raw: Dict[str, Landmark2D]) -> None:
-        """Calcâneo e biqueira estimados a partir do tornozelo, na direção do movimento.
+    def _add_foot_estimates(self, landmarks_raw: dict[str, Landmark2D], full_w: int, full_h: int) -> None:
+        """Calcâneo e biqueira estimados proporcionalmente à tíbia em píxeis.
 
-        O lado para onde o atleta pedala decide o sinal do deslocamento: é o que faz o
-        recuo da sapatilha/travessão (cleat) medir a direção certa.
+        Garante invariância à distância da câmara e atribui explicitamente estimated=True.
         """
-        facing_right = True
-        if "left_shoulder" in landmarks_raw and "left_hip" in landmarks_raw:
-            facing_right = landmarks_raw["left_shoulder"].x >= landmarks_raw["left_hip"].x
-        elif "right_shoulder" in landmarks_raw and "right_hip" in landmarks_raw:
-            facing_right = landmarks_raw["right_shoulder"].x >= landmarks_raw["right_hip"].x
-        elif "nose" in landmarks_raw and "left_ear" in landmarks_raw:
-            facing_right = landmarks_raw["nose"].x >= landmarks_raw["left_ear"].x
-
-        toe_offset_x = 0.035 if facing_right else -0.035
-        heel_offset_x = -0.018 if facing_right else 0.018
+        w = float(max(1, full_w))
+        h = float(max(1, full_h))
 
         for prefix in ("left", "right"):
             ankle = landmarks_raw.get(f"{prefix}_ankle")
             if ankle is None:
                 continue
-            landmarks_raw[f"{prefix}_heel"] = Landmark2D(
-                x=float(np.clip(ankle.x + heel_offset_x, 0.0, 1.0)),
-                y=float(np.clip(ankle.y + 0.012, 0.0, 1.0)),
-                visibility=float(ankle.visibility * 0.9),
-            )
-            landmarks_raw[f"{prefix}_toe"] = Landmark2D(
-                x=float(np.clip(ankle.x + toe_offset_x, 0.0, 1.0)),
-                y=float(np.clip(ankle.y + 0.018, 0.0, 1.0)),
-                visibility=float(ankle.visibility * 0.9),
-            )
+            knee = landmarks_raw.get(f"{prefix}_knee")
+            facing_right = determine_facing_direction(landmarks_raw, side=prefix)
+            tibia_px = 0.0
+            if knee is not None:
+                tibia_px = math.hypot((knee.x - ankle.x) * w, (knee.y - ankle.y) * h)
 
-    def _apply_side_aliases(self, landmarks_raw: Dict[str, Landmark2D]) -> None:
+            foot = estimate_foot(ankle, knee, facing_right, tibia_px, full_w, full_h)
+            landmarks_raw[f"{prefix}_heel"] = foot["heel"]
+            landmarks_raw[f"{prefix}_toe"] = foot["toe"]
+
+    def _apply_side_aliases(self, landmarks_raw: dict[str, Landmark2D]) -> None:
         side_prefix = "right" if self.side == "right" else "left"
         other_prefix = "left" if self.side == "right" else "right"
 
@@ -272,49 +274,14 @@ class YOLO11PoseEngine(BasePoseEngine):
 
     # ------------------------------------------------------------- biomecânica
     def _compute_angles(
-        self, landmarks_raw: Dict[str, Landmark2D], full_w: int, full_h: int
-    ) -> Tuple[BiomechanicalAngles, SegmentValidation]:
-        angles = BiomechanicalAngles()
-        to_pt = lambda name: Point2D(landmarks_raw[name].x * full_w, landmarks_raw[name].y * full_h)
-
-        if "hip" in landmarks_raw and "knee" in landmarks_raw and "ankle" in landmarks_raw:
-            if all(landmarks_raw[k].visibility >= 0.20 for k in ("hip", "knee", "ankle")):
-                angles.knee = round(calculate_safe_angle(
-                    to_pt("hip"), to_pt("knee"), to_pt("ankle"),
-                ), 1)
-
-        if "shoulder" in landmarks_raw and "hip" in landmarks_raw:
-            if all(landmarks_raw[k].visibility >= 0.20 for k in ("shoulder", "hip")):
-                dx = abs(landmarks_raw["shoulder"].x - landmarks_raw["hip"].x) * full_w
-                dy = (landmarks_raw["hip"].y - landmarks_raw["shoulder"].y) * full_h
-                angles.torso = round(float(np.degrees(np.arctan2(dy, dx))), 1) if dx > 0 else 90.0
-
-        if "shoulder" in landmarks_raw and "elbow" in landmarks_raw and "wrist" in landmarks_raw:
-            if all(landmarks_raw[k].visibility >= 0.20 for k in ("shoulder", "elbow", "wrist")):
-                angles.arm_elbow = round(calculate_safe_angle(
-                    to_pt("shoulder"), to_pt("elbow"), to_pt("wrist"),
-                ), 1)
-
-        femur_len = 0.0
-        tibia_len = 0.0
-        if "hip" in landmarks_raw and "knee" in landmarks_raw:
-            femur_len = float(np.hypot(
-                landmarks_raw["hip"].x - landmarks_raw["knee"].x,
-                landmarks_raw["hip"].y - landmarks_raw["knee"].y,
-            ))
-        if "knee" in landmarks_raw and "ankle" in landmarks_raw:
-            tibia_len = float(np.hypot(
-                landmarks_raw["knee"].x - landmarks_raw["ankle"].x,
-                landmarks_raw["knee"].y - landmarks_raw["ankle"].y,
-            ))
-
-        val = SegmentValidation(
-            femur_length=round(femur_len, 3),
-            tibia_length=round(tibia_len, 3),
-            femur_valid=femur_len > 0.05,
-            tibia_valid=tibia_len > 0.05,
+        self, landmarks_raw: dict[str, Landmark2D], full_w: int, full_h: int
+    ) -> tuple[dict[str, Landmark2D], BiomechanicalAngles, SegmentValidation]:
+        """Estabiliza os segmentos anatómicos e calcula ângulos em píxeis."""
+        stabilized_lms, self.stabilizer_state, val = stabilize(
+            landmarks_raw, self.stabilizer_state, full_w, full_h
         )
-        return angles, val
+        angles = compute_joint_angles(stabilized_lms, full_w, full_h)
+        return stabilized_lms, angles, val
 
     # ------------------------------------------------------------------ process
     def process_frame(self, frame_bgr: np.ndarray, timestamp_ms: int) -> InferenceOutput:
@@ -325,7 +292,7 @@ class YOLO11PoseEngine(BasePoseEngine):
             return self._empty_output(timestamp_ms)
 
         # 1. Decidir o recorte. Sem rastreio, ou quando o rastreio pede, é fotograma inteiro.
-        rect: Optional[Sequence[int]] = None
+        rect: Sequence[int] | None = None
         used_tracker = False
         if self.tracking:
             if not self.tracker.needs_full_frame():
@@ -362,9 +329,9 @@ class YOLO11PoseEngine(BasePoseEngine):
             self.tracker.tick(pose_found=True)
 
         landmarks_raw = self._decode_keypoints(best, ratio, (pad_w, pad_h), used_rect, w_orig, h_orig)
-        self._add_foot_estimates(landmarks_raw)
+        self._add_foot_estimates(landmarks_raw, w_orig, h_orig)
         self._apply_side_aliases(landmarks_raw)
-        angles, val = self._compute_angles(landmarks_raw, w_orig, h_orig)
+        landmarks_raw, angles, val = self._compute_angles(landmarks_raw, w_orig, h_orig)
 
         return InferenceOutput(
             engine_name=self.name,
