@@ -1,0 +1,137 @@
+/* Athlete Motion Desktop — Dark Theme */
+
+QMainWindow {
+    background-color: #0b0f19;
+    color: #f8fafc;
+}
+
+QWidget {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+/* Sidebar de navegação */
+#Sidebar {
+    background-color: #0f172a;
+    border-right: 1px solid #1e293b;
+    min-width: 200px;
+    max-width: 200px;
+}
+
+#Sidebar QPushButton {
+    background-color: transparent;
+    color: #94a3b8;
+    text-align: left;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+#Sidebar QPushButton:hover {
+    background-color: #1e293b;
+    color: #f8fafc;
+}
+
+#Sidebar QPushButton:checked {
+    background-color: #0284c7;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Painéis de Conteúdo */
+QFrame.card {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 16px;
+}
+
+/* Títulos e Etiquetas */
+QLabel.heading {
+    font-size: 18px;
+    font-weight: 600;
+    color: #38bdf8;
+}
+
+QLabel.subheading {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* Botões de Ação */
+QPushButton.primary-btn {
+    background-color: #0284c7;
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    border: none;
+}
+
+QPushButton.primary-btn:hover {
+    background-color: #0369a1;
+}
+
+QPushButton.primary-btn:pressed {
+    background-color: #075985;
+}
+
+/* Barra de Estado */
+QStatusBar {
+    background-color: #090d16;
+    color: #64748b;
+    border-top: 1px solid #1e293b;
+}
+
+#TelemetryLabel {
+    color: #64748b;
+    font-size: 11px;
+}
+
+/* Marca da aplicação */
+#BrandTitle {
+    font-size: 15px;
+    font-weight: bold;
+    color: #38bdf8;
+    padding: 8px;
+}
+
+#BrandSubtitle {
+    font-size: 11px;
+    color: #64748b;
+    padding-left: 8px;
+    margin-bottom: 16px;
+}
+
+#VersionLabel {
+    color: #475569;
+    font-size: 11px;
+    padding: 8px;
+}
+
+/* Descrição das vistas */
+QLabel.description {
+    color: #94a3b8;
+    margin-top: 8px;
+}
+
+/* Seletor de idioma */
+#Sidebar QComboBox {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: #e2e8f0;
+}
+
+#Sidebar QComboBox:hover {
+    border: 1px solid #38bdf8;
+}
+
+#Sidebar QComboBox QAbstractItemView {
+    background-color: #0f172a;
+    color: #e2e8f0;
+    selection-background-color: #0284c7;
+}

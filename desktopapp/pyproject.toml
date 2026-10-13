@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "athletemotion-desktop"
+version = "0.2.0"
+description = "Athlete Motion — Aplicação Desktop de Alta Performance para Análise Biomecânica de Ciclismo (Bikefit)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "Proprietary" }
+authors = [
+    { name = "Athlete Motion Team" }
+]
+dependencies = [
+    "PyQt6>=6.7.0",
+    "pyqtgraph>=0.13.4",
+    "numpy>=1.26.0,<3.0.0",
+    "opencv-python>=4.9.0",
+    "psutil>=5.9.0",
+    "py-cpuinfo>=9.0.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.0",
+]
+
+[project.optional-dependencies]
+directml = [
+    "onnxruntime-directml>=1.18.0",
+]
+openvino = [
+    "openvino>=2024.1.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-qt>=4.4.0",
+    "pytest-benchmark>=4.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "types-psutil>=5.9.0",
+]
+
+[project.scripts]
+athletemotion-desktop = "athletemotion_desktop.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/athletemotion_desktop"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: testes de longa duração (corridas de robustez, múltiplos minutos)",
+    "perf: medições de desempenho com limites do orçamento (arranque, latência, FPS)",
+]
