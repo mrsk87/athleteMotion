@@ -278,7 +278,7 @@ Câmara: **exposição e ganho manuais** (evita *auto-exposure flicker* e desfoq
 
 | Fase | Duração (est.) | Entregas | Critério de saída |
 |---|---|---|---|
-| **0 — Preparação** | 1 sem | Estrutura de pastas, backend como pacote (`pip install -e`), `pyproject` do desktop, CI Windows, `ruff/mypy` | `python -m athletemotion_desktop` abre janela vazia; testes correm no CI |
+| **0 — Preparação** 🔵 | 1 sem | Estrutura de pastas ✅, `pyproject` do desktop ✅, `ruff/mypy` ✅, i18n PT/EN ✅, logging/crash/ACID locais ✅, testes (43) ✅ · backend como pacote `athletemotion` 🟡 (R01 em curso, pacote já importável), CI Windows ⏸️ (D14) | `python -m athletemotion_desktop` abre janela em 812–1014 ms (< 2 s) e fecha limpa ✅; testes correm no CI ⏸️ |
 | **1 — Runtime mínimo** | 2 sem | Captura + pré + `OrtDirectML` + YOLO11n-pose 320 + overlay GL simples; métricas por estágio | 30 FPS estáveis, latência medida, sem fugas de memória em 30 min |
 | **2 — Pipeline paralelo** | 2 sem | Processo de inferência + shared memory + latest-frame-wins + double buffering + watchdog | Latência p95 reduzida vs. fase 1; UI nunca bloqueia |
 | **3 — Modelo com pés** | 2 sem | RTMPose Halpe26 + detetor intermitente + ROI tracking + model zoo/manifest | Ângulo de tornozelo com pés reais; falha explícita sem modelo |
@@ -315,9 +315,9 @@ Câmara: **exposição e ganho manuais** (evita *auto-exposure flicker* e desfoq
 ---
 
 ## 15. Primeiros passos concretos (checklist da Fase 0)
-1. Criar `backend/` com `git mv` (ver CODE_REVIEW §6) e transformar `src/` em pacote `athletemotion`.
-2. `desktopapp/pyproject.toml` com dependências: `PyQt6`, `pyqtgraph`, `numpy`, `opencv-python`, `onnxruntime-directml`, `openvino`, `psutil`, `py-cpuinfo`, `rtmlib`, `pydantic-settings`, `athletemotion @ file:../backend`.
-3. `uv venv --python 3.11 && uv pip install -e ../backend -e .[dev]`.
-4. `python -m athletemotion_desktop` → janela vazia com tema escuro e painel de diagnóstico de hardware (lista providers ORT/OpenVINO, GPU, núcleos).
+1. 🟡 Criar `backend/` com `git mv` (ver CODE_REVIEW §6) e transformar `src/` em pacote `athletemotion` — **R01 em 🟡 IN_PROGRESS** (executada em paralelo por Antigravity em 2026-10-13): `backend/src/athletemotion` já existe e importa a partir do desktop; falta a R01 fechar para declarar `athletemotion @ file:../backend` no `pyproject.toml` do desktop.
+2. 🔵 `desktopapp/pyproject.toml` com dependências: `PyQt6`, `pyqtgraph`, `numpy`, `opencv-python`, `psutil`, `py-cpuinfo`, `pydantic-settings` (+ extras `directml`, `openvino` e `dev`) — falta `onnxruntime-directml`/`openvino`/`rtmlib`/`athletemotion`, que entram em D05/D06.
+3. ✅ `uv venv --python 3.11 && uv pip install -e .[dev]` (executado; o `-e ../backend` aguarda R01).
+4. 🟡 `python -m athletemotion_desktop` → janela com tema escuro, navegação e telemetria de sistema ✅; painel de diagnóstico de hardware (providers ORT/OpenVINO, GPU) ainda não existe — é o âmbito de **D02**.
 5. Portar `scripts/benchmark_inference.py` para `desktopapp/scripts/benchmark.py` usando a interface `InferenceBackend`.
 6. Abrir issues/ADRs para: formato do ring buffer, política de descarte, formato do manifest de modelos.

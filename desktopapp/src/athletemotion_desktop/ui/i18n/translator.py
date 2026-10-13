@@ -145,8 +145,15 @@ def parse_ts_file(path: Path) -> dict[tuple[str, str], str]:
 class TsFileTranslator(QTranslator):
     """`QTranslator` que responde a partir de um ficheiro `.ts` interpretado.
 
-    O Qt recorre ao texto fonte sempre que `translate()` devolve uma string
-    vazia, garantindo degradação correta para mensagens não traduzidas.
+    Mensagens sem tradução devolvem o **próprio texto fonte**, o que mantém o PT-PT
+    como língua de recurso.
+
+    Nota para quem mantiver este código: em C++ o Qt considera que um tradutor
+    "não sabe traduzir" quando `translate()` devolve uma string **nula** e recorre
+    ao texto fonte. O PyQt6 converte um `""` de Python numa string vazia mas
+    válida, interpretada como tradução vazia — verificado nesta implementação:
+    os rótulos da interface ficavam em branco. Devolver o texto fonte garante o
+    comportamento pretendido em ambas as situações.
     """
 
     def __init__(self, translations_file: Path) -> None:
@@ -188,9 +195,9 @@ class TsFileTranslator(QTranslator):
             n: índice para formas plurais; não usado pela interface atual.
 
         Returns:
-            A tradução registada ou `""` para o Qt usar o texto fonte.
+            A tradução registada ou o texto fonte quando não existe tradução.
         """
-        return self._messages.get((context, source_text), "")
+        return self._messages.get((context, source_text), source_text)
 
 
 class TranslationService(QObject):

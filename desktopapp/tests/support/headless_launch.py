@@ -40,7 +40,9 @@ _SIGNAL_REQUESTED_AT: list[float] = []
 #: Limite de segurança para o modo interativo: se a aplicação não encerrar após o
 #: sinal, o processo é terminado para o teste não ficar pendurado.
 _WATCHDOG_MS = 20000
-_SIGNAL_DELAY_MS = 700
+
+#: Intervalo de verificação de que a aplicação já instalou os seus handlers de sinal.
+_READINESS_POLL_MS = 50
 
 
 def _build_arguments() -> argparse.Namespace:
@@ -77,6 +79,26 @@ def _deliver_signal_from_thread(signal_name: str) -> None:
     threading.Thread(target=_deliver, name="test-signal-delivery", daemon=True).start()
 
 
+def _abort_stuck_application() -> None:
+    """Termina o processo de teste se a aplicação não encerrar após o sinal.
+
+    Impede que uma regressão no encerramento deixe a suíte de testes pendurada.
+    """
+    print("WATCHDOG: a aplicação não encerrou após o sinal", file=sys.stderr)
+    os._exit(9)
+
+
+def _shutdown_handlers_installed(signal_name: str) -> bool:
+    """Indica se a aplicação já instalou o seu próprio handler para o sinal.
+
+    Evita depender de um atraso fixo: o sinal só é entregue quando a aplicação
+    está realmente pronta para o tratar.
+    """
+    handler = signal.getsignal(getattr(signal, signal_name))
+    ignorable_defaults = (signal.SIG_DFL, signal.SIG_IGN, signal.default_int_handler)
+    return handler not in ignorable_defaults
+
+
 def main() -> int:
     """Arranca a aplicação sem ciclo de eventos e imprime o relatório de arranque.
 
@@ -85,7 +107,9 @@ def main() -> int:
     """
     arguments = _build_arguments()
     os.environ["APPDATA"] = arguments.app_data
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")    from PyQt6.QtCore import QTimer
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+    from PyQt6.QtCore import QTimer
     from PyQt6.QtWidgets import QApplication
 
     import athletemotion_desktop.app as desktop_app
@@ -102,17 +126,31 @@ def main() -> int:
         # existirem caminhos alternativos no código de produção só para os testes.
         desktop_app.QApplication = HeadlessApplication  # type: ignore[misc]
     else:
-        # No modo de sinais, o ciclo de eventos real é obrigatório: é o bloqueio da
-        # thread principal que torna o teste significativo.
-        def _schedule_signal() -> None:
-            _deliver_signal_from_thread(str(arguments.signal_on_ready))
+        requested_signal_name = str(arguments.signal_on_ready)
 
-        def _watchdog() -> None:
-            print("WATCHDOG: a aplicação não encerrou após o sinal", file=sys.stderr)
-            os._exit(9)
+        class SignalApplication(QApplication):
+            """Aplicação com o ciclo de eventos real, que recebe um sinal já pronta.
 
-        QTimer.singleShot(_SIGNAL_DELAY_MS, _schedule_signal)
-        QTimer.singleShot(_WATCHDOG_MS, _watchdog)
+            Os temporizadores só podem ser usados depois de existir um
+            `QApplication`, pelo que a entrega é agendada no construtor.
+            """
+
+            def __init__(self, arguments: list[str]) -> None:
+                super().__init__(arguments)
+                self._readiness_timer = QTimer(self)
+                self._readiness_timer.setInterval(_READINESS_POLL_MS)
+                self._readiness_timer.timeout.connect(self._deliver_when_ready)
+                self._readiness_timer.start()
+                QTimer.singleShot(_WATCHDOG_MS, _abort_stuck_application)
+
+            def _deliver_when_ready(self) -> None:
+                """Entrega o sinal assim que a aplicação instala o seu handler."""
+                if not _shutdown_handlers_installed(requested_signal_name):
+                    return
+                self._readiness_timer.stop()
+                _deliver_signal_from_thread(requested_signal_name)
+
+        desktop_app.QApplication = SignalApplication  # type: ignore[misc]
 
     # Os argumentos do lançador não devem chegar ao Qt (seriam interpretados como
     # opções desconhecidas da aplicação).

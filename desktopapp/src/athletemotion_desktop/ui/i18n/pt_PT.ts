@@ -54,37 +54,37 @@
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="..\main_window.py" line="140" />
+        <location filename="..\main_window.py" line="141" />
         <source>Athlete Motion — Bikefit Studio</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="..\main_window.py" line="141" />
+        <location filename="..\main_window.py" line="142" />
         <source>ATHLETE MOTION</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="..\main_window.py" line="142" />
+        <location filename="..\main_window.py" line="143" />
         <source>Bikefit Core Edition</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="..\main_window.py" line="143" />
+        <location filename="..\main_window.py" line="144" />
         <source>Idioma:</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="..\main_window.py" line="144" />
+        <location filename="..\main_window.py" line="145" />
         <source>v0.2.0 • Bare-Metal</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="..\main_window.py" line="157" />
+        <location filename="..\main_window.py" line="158" />
         <source>Sistema pronto. Aceleração de hardware ativa.</source>
         <translation type="unfinished" />
     </message>
     <message>
-        <location filename="..\main_window.py" line="313" />
+        <location filename="..\main_window.py" line="327" />
         <source>SO: {system} {release} | Python {python_version} | CPU: {cores} núcleos | RAM: {ram} GB</source>
         <translation type="unfinished" />
     </message>

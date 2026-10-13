@@ -104,11 +104,15 @@ def test_parse_ts_file_ignores_unfinished_and_empty_translations(tmp_path: Path)
 
 
 def test_ts_file_translator_translates_and_falls_back() -> None:
-    """O tradutor devolve a tradução conhecida e vazio quando não existe entrada."""
+    """O tradutor devolve a tradução conhecida e o texto fonte quando não há entrada.
+
+    Devolver string vazia seria interpretado pelo PyQt6 como tradução vazia (rótulos
+    em branco na interface), pelo que o recurso é o próprio texto fonte.
+    """
     translator = TsFileTranslator(ENGLISH_TS_PATH)
 
     assert translator.translate("MainWindow", "Idioma:") == "Language:"
-    assert translator.translate("MainWindow", "Texto inexistente") == ""
+    assert translator.translate("MainWindow", "Texto inexistente") == "Texto inexistente"
     assert translator.message_count >= 15
     assert translator.translations_file == ENGLISH_TS_PATH
 

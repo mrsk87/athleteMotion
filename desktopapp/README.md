@@ -2,65 +2,91 @@
 
 Aplicação desktop nativa Windows para análise biomecânica e bikefit em tempo real, concebida para extrair o máximo desempenho do computador físico (AMD Radeon RX 580 DirectML + Intel Xeon E5-1660 v3 AVX2 OpenVINO).
 
----
-
-## 📁 Estrutura do Subprojeto
-
-```text
-desktopapp/
-├── AGENTS.md                          # Regras obrigatórias de engenharia e ACID
-├── README_PLAN.md                     # Plano de implementação e arquitetura detalhada
-├── pyproject.toml                     # Configuração de dependências e empacotamento
-├── TASKS/                             # Ficheiros de tarefas para LLMs (D01 a D16)
-│   ├── 00_PROTOCOLO_LLM.md            # Protocolo de execução rigoroso
-│   ├── STATUS_BOARD.md                # Quadro de tarefas e dependências
-│   └── CHANGELOG.md                   # Histórico de alterações do desktop
-├── src/athletemotion_desktop/         # Código fonte da aplicação
-│   ├── __init__.py
-│   ├── __main__.py                    # Ponto de entrada: python -m athletemotion_desktop
-│   ├── app.py                         # Instância QApplication, ciclo de vida e crash hook
-│   ├── config/                        # Caminhos (%APPDATA%) e definições Pydantic
-│   │   ├── paths.py
-│   │   └── settings.py
-│   ├── runtime/                       # MOTOR DE TEMPO REAL (SEM DEPENDÊNCIAS DE QT)
-│   │   ├── backends/                  # Drivers de inferência (DirectML, OpenVINO, CPU)
-│   │   ├── models/                    # Model zoo e manifest SHA-256
-│   │   ├── capture.py                 # Captura de vídeo/câmara DirectShow
-│   │   ├── preprocess.py              # Letterbox e preparação de tensores
-│   │   ├── inference_worker.py        # Processo desacoplado de inferência
-│   │   ├── ring_buffer.py             # Memória partilhada (multiprocessing.shared_memory)
-│   │   └── metrics.py                 # Telemetria e latências por estágio
-│   ├── domain_bridge/                 # Ponte para o pacote puro athletemotion.domain
-│   ├── services/                      # Orquestração de sessões locais e persistência ACID
-│   └── ui/                            # Camada de apresentação PyQt6
-│       ├── main_window.py             # Janela principal e barra lateral
-│       ├── views/                     # Vistas: Live, Vídeo, Relatório, Benchmark, Definições
-│       ├── widgets/                   # Widgets: VideoCanvas (OpenGL), HUD, Gráficos
-│       ├── viewmodels/                # Estado reativo e sinais da UI
-│       └── theme/                     # Folha de estilos Dark QSS e recursos visuais
-├── tests/                             # Testes unitários, integração e UI
-│   ├── unit/
-│   ├── integration/
-│   ├── ui/
-│   └── perf/
-└── scripts/                           # Scripts de automação e benchmark
-    └── dev_setup.ps1                  # Configuração do ambiente de desenvolvimento
-```
+**Estado atual:** Fase 0 (scaffold) — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado e testes. Captura, inferência e vistas funcionais chegam nas tarefas D03+ (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
 
 ---
 
 ## 🚀 Como Executar
 
-### 1. Configurar Ambiente de Desenvolvimento
+### 1. Configurar o ambiente de desenvolvimento
+Requer **Python 3.11 ou 3.12** (o projeto declara `>=3.11,<3.13`). O `uv` trata do resto:
+
 ```powershell
-# A partir da raiz do repositório
 cd desktopapp
-.\scripts\dev_setup.ps1
+.\scripts\dev_setup.ps1        # cria .venv, instala -e ".[dev]" e atualiza as traduções
 ```
 
-### 2. Iniciar a Aplicação
+Manualmente (equivalente):
 ```powershell
-python -m athletemotion_desktop
+cd desktopapp
+python -m pip install --user uv     # se ainda não tiver o uv
+uv venv --python 3.11
+uv pip install -e ".[dev]"
+```
+
+### 2. Iniciar a aplicação
+```powershell
+.venv\Scripts\python.exe -m athletemotion_desktop
+```
+Dados do utilizador (definições, logs, modelos, sessões) ficam em `%APPDATA%\AthleteMotion\`.
+
+### 3. Verificações (portões de qualidade)
+```powershell
+cd desktopapp
+$env:QT_QPA_PLATFORM="offscreen"; .venv\Scripts\python.exe -m pytest -q
+.venv\Scripts\ruff.exe check .
+.venv\Scripts\ruff.exe format --check src/athletemotion_desktop tests
+.venv\Scripts\mypy.exe src/athletemotion_desktop        # modo strict
+```
+
+---
+
+## 🌍 Internacionalização (PT/EN)
+
+- **Fonte única de tradução:** os ficheiros `.ts` em `src/athletemotion_desktop/ui/i18n/` (`pt_PT.ts`, `en.ts`).
+- O PT-PT é a **língua fonte**: todo o texto do código está em PT-PT dentro de `self.tr(...)`; o inglês é traduzido em `en.ts`.
+- **Sem `lrelease`:** o wheel do PyQt6 distribui o `pylupdate6` mas não o `lrelease` do Qt Linguist. Em vez de introduzir binários externos, `ui/i18n/translator.py` implementa um `QTranslator` que interpreta os `.ts` diretamente (e usa um `.qm` compilado, se existir).
+- Extrair textos novos e verificar o que falta traduzir:
+  ```powershell
+  .\scripts\update_translations.ps1     # corre o pylupdate6 sobre o código
+  ```
+  Mensagens sem tradução ficam `unfinished` e a interface mostra o texto PT-PT — nunca texto inventado.
+- O idioma escolhido no seletor da barra lateral é gravado atomicamente em `%APPDATA%\AthleteMotion\settings.json`.
+
+> Ao traduzir, preserve os marcadores (`{cores}`, `{ram}`, …): são preenchidos em runtime com medições reais do sistema.
+
+---
+
+## 🧱 Estrutura
+
+```text
+desktopapp/
+├── AGENTS.md                          # Regras de engenharia e ACID do subprojeto
+├── README_PLAN.md                     # Plano de implementação e arquitetura
+├── pyproject.toml                     # Dependências, ruff, mypy, pytest
+├── TASKS/                             # Tarefas D01…D16, protocolo, quadro e registo
+├── src/athletemotion_desktop/
+│   ├── __main__.py                    # python -m athletemotion_desktop
+│   ├── app.py                         # Ciclo de vida, sinais, locks, i18n, crash hook
+│   ├── config/
+│   │   ├── paths.py                   # %APPDATA%/AthleteMotion
+│   │   ├── settings.py                # Definições Pydantic + gravação atómica
+│   │   ├── logging_setup.py           # Logging JSON rotativo + relatório de falhas nativas
+│   │   └── environment.py             # Integridade do ambiente (conflito ORT CPU/DirectML)
+│   ├── runtime/                       # MOTOR DE TEMPO REAL (sem Qt) — capture/preprocess/
+│   │   └── backends/ models/          #   ring_buffer/inference_worker chegam em D03–D05
+│   ├── domain_bridge/ services/       # Pontes para o pacote athletemotion e sessões (D08/D10)
+│   └── ui/
+│       ├── main_window.py             # Janela, navegação, seletor de idioma, telemetria
+│       ├── i18n/                      # translator.py + pt_PT.ts + en.ts
+│       ├── theme/dark.qss             # Tema escuro
+│       └── views/ widgets/ viewmodels/  # Vistas funcionais chegam em D07–D12
+└── tests/
+    ├── unit/                          # Configuração, logging, ambiente, i18n
+    ├── ui/                            # pytest-qt: janela, navegação, idioma
+    ├── integration/                   # Arranque real, locks, sinais, falha nativa
+    ├── perf/                          # Portão de arranque (< 2 s)
+    └── support/                       # Lançador headless reutilizado pelos testes
 ```
 
 ---
