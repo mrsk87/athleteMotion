@@ -56,6 +56,11 @@ python_version = "3.11"
 strict = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+# `files` existe para que um `mypy` sem argumentos verifique o mesmo que o CI: sem ele, o
+# comando não verifica **nada** (o mypy exige caminhos) e um `mypy` que passa é um mypy que
+# não olhou para o código. Os testes entram na verificação de tipos — o tipo de um dobre de
+# teste mal tipado esconde erros reais nos testes que dele dependem.
+files = ["src", "tests"]
 
 # O `py-cpuinfo` (usado pela sonda de hardware da D02) não publica stubs nem
 # `py.typed`, e não existe pacote `types-py-cpuinfo`. A alternativa a este override
