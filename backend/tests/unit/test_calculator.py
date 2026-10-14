@@ -1,6 +1,13 @@
 """Testes unitários para o módulo matemático de cálculo de ângulos."""
+
 import math
-from athletemotion.domain.calculator import Point2D, Point3D, calculate_safe_angle, calculate_inclination_angle
+
+from athletemotion.domain.calculator import (
+    Point2D,
+    Point3D,
+    calculate_inclination_angle,
+    calculate_safe_angle,
+)
 
 
 def test_calculate_safe_angle_right_angle():
@@ -52,4 +59,3 @@ def test_calculate_inclination_angle():
     top_horiz = Point2D(50.0, 50.0)
     inclination_h = calculate_inclination_angle(bottom, top_horiz)
     assert abs(inclination_h - 0.0) < 0.01
-

@@ -57,9 +57,7 @@ def test_stabilizer_detects_anomalous_jump_and_interpolates():
         assert val.femur_valid is True
 
     # Introduzir anomalia: salto súbito no joelho que encurta o fémur em 30%
-    anomalous_knee = Landmark2D(
-        x=0.5, y=0.35, visibility=0.9
-    )  # encurtado para 0.15 * 1080 = 162px
+    anomalous_knee = Landmark2D(x=0.5, y=0.35, visibility=0.9)  # encurtado para 0.15 * 1080 = 162px
     lms_anomalous = {"hip": hip, "knee": anomalous_knee, "ankle": ankle}
 
     out_lms, next_state, val = stabilize(lms_anomalous, state, w, h, params)

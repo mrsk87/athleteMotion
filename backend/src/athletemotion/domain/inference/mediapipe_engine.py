@@ -10,6 +10,7 @@ motor "mediapipe" nunca corria MediaPipe. Passou a usar a API atual
 - Rastreio entre fotogramas (`detect_for_video`), que estabiliza a articulação
   mesmo quando o atleta passa por trás da perna ou de um reflexo.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+
 from athletemotion.domain.biomechanics.angles import compute_joint_angles
 from athletemotion.domain.inference.foot_estimation import (
     determine_facing_direction,
@@ -36,22 +38,38 @@ logger = logging.getLogger("athlete_motion.mediapipe_engine")
 
 # Nomes canónicos de juntas sagitais
 SAGITTAL_JOINTS = [
-    "hip", "knee", "ankle", "heel", "toe",
-    "shoulder", "elbow", "wrist", "ear",
+    "hip",
+    "knee",
+    "ankle",
+    "heel",
+    "toe",
+    "shoulder",
+    "elbow",
+    "wrist",
+    "ear",
 ]
 
 # Índices MediaPipe Pose (33 pontos) das juntas que interessam ao bike fit.
 MP_INDEX = {
     "nose": 0,
-    "left_ear": 7, "right_ear": 8,
-    "left_shoulder": 11, "right_shoulder": 12,
-    "left_elbow": 13, "right_elbow": 14,
-    "left_wrist": 15, "right_wrist": 16,
-    "left_hip": 23, "right_hip": 24,
-    "left_knee": 25, "right_knee": 26,
-    "left_ankle": 27, "right_ankle": 28,
-    "left_heel": 29, "right_heel": 30,
-    "left_foot_index": 31, "right_foot_index": 32,
+    "left_ear": 7,
+    "right_ear": 8,
+    "left_shoulder": 11,
+    "right_shoulder": 12,
+    "left_elbow": 13,
+    "right_elbow": 14,
+    "left_wrist": 15,
+    "right_wrist": 16,
+    "left_hip": 23,
+    "right_hip": 24,
+    "left_knee": 25,
+    "right_knee": 26,
+    "left_ankle": 27,
+    "right_ankle": 28,
+    "left_heel": 29,
+    "right_heel": 30,
+    "left_foot_index": 31,
+    "right_foot_index": 32,
 }
 
 # complexidade (compatibilidade) → ficheiro de modelo
@@ -73,7 +91,11 @@ def resolve_landmarker_model(model_complexity: int = 2, model: str | None = None
     if (MODELS_DIR / preferred).exists():
         return MODELS_DIR / preferred
     # Recuo ordenado: heavy → full → lite
-    for fallback in ("pose_landmarker_heavy.task", "pose_landmarker_full.task", "pose_landmarker_lite.task"):
+    for fallback in (
+        "pose_landmarker_heavy.task",
+        "pose_landmarker_full.task",
+        "pose_landmarker_lite.task",
+    ):
         path = MODELS_DIR / fallback
         if path.exists():
             return path
@@ -85,7 +107,9 @@ class MediaPipePoseEngine(BasePoseEngine):
         super().__init__(name="mediapipe")
         self.side = side.lower()
         self.model_complexity = model_complexity
-        self.model_name = model or COMPLEXITY_TO_MODEL.get(int(model_complexity), COMPLEXITY_TO_MODEL[2])
+        self.model_name = model or COMPLEXITY_TO_MODEL.get(
+            int(model_complexity), COMPLEXITY_TO_MODEL[2]
+        )
         self.pose = None
         self.is_legacy_mp = False
         self.backend = "none"
@@ -153,7 +177,9 @@ class MediaPipePoseEngine(BasePoseEngine):
                 )
                 self.is_legacy_mp = True
                 self.backend = "legacy"
-                logger.info("MediaPipe Solutions Pose (legado) com complexidade %d.", self.model_complexity)
+                logger.info(
+                    "MediaPipe Solutions Pose (legado) com complexidade %d.", self.model_complexity
+                )
             except Exception as err:
                 logger.warning("MediaPipe legado falhou: %s", err)
 
@@ -250,12 +276,19 @@ class MediaPipePoseEngine(BasePoseEngine):
 
         resolved: dict[str, Landmark2D] = {}
         for part, key in (
-            ("hip", "hip"), ("knee", "knee"), ("ankle", "ankle"),
-            ("shoulder", "shoulder"), ("elbow", "elbow"), ("wrist", "wrist"), ("ear", "ear"),
+            ("hip", "hip"),
+            ("knee", "knee"),
+            ("ankle", "ankle"),
+            ("shoulder", "shoulder"),
+            ("elbow", "elbow"),
+            ("wrist", "wrist"),
+            ("ear", "ear"),
         ):
             primary = raw.get(f"{side}_{key}")
             secondary = raw.get(f"{other}_{key}")
-            if primary is None or secondary is not None and primary.visibility < 0.20 and secondary.visibility > 0.50:
+            if primary is None or (
+                secondary is not None and primary.visibility < 0.20 and secondary.visibility > 0.50
+            ):
                 primary = secondary
             if primary is not None:
                 resolved[part] = primary
@@ -276,9 +309,13 @@ class MediaPipePoseEngine(BasePoseEngine):
             facing_right = determine_facing_direction(raw, side=side)
             tibia_px = 0.0
             if knee is not None:
-                tibia_px = math.hypot((knee.x - anchor.x) * float(w), (knee.y - anchor.y) * float(h))
+                tibia_px = math.hypot(
+                    (knee.x - anchor.x) * float(w), (knee.y - anchor.y) * float(h)
+                )
             estimated_foot = estimate_foot(anchor, knee, facing_right, tibia_px, w, h)
-            resolved["heel"] = heel if (has_valid_heel and heel is not None) else estimated_foot["heel"]
+            resolved["heel"] = (
+                heel if (has_valid_heel and heel is not None) else estimated_foot["heel"]
+            )
             resolved["toe"] = toe if (has_valid_toe and toe is not None) else estimated_foot["toe"]
 
         return resolved
@@ -289,6 +326,7 @@ class MediaPipePoseEngine(BasePoseEngine):
         if not self.is_ready:
             if not hasattr(self, "_fallback_yolo") or self._fallback_yolo is None:
                 from .yolo_engine import YOLO11PoseEngine
+
                 self._fallback_yolo = YOLO11PoseEngine(side=self.side)
             self._fallback_yolo.set_side(self.side)
             res = self._fallback_yolo.process_frame(frame_bgr, timestamp_ms)
@@ -296,8 +334,11 @@ class MediaPipePoseEngine(BasePoseEngine):
             return res
 
         try:
-            raw = self._detect_tasks(frame_bgr, timestamp_ms) if self.backend == "tasks" \
+            raw = (
+                self._detect_tasks(frame_bgr, timestamp_ms)
+                if self.backend == "tasks"
                 else self._detect_legacy(frame_bgr, timestamp_ms)
+            )
         except Exception as err:
             logger.warning("Falha na deteção MediaPipe: %s", err)
             raw = None
@@ -309,7 +350,9 @@ class MediaPipePoseEngine(BasePoseEngine):
                 timestamp_ms=timestamp_ms,
                 landmarks={},
                 angles=BiomechanicalAngles(),
-                validation=SegmentValidation(femur_length=0.0, tibia_length=0.0, femur_valid=False, tibia_valid=False),
+                validation=SegmentValidation(
+                    femur_length=0.0, tibia_length=0.0, femur_valid=False, tibia_valid=False
+                ),
             )
 
         landmarks = self._apply_side(raw, w_orig, h_orig)

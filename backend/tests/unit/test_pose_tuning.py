@@ -6,10 +6,10 @@ Cobrem exatamente as decisões que fazem o motor acompanhar o movimento:
 - deteção automática do tamanho de entrada do modelo ONNX,
 - descodificação SimCC do RTMPose.
 """
+
 import numpy as np
 import pytest
 
-from athletemotion.infrastructure.hardware import HardwareManager, hardware_manager, _detect_physical_cores
 from athletemotion.domain.inference.person_tracker import (
     PersonTracker,
     box_to_pixels,
@@ -17,9 +17,14 @@ from athletemotion.domain.inference.person_tracker import (
     expand_box,
     iou,
 )
-
+from athletemotion.infrastructure.hardware import (
+    HardwareManager,
+    _detect_physical_cores,
+    hardware_manager,
+)
 
 # --------------------------------------------------------------------- tracker
+
 
 def test_clamp_and_expand_and_iou_are_pure():
     assert clamp_box((-0.5, 0.2, 1.4, 0.8)) == (0.0, 0.2, 1.0, 0.8)
@@ -85,6 +90,7 @@ def test_tracker_smooths_and_reports_reuse_ratio():
 
 # -------------------------------------------------------------------- hardware
 
+
 def test_directml_requires_memory_pattern_disabled():
     manager = HardwareManager()
     gpu_options = manager.create_session_options(gpu=True)
@@ -119,6 +125,7 @@ def test_physical_core_detection_never_returns_zero():
 
 
 # ------------------------------------------------------------------- motores
+
 
 def test_yolo_reads_input_size_from_the_model():
     from athletemotion.domain.inference.base import PoseEngineRegistry

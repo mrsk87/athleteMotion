@@ -148,9 +148,10 @@ jobs:
           uv pip install -e ".[dev]"
       - name: Suíte completa (inclui `slow`)
         working-directory: desktopapp
-        # Inclui os testes `slow` (corridas de robustez de minutos, D13). Enquanto não
-        # existirem, a seleção corre a suíte normal — e não um `-m slow` que falharia por
-        # não ter nenhum teste selecionado (o erro clássico neste ponto).
+        # Inclui os testes `slow`: hoje a corrida de 5 minutos da vista Live (D07,
+        # `tests/ui/test_live_soak.py`) e, a partir da D13, as corridas com o pipeline
+        # ligado. A seleção é a suíte normal (sem `-m slow`), para que a lista de testes
+        # lentos não tenha de ser mantida à mão nem o job falhe por não selecionar nada.
         run: |
           .venv/Scripts/python.exe -m pytest -m "not needs_camera and not directml" -q
 

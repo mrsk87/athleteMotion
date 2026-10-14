@@ -1,8 +1,10 @@
 """Motor de visão clássica para deteção ótica determinística de marcadores físicos."""
+
 from __future__ import annotations
 
 import cv2
 import numpy as np
+
 from athletemotion.domain.biomechanics.angles import compute_joint_angles
 
 from .base import BasePoseEngine, PoseEngineRegistry
@@ -29,7 +31,9 @@ class OpenCVClassicalTracker(BasePoseEngine):
     def reset(self) -> None:
         pass
 
-    def _find_centroid(self, mask: np.ndarray, min_area: int = 15, max_area: int = 2500) -> tuple[float, float, bool]:
+    def _find_centroid(
+        self, mask: np.ndarray, min_area: int = 15, max_area: int = 2500
+    ) -> tuple[float, float, bool]:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         best_c = None
         best_area = 0
@@ -78,14 +82,22 @@ class OpenCVClassicalTracker(BasePoseEngine):
 
             pts.sort(key=lambda p: p[1])  # Ordenar por Y
             if len(pts) >= 3 and w > 0 and h > 0:
-                landmarks["hip"] = Landmark2D(x=float(pts[0][0] / w), y=float(pts[0][1] / h), visibility=1.0)
-                landmarks["knee"] = Landmark2D(x=float(pts[1][0] / w), y=float(pts[1][1] / h), visibility=1.0)
-                landmarks["ankle"] = Landmark2D(x=float(pts[2][0] / w), y=float(pts[2][1] / h), visibility=1.0)
+                landmarks["hip"] = Landmark2D(
+                    x=float(pts[0][0] / w), y=float(pts[0][1] / h), visibility=1.0
+                )
+                landmarks["knee"] = Landmark2D(
+                    x=float(pts[1][0] / w), y=float(pts[1][1] / h), visibility=1.0
+                )
+                landmarks["ankle"] = Landmark2D(
+                    x=float(pts[2][0] / w), y=float(pts[2][1] / h), visibility=1.0
+                )
 
         # Calcular ângulos articulares biomecânicos em píxeis
         angles = compute_joint_angles(landmarks, w, h)
 
-        val = SegmentValidation(femur_length=0.25, tibia_length=0.22, femur_valid=True, tibia_valid=True)
+        val = SegmentValidation(
+            femur_length=0.25, tibia_length=0.22, femur_valid=True, tibia_valid=True
+        )
 
         return InferenceOutput(
             engine_name=self.name,

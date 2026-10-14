@@ -1,9 +1,9 @@
 """Diagnósticos globais de BikeFit, desnível selim-guiador (saddle drop) e re-exportações."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from .thresholds import FlexibilityLevel, RidingStyle
-from .posture import PostureDiagnostic, evaluate_posture_angles
+
 from .alignment import (
     FrontalKneeDiagnostic,
     KopsDiagnostic,
@@ -12,18 +12,20 @@ from .alignment import (
     evaluate_frontal_knee_tracking,
     evaluate_kops_alignment,
 )
+from .posture import PostureDiagnostic, evaluate_posture_angles
+from .thresholds import FlexibilityLevel, RidingStyle
 
 __all__ = [
-    "PostureDiagnostic",
-    "evaluate_posture_angles",
-    "SaddleDropDiagnostic",
-    "evaluate_saddle_drop",
+    "FrontalKneeDiagnostic",
     "KopsDiagnostic",
-    "evaluate_kops_alignment",
+    "PostureDiagnostic",
+    "SaddleDropDiagnostic",
     "SymmetryReport",
     "calculate_symmetry_index",
-    "FrontalKneeDiagnostic",
     "evaluate_frontal_knee_tracking",
+    "evaluate_kops_alignment",
+    "evaluate_posture_angles",
+    "evaluate_saddle_drop",
 ]
 
 

@@ -3,9 +3,11 @@
 Uso:
     python -m athletemotion.api
 """
+
 from __future__ import annotations
 
 import uvicorn
+
 from athletemotion.config.settings import settings
 
 

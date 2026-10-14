@@ -1,16 +1,18 @@
 """Alinhamento horizontal KOPS e tracking frontal do joelho."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 from .symmetry import SymmetryReport, calculate_symmetry_index
 
 __all__ = [
-    "KopsDiagnostic",
-    "evaluate_kops_alignment",
     "FrontalKneeDiagnostic",
-    "evaluate_frontal_knee_tracking",
+    "KopsDiagnostic",
     "SymmetryReport",
     "calculate_symmetry_index",
+    "evaluate_frontal_knee_tracking",
+    "evaluate_kops_alignment",
 ]
 
 
@@ -24,12 +26,18 @@ class KopsDiagnostic:
     recommendation_en: str
     suggested_action_pt: str
     suggested_action_en: str
+    uncertainty_mm: float | None = None
 
 
-def evaluate_kops_alignment(offset_mm: float, tolerance_mm: float = 5.0) -> KopsDiagnostic:
+def evaluate_kops_alignment(
+    offset_mm: float,
+    tolerance_mm: float = 5.0,
+    uncertainty_mm: float | None = None,
+) -> KopsDiagnostic:
     """Avalia o alinhamento KOPS (Knee Over Pedal Spindle) na posição horizontal das 3 horas."""
     offset_rounded = round(offset_mm, 1)
     abs_offset = abs(offset_rounded)
+    unc_rounded = round(uncertainty_mm, 1) if uncertainty_mm is not None else None
 
     if abs_offset <= tolerance_mm:
         return KopsDiagnostic(
@@ -41,6 +49,7 @@ def evaluate_kops_alignment(offset_mm: float, tolerance_mm: float = 5.0) -> Kops
             recommendation_en="Maintain current saddle fore/aft position on rails.",
             suggested_action_pt="Sem alteração necessária",
             suggested_action_en="No adjustment needed",
+            uncertainty_mm=unc_rounded,
         )
     elif offset_rounded > tolerance_mm:
         return KopsDiagnostic(
@@ -52,6 +61,7 @@ def evaluate_kops_alignment(offset_mm: float, tolerance_mm: float = 5.0) -> Kops
             recommendation_en=f"Slide saddle backward on rails by approximately {abs_offset} mm to protect patellar tendon.",
             suggested_action_pt=f"Recuar selim {abs_offset} mm",
             suggested_action_en=f"Slide saddle back {abs_offset} mm",
+            uncertainty_mm=unc_rounded,
         )
     else:
         return KopsDiagnostic(
@@ -63,6 +73,7 @@ def evaluate_kops_alignment(offset_mm: float, tolerance_mm: float = 5.0) -> Kops
             recommendation_en=f"Slide saddle forward on rails by approximately {abs_offset} mm to optimize quadriceps.",
             suggested_action_pt=f"Avançar selim {abs_offset} mm",
             suggested_action_en=f"Slide saddle forward {abs_offset} mm",
+            uncertainty_mm=unc_rounded,
         )
 
 
@@ -96,7 +107,9 @@ def evaluate_frontal_knee_tracking(
             recommendation_en="Exemplary linear knee tracking without patellar stress.",
         )
 
-    is_valgus = (side.lower() == "right" and deviation_mm < 0) or (side.lower() == "left" and deviation_mm > 0)
+    is_valgus = (side.lower() == "right" and deviation_mm < 0) or (
+        side.lower() == "left" and deviation_mm > 0
+    )
     if is_valgus:
         return FrontalKneeDiagnostic(
             deviation_mm=round(deviation_mm, 1),

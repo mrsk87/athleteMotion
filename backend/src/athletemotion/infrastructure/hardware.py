@@ -12,11 +12,13 @@ Regras que não são opinião, estão documentadas pelo ONNX Runtime:
 - `intra_op_num_threads` só afecta trabalho em CPU; mais threads do que núcleos
   físicos aumenta a latência por contenda.
 """
+
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any, List, Optional, Sequence
+from typing import Any
+
 import numpy as np
 import onnxruntime as ort
 
@@ -35,7 +37,7 @@ def _detect_physical_cores(logical_cores: int) -> int:
         detected = psutil.cpu_count(logical=False)
         if detected:
             return int(detected)
-    except Exception:
+    except (ImportError, Exception):
         pass
     return max(1, logical_cores // 2)
 
@@ -56,23 +58,26 @@ class HardwareManager:
         logger.info("ONNX Runtime Providers disponíveis: %s", self.available_providers)
         logger.info(
             "CPU: %d núcleos físicos / %d lógicos → intra_op=%d, inter_op=%d",
-            self.physical_cores, self.logical_cores, self.intra_op_threads, self.inter_op_threads,
+            self.physical_cores,
+            self.logical_cores,
+            self.intra_op_threads,
+            self.inter_op_threads,
         )
 
     # ------------------------------------------------------------------ providers
     def get_execution_providers(
         self,
-        gpu: Optional[bool] = None,
+        gpu: bool | None = None,
         device_id: int = 0,
         disable_metacommands: bool = False,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Lista priorizada de execution providers.
 
         `device_id` escolhe o adaptador DirectML (0 = GPU principal). Nos adaptadores
         integrados DirectML pode ser mais rápido, mas só se mede — por omissão 0.
         """
         use_gpu = self.prefer_gpu if gpu is None else bool(gpu)
-        providers: List[Any] = []
+        providers: list[Any] = []
 
         if use_gpu and self.has_directml:
             options: dict[str, Any] = {"device_id": int(device_id)}
@@ -86,7 +91,7 @@ class HardwareManager:
         return providers
 
     # ------------------------------------------------------------ session options
-    def create_session_options(self, gpu: Optional[bool] = None) -> ort.SessionOptions:
+    def create_session_options(self, gpu: bool | None = None) -> ort.SessionOptions:
         """Sessão afinada para latência mínima por fotograma.
 
         `gpu` decide as opções que o DirectML exige (mem_pattern off). Sem argumento,
@@ -126,7 +131,7 @@ class HardwareManager:
         self,
         session: ort.InferenceSession,
         runs: int = 1,
-        input_name: Optional[str] = None,
+        input_name: str | None = None,
     ) -> float:
         """Executa inferência a zeros para pagar o custo de arranque UMA vez.
 

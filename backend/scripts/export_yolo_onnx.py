@@ -9,6 +9,7 @@ Uso:
     python scripts/export_yolo_onnx.py --sizes 640 416 320
     python scripts/export_yolo_onnx.py --weights yolo11s-pose.pt
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,7 +45,9 @@ def export_size(weights: str, size: int, overwrite: bool = False, simplify: bool
 
     logger.info("A exportar %s para ONNX @ %dpx…", weights, size)
     model = YOLO(weights)
-    exported = model.export(format="onnx", imgsz=size, dynamic=False, simplify=simplify, device="cpu")
+    exported = model.export(
+        format="onnx", imgsz=size, dynamic=False, simplify=simplify, device="cpu"
+    )
     produced = Path(exported)
     if produced.resolve() != target.resolve():
         produced.replace(target)

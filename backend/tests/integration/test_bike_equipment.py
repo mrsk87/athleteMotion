@@ -10,9 +10,9 @@ O teste simula exatamente esse cenário: uma base ANTIGA, criada com o esquema a
 
 import sqlite3
 
-import athletemotion.infrastructure.database as db_module
 from sqlalchemy import create_engine
 
+import athletemotion.infrastructure.database as db_module
 from athletemotion.schemas.fit import BikeCreate, BikeResponse
 
 
@@ -71,7 +71,14 @@ def test_bike_payload_accepts_and_returns_bar_shape(client):
     """A API aceita reach/drop do guiador e devolve-os na resposta."""
     athlete = client.post(
         "/api/v1/athletes",
-        json={"name": "Ana", "height_cm": 178.0, "inseam_cm": 84.0, "shoulder_width_cm": 40.0},
+        json={
+            "name": "Ana",
+            "height_cm": 178.0,
+            "inseam_cm": 84.0,
+            "shoulder_width_cm": 40.0,
+            "consent_version": "v1.0",
+            "consent_scope": ["processing", "store_landmarks"],
+        },
     ).json()
 
     payload = BikeCreate(

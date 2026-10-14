@@ -19,6 +19,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
+
 from athletemotion.domain.inference.types import Landmark2D, SegmentValidation
 
 
@@ -68,9 +69,7 @@ def stabilize(
     height = float(max(1, h))
 
     # Cria cópia superficial rasa do dicionário com cópias dos marcos
-    output_landmarks: dict[str, Landmark2D] = {
-        k: lm.model_copy() for k, lm in landmarks.items()
-    }
+    output_landmarks: dict[str, Landmark2D] = {k: lm.model_copy() for k, lm in landmarks.items()}
 
     hip = output_landmarks.get("hip")
     knee = output_landmarks.get("knee")

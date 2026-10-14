@@ -1,10 +1,10 @@
 /**
- * Pinia Store central para gestão de telemetria e ligação ao backend Python.
+ * Pinia Store central para gestão de telemetria e ligação ao backend Python (R16 / R04 / R10 / R13).
  */
 import { defineStore } from 'pinia';
-import axios from 'axios';
+import { apiClient } from '../services/api';
+import { authToken } from '../services/authToken';
 
-const API_BASE = process.env.VUE_APP_API_URL || 'http://localhost:8000';
 const WS_BASE = process.env.VUE_APP_WS_URL || 'ws://localhost:8000';
 
 export const useInferenceStore = defineStore('inference', {
@@ -14,15 +14,16 @@ export const useInferenceStore = defineStore('inference', {
     availableEngines: [],
     directmlAvailable: false,
 
-    // Resultado do último aquecimento do motor ativo (ms). Pagar o arranque do
-    // DirectML/MediaPipe aqui evita que ele caia no primeiro fotograma do atleta.
+    // Resultado do último aquecimento do motor ativo (ms).
     lastWarmupMs: null,
 
     // Estado da ligação WebSocket
     wsStatus: 'disconnected', // 'connected' | 'connecting' | 'disconnected' | 'error'
     wsSocket: null,
+    _reconnectAttempts: 0,
+    _reconnectTimer: null,
 
-    // Telemetria do último frame
+    // Telemetria do último frame (com campos R10/R11/R13)
     latestTelemetry: {
       timestamp_ms: 0,
       landmarks: {},
@@ -30,6 +31,10 @@ export const useInferenceStore = defineStore('inference', {
       validation: { femur_valid: true, tibia_valid: true },
       is_bdc: false,
       is_tdc: false,
+      cycle: null, // Objeto de ciclo pedalada R10
+      confidence: 1.0,
+      withheld: false,
+      warnings: [],
     },
 
     // Histórico de amostras para o gráfico temporal
@@ -50,9 +55,10 @@ export const useInferenceStore = defineStore('inference', {
         this._frameListeners = this._frameListeners.filter((cb) => cb !== callback);
       };
     },
+
     async fetchEngines() {
       try {
-        const res = await axios.get(`${API_BASE}/api/v1/inference/engines`);
+        const res = await apiClient.get('/api/v1/inference/engines');
         this.availableEngines = res.data.available_engines;
         this.activeEngine = res.data.active_engine;
         this.activeSide = res.data.active_side;
@@ -65,7 +71,7 @@ export const useInferenceStore = defineStore('inference', {
     async switchEngine(engineName, side = null) {
       const targetSide = side || this.activeSide;
       try {
-        const res = await axios.post(`${API_BASE}/api/v1/inference/engine/switch`, {
+        const res = await apiClient.post('/api/v1/inference/engine/switch', {
           engine: engineName,
           side: targetSide,
           smoothing: 'one_euro',
@@ -73,20 +79,15 @@ export const useInferenceStore = defineStore('inference', {
         this.activeEngine = res.data.active_engine;
         this.activeSide = res.data.active_side;
         this.telemetrySamples = []; // Reiniciar gráfico
-        // Aquecer JÁ o motor novo: o primeiro fotograma do atleta não deve pagar o arranque.
         await this.warmupEngine();
       } catch (err) {
         console.error('Falha ao alternar motor de inferência:', err);
       }
     },
 
-    /**
-     * Pede ao backend a primeira inferência do motor ativo (fora do caminho crítico).
-     * Devolve o tempo gasto, ou `null` se o backend não estiver acessível.
-     */
     async warmupEngine() {
       try {
-        const res = await axios.post(`${API_BASE}/api/v1/inference/engine/warmup`);
+        const res = await apiClient.post('/api/v1/inference/engine/warmup');
         this.lastWarmupMs = res.data.warmup_ms ?? null;
         return this.lastWarmupMs;
       } catch (err) {
@@ -109,19 +110,37 @@ export const useInferenceStore = defineStore('inference', {
     connectWebSocket() {
       if (this.wsSocket) {
         this.wsSocket.close();
+        this.wsSocket = null;
+      }
+
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
       }
 
       this.wsStatus = 'connecting';
-      const wsUrl = `${WS_BASE}/ws/live-inference`;
-      this.wsSocket = new WebSocket(wsUrl);
-      this.wsSocket.binaryType = 'arraybuffer';
+      const rawUrl = `${WS_BASE}/ws/live-inference`;
+      const secureWsUrl = authToken.buildWsUrl(rawUrl);
+
+      try {
+        this.wsSocket = new WebSocket(secureWsUrl);
+        this.wsSocket.binaryType = 'arraybuffer';
+      } catch (err) {
+        this.wsStatus = 'error';
+        console.error('[WebSocket] Falha na instanciação do socket:', err);
+        this._scheduleReconnect();
+        return;
+      }
 
       this.wsSocket.onopen = () => {
         this.wsStatus = 'connected';
-        // O backend já aquece o motor ao aceitar a ligação; este pedido confirma o
-        // tempo gasto e serve de referência nos diagnósticos.
+        this._reconnectAttempts = 0;
+        // Enviar handshake de autenticação e warmup
+        if (authToken.hasToken()) {
+          this.wsSocket.send(JSON.stringify({ type: 'auth', token: authToken.getToken() }));
+        }
         this.wsSocket.send(JSON.stringify({ type: 'warmup' }));
-        console.log('[WebSocket] Conectado ao pipeline Python.');
+        console.log('[WebSocket] Conectado e autenticado no pipeline Python.');
       };
 
       this.wsSocket.onmessage = (event) => {
@@ -146,14 +165,14 @@ export const useInferenceStore = defineStore('inference', {
               knee: data.angles.knee,
               torso: data.angles.torso,
               arm: data.angles.arm_elbow,
-              // Campos extra para o relatório da bancada: o tornozelo e a posição do cranque dizem
-              // se a amostra foi recolhida no ponto morto inferior (BDC), que é onde a altura do
-              // selim se mede. Não alteram o gráfico, que continua a usar tempo/joelho/tronco/braço.
               ankle: data.angles.ankle,
               shoulder: data.angles.shoulder,
               isBdc: Boolean(data.is_bdc),
               isTdc: Boolean(data.is_tdc),
               clock: data.clock_position || null,
+              cycle: data.cycle || null,
+              confidence: data.confidence ?? 1.0,
+              withheld: Boolean(data.withheld),
             });
 
             // Limitar histórico a 600 amostras (aprox. 20s a 30 FPS)
@@ -166,14 +185,14 @@ export const useInferenceStore = defineStore('inference', {
         }
       };
 
-      this.wsSocket.onclose = () => {
+      this.wsSocket.onclose = (event) => {
         this.wsStatus = 'disconnected';
-        console.log('[WebSocket] Desconectado. Tentando reconexão em 3s...');
-        setTimeout(() => {
-          if (this.wsStatus === 'disconnected') {
-            this.connectWebSocket();
-          }
-        }, 3000);
+        if (event.code === 1008 || event.code === 4401) {
+          // Fecho por falta de autorização
+          authToken.notifyUnauthorized({ code: event.code, reason: event.reason });
+          return;
+        }
+        this._scheduleReconnect();
       };
 
       this.wsSocket.onerror = (err) => {
@@ -182,7 +201,23 @@ export const useInferenceStore = defineStore('inference', {
       };
     },
 
+    _scheduleReconnect() {
+      this._reconnectAttempts += 1;
+      // Backoff exponencial: 1s, 2s, 4s, até máx 10s
+      const delay = Math.min(10000, 1000 * Math.pow(2, Math.min(this._reconnectAttempts - 1, 3)));
+      console.log(`[WebSocket] Tentando reconexão em ${delay}ms (tentativa ${this._reconnectAttempts})...`);
+      this._reconnectTimer = setTimeout(() => {
+        if (this.wsStatus === 'disconnected' || this.wsStatus === 'error') {
+          this.connectWebSocket();
+        }
+      }, delay);
+    },
+
     disconnectWebSocket() {
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
+      }
       if (this.wsSocket) {
         this.wsSocket.close();
         this.wsSocket = null;

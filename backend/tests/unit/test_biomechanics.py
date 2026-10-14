@@ -1,12 +1,13 @@
 """Testes unitários para regras de negócio biomecânicas de ciclismo."""
+
 from athletemotion.domain.biomechanics import (
     RidingStyle,
-    calculate_lemond_saddle_height,
     calculate_109_saddle_height,
+    calculate_lemond_saddle_height,
     estimate_frame_size,
+    evaluate_posture_angles,
     recommend_crank_length,
     recommend_handlebar_width,
-    evaluate_posture_angles,
 )
 
 
@@ -88,7 +89,7 @@ def test_symmetry_index_calculation():
 
 
 def test_saddle_drop_diagnostics():
-    from athletemotion.domain.biomechanics import evaluate_saddle_drop, FlexibilityLevel
+    from athletemotion.domain.biomechanics import FlexibilityLevel, evaluate_saddle_drop
 
     # Drop normal estrada (6.5 cm com flexibilidade média)
     diag_ok = evaluate_saddle_drop(6.5, RidingStyle.ROAD, FlexibilityLevel.MEDIUM)
@@ -121,6 +122,3 @@ def test_frontal_knee_tracking():
     assert not varus_right.is_compliant
     assert varus_right.condition == "varus"
     assert "Varo Dinâmico" in varus_right.label_pt
-
-
-

@@ -1,4 +1,5 @@
 """Cálculo do Índice de Simetria Bilateral (SI) entre membros inferiores."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,7 +16,9 @@ class SymmetryReport:
     recommendation_en: str
 
 
-def calculate_symmetry_index(left_val: float, right_val: float, joint_name: str = "joelho") -> SymmetryReport:
+def calculate_symmetry_index(
+    left_val: float, right_val: float, joint_name: str = "joelho"
+) -> SymmetryReport:
     """Calcula o Índice de Simetria Bilateral (SI) padrão da literatura biomecânica."""
     mean_val = (left_val + right_val) / 2.0
     si = 0.0 if mean_val == 0 else round((abs(left_val - right_val) / mean_val) * 100.0, 2)

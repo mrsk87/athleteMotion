@@ -14,9 +14,7 @@ from athletemotion.domain.calculator import Point2D, calculate_safe_angle
 from athletemotion.domain.inference.types import BiomechanicalAngles, Landmark2D
 
 
-def to_pixels(
-    landmarks: Mapping[str, Landmark2D], w: int, h: int
-) -> dict[str, Point2D]:
+def to_pixels(landmarks: Mapping[str, Landmark2D], w: int, h: int) -> dict[str, Point2D]:
     """Converte um mapa de marcos normalizados [0, 1] para pontos 2D em píxeis.
 
     Args:
@@ -29,9 +27,7 @@ def to_pixels(
     """
     width = float(w)
     height = float(h)
-    return {
-        name: Point2D(x=lm.x * width, y=lm.y * height) for name, lm in landmarks.items()
-    }
+    return {name: Point2D(x=lm.x * width, y=lm.y * height) for name, lm in landmarks.items()}
 
 
 def compute_joint_angles(
@@ -77,9 +73,7 @@ def compute_joint_angles(
     torso_angle: float | None = None
     if is_visible("shoulder", "hip"):
         dx = abs(pts["shoulder"].x - pts["hip"].x)
-        dy = (
-            pts["hip"].y - pts["shoulder"].y
-        )  # hip tem y maior (mais abaixo) que shoulder
+        dy = pts["hip"].y - pts["shoulder"].y  # hip tem y maior (mais abaixo) que shoulder
         if dx > 0.0:
             torso_angle = round(math.degrees(math.atan2(abs(dy), dx)), 1)
         else:

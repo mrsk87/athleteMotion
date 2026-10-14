@@ -29,3 +29,10 @@ Esta regra é carregada automaticamente em todos os contextos de execução do a
 1. **Host Bare-Metal Nativo:** Direcionar o código para execução nativa no hardware do utilizador (DirectML na AMD Radeon RX 580, OpenVINO AVX2 no Intel Xeon E5-1660 v3).
 2. **UI Desacoplada e Fluida:** A thread gráfica nunca bloqueia; processamento de I/O e modelos corre sempre em processos ou workers dedicados.
 3. **Honestidade Clínica:** Nunca inventar números de bikefit ou preencher fallbacks silenciosos; dados insuficientes devem ser expressos explicitamente.
+
+---
+
+## 4. Escopo de Atuação do Agente Antigravity
+1. **Projetos Permitidos:** Apenas `backend/`, `frontend/web/`, `docs/` e tarefas em `TASKS/REVIEW_2026/`.
+2. **Proibição sobre `desktopapp/`:** Nunca criar, editar ou apagar ficheiros em `desktopapp/` sem autorização explícita e direta do utilizador.
+

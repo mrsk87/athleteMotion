@@ -10,6 +10,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from '../../i18n';
 import { apiService } from '../../services/api';
+import { secureStorage } from '../../services/secureStorage';
 
 export default {
   name: 'SessionComparator',
@@ -63,11 +64,18 @@ export default {
         }
       }
 
-      // Verificar se existe linha de base pré-ajuste guardada no dispositivo
+      // Verificar se existe linha de base pré-ajuste guardada no dispositivo (secureStorage com migração)
       let storedBaseline = null;
       try {
-        const raw = window.localStorage.getItem('athleteMotion_baseline_session');
-        if (raw) storedBaseline = JSON.parse(raw);
+        storedBaseline = await secureStorage.getItem('athleteMotion_baseline_session');
+        if (!storedBaseline && typeof window !== 'undefined' && window.localStorage) {
+          const raw = window.localStorage.getItem('athleteMotion_baseline_session');
+          if (raw) {
+            storedBaseline = JSON.parse(raw);
+            await secureStorage.setItem('athleteMotion_baseline_session', storedBaseline);
+            window.localStorage.removeItem('athleteMotion_baseline_session');
+          }
+        }
       } catch {
         storedBaseline = null;
       }

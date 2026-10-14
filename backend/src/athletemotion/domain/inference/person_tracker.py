@@ -16,12 +16,13 @@ a perna: a maioria dos fotogramas paga apenas o custo de um recorte pequeno.
 
 Todas as funções de decisão são puras para poderem ser verificadas sem GPU.
 """
+
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 # Caixa normalizada: (x1, y1, x2, y2) em [0, 1].
-Box = Tuple[float, float, float, float]
+Box = tuple[float, float, float, float]
 
 
 def clamp_box(box: Sequence[float]) -> Box:
@@ -60,15 +61,13 @@ def iou(a: Sequence[float], b: Sequence[float]) -> float:
     return float(inter / union) if union > 0 else 0.0
 
 
-def box_to_pixels(
-    box: Sequence[float], width: int, height: int
-) -> Tuple[int, int, int, int]:
+def box_to_pixels(box: Sequence[float], width: int, height: int) -> tuple[int, int, int, int]:
     """Converte a caixa normalizada num recorte de píxeis (x, y, w, h) válido."""
     x1, y1, x2, y2 = clamp_box(box)
-    px1 = max(0, min(width - 1, int(round(x1 * width))))
-    py1 = max(0, min(height - 1, int(round(y1 * height))))
-    px2 = max(px1 + 1, min(width, int(round(x2 * width))))
-    py2 = max(py1 + 1, min(height, int(round(y2 * height))))
+    px1 = max(0, min(width - 1, round(x1 * width)))
+    py1 = max(0, min(height - 1, round(y1 * height)))
+    px2 = max(px1 + 1, min(width, round(x2 * width)))
+    py2 = max(py1 + 1, min(height, round(y2 * height)))
     return px1, py1, px2 - px1, py2 - py1
 
 
@@ -96,7 +95,7 @@ class PersonTracker:
         self.max_misses = max(1, int(max_misses))
         self.edge_tolerance = max(0.0, float(edge_tolerance))
 
-        self.box: Optional[Box] = None
+        self.box: Box | None = None
         self.score: float = 0.0
         self.misses: int = 0
         self.frames_since_detect: int = 0
@@ -123,9 +122,7 @@ class PersonTracker:
             return True
         if self.frames_since_detect >= self.redetect_interval:
             return True
-        if self._box_touches_edge():
-            return True
-        return False
+        return bool(self._box_touches_edge())
 
     def _box_touches_edge(self) -> bool:
         if self.box is None:
@@ -142,10 +139,7 @@ class PersonTracker:
         else:
             alpha = self.smoothing
             merged = clamp_box(
-                tuple(
-                    self.box[i] * (1.0 - alpha) + new_box[i] * alpha
-                    for i in range(4)
-                )
+                tuple(self.box[i] * (1.0 - alpha) + new_box[i] * alpha for i in range(4))
             )
         self.box = merged
         self.score = float(score)
@@ -166,7 +160,7 @@ class PersonTracker:
         else:
             self.misses += 1
 
-    def roi_box(self) -> Optional[Box]:
+    def roi_box(self) -> Box | None:
         """Caixa alargada do recorte a enviar ao modelo (ou `None` se não há rastreio)."""
         if self.box is None:
             return None

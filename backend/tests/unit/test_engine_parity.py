@@ -51,12 +51,8 @@ def test_engines_internal_angle_computation_parity():
 
     # Motores em modo CPU / sem pesos obrigatórios
     mp_engine = MediaPipePoseEngine(side="right")
-    yolo_engine = YOLO11PoseEngine(
-        side="right", use_gpu=False, model_path="__non_existent__.onnx"
-    )
-    rtm_engine = RTMPoseEngine(
-        side="right", use_gpu=False, model_path="__non_existent__.onnx"
-    )
+    yolo_engine = YOLO11PoseEngine(side="right", use_gpu=False, model_path="__non_existent__.onnx")
+    rtm_engine = RTMPoseEngine(side="right", use_gpu=False, model_path="__non_existent__.onnx")
 
     assert mp_engine.side == "right"
     assert yolo_engine.side == "right"

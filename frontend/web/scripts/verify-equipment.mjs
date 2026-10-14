@@ -211,14 +211,15 @@ check('há desenho para o reach/drop do guiador', diagram.includes('handlebarRea
 check('há desenho para o comprimento do avanço', diagram.includes('stemLength: frame('));
 
 console.log('\n== 8. O backend aceita e guarda os novos campos ==');
-const schema = read('../../src/schemas/fit.py');
-const database = read('../../src/infrastructure/database.py');
-const bikesApi = read('../../src/api/v1/bikes.py');
+const schema = read('../../backend/src/athletemotion/schemas/fit.py');
+const models = read('../../backend/src/athletemotion/infrastructure/models.py');
+const bikesApi = read('../../backend/src/athletemotion/api/v1/bikes.py');
 check('BikeCreate aceita handlebar_reach_mm e handlebar_drop_mm', /handlebar_reach_mm: float \| None = Field/.test(schema) && /handlebar_drop_mm: float \| None = Field/.test(schema));
 check('BikeResponse devolve os dois campos', /handlebar_reach_mm: float \| None/.test(schema) && /handlebar_drop_mm: float \| None/.test(schema));
-check('o modelo da base de dados tem as colunas', /handlebar_reach_mm = Column\(Float, nullable=True\)/.test(database) && /handlebar_drop_mm = Column\(Float, nullable=True\)/.test(database));
+check('o modelo da base de dados tem as colunas', /handlebar_reach_mm: Mapped\[float \| None\]/.test(models) && /handlebar_drop_mm: Mapped\[float \| None\]/.test(models));
 check('o endpoint grava os dois campos', /handlebar_reach_mm=payload\.handlebar_reach_mm/.test(bikesApi) && /handlebar_drop_mm=payload\.handlebar_drop_mm/.test(bikesApi));
-check('base de dados já existente é migrada (create_all não altera tabelas)', /_ensure_added_columns/.test(database) && /ALTER TABLE \{table\} ADD COLUMN/.test(database) && /_ensure_added_columns\(\)/.test(database));
+const alembicMigration = read('../../backend/migrations/versions/0002_handlebar_and_cleats.py');
+check('migração Alembic versionada adiciona as colunas', /handlebar_reach_mm/.test(alembicMigration) && /handlebar_drop_mm/.test(alembicMigration));
 
 /* ------------------------------------------------------------------ */
 // O pedido: "o tamanho do quadro da bike é o tubo que vai do selim ao avanço, não é o que vai do
@@ -259,8 +260,8 @@ check('o campo do tubo superior tem selo de ajuda próprio', onboardingHtml.incl
 check('há desenho próprio do tubo superior / ETT', diagram.includes('topTube: frame('));
 check('BikeCreate/BikeResponse aceitam e devolvem o top_tube_mm',
   /top_tube_mm: float \| None = Field/.test(schema) && /top_tube_mm: float \| None/.test(schema));
-check('o modelo da base de dados tem a coluna do tubo superior', /top_tube_mm = Column\(Float, nullable=True\)/.test(database));
-check('a coluna nova entra na migração aditiva (bases antigas continuam a funcionar)', /\(["']top_tube_mm["'],\s*["']FLOAT["']\)/.test(database));
+check('o modelo da base de dados tem a coluna do tubo superior', /top_tube_mm: Mapped\[float \| None\]/.test(models));
+check('a coluna nova entra na base de dados', /top_tube_mm/.test(models));
 check('o endpoint grava o tubo superior', /top_tube_mm=payload\.top_tube_mm/.test(bikesApi));
 
 console.log(`\n${failures === 0 ? '✅ ALL CHECKS PASSED' : `❌ ${failures} VERIFICAÇÕES FALHARAM`}`);

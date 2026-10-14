@@ -1,0 +1,41 @@
+{
+  "dataset_dir": "tests\\data\\synthetic_validation",
+  "engines": [
+    "fake"
+  ],
+  "trials": {
+    "hip_validation": {
+      "joint_name": "Anca",
+      "metrics": {
+        "mae": 1.2365919934304677,
+        "rmse": 1.5352308476610497,
+        "bias": -0.5322349740379649,
+        "std_diff": 1.4424267762015568,
+        "loa_lower": -3.359391455393016,
+        "loa_upper": 2.2949215073170866,
+        "pearson_r": 0.9649733247546972,
+        "pct_within_3deg": 95.33333333333334,
+        "pct_within_5deg": 100.0,
+        "n_samples": 300
+      },
+      "passed": true
+    },
+    "knee_validation": {
+      "joint_name": "Joelho",
+      "metrics": {
+        "mae": 1.1343999999999999,
+        "rmse": 1.421119389776946,
+        "bias": 0.7933466666666664,
+        "std_diff": 1.1810295604107894,
+        "loa_lower": -1.5214712717384806,
+        "loa_upper": 3.1081646050718135,
+        "pearson_r": 0.9965114615429373,
+        "pct_within_3deg": 95.66666666666667,
+        "pct_within_5deg": 99.66666666666667,
+        "n_samples": 300
+      },
+      "passed": true
+    }
+  },
+  "all_passed": true
+}

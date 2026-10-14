@@ -1,6 +1,7 @@
 """Testes unitários para o motor MediaPipe Pose e validação biomecânica."""
+
 import numpy as np
-import pytest
+
 from athletemotion.domain.inference.mediapipe_engine import MediaPipePoseEngine
 from athletemotion.domain.inference.types import Landmark2D
 
@@ -30,7 +31,9 @@ def test_mediapipe_rigid_segment_validation():
         assert val.tibia_valid is True
 
     # Introduzir anomalia: salto súbito no joelho que encurta o fémur em > 20%
-    anomalous_knee = Landmark2D(x=0.5, y=0.38, z=0.0, visibility=1.0)  # femur agora = 0.08 vs 0.30 (deformação > 70%)
+    anomalous_knee = Landmark2D(
+        x=0.5, y=0.38, z=0.0, visibility=1.0
+    )  # femur agora = 0.08 vs 0.30 (deformação > 70%)
     val_anomaly, is_valid_anomaly = engine._validate_rigid_segments(hip, anomalous_knee, ankle)
 
     assert is_valid_anomaly is False

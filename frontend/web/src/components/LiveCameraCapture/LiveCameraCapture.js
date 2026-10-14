@@ -18,6 +18,7 @@ import { markRaw } from 'vue';
 import { useI18n } from '../../i18n';
 import { useInferenceStore } from '../../stores/inferenceStore';
 import { apiService } from '../../services/api';
+import { secureStorage } from '../../services/secureStorage';
 import { audioService } from '../../services/audioFeedback';
 import { bleManager } from '../../services/bleSensorManager';
 import { LandmarkSmoother } from '../../services/landmarkSmoother';
@@ -3528,12 +3529,24 @@ export default {
     // ANÁLISE INTEGRAL DO VÍDEO: perfil → varrimento completo → prescrição única
     // =====================================================================
 
-    /** Lê o perfil guardado localmente (peso e nº de sapato persistem entre sessões). */
-    loadAthleteProfileFromStorage() {
+    /** Lê o perfil guardado localmente (peso e nº de sapato persistem entre sessões via secureStorage). */
+    async loadAthleteProfileFromStorage() {
       try {
-        const raw = window.localStorage.getItem(ATHLETE_PROFILE_STORAGE_KEY);
+        let raw = await secureStorage.getItem(ATHLETE_PROFILE_STORAGE_KEY);
+        if (!raw && typeof window !== 'undefined' && window.localStorage) {
+          const legacy = window.localStorage.getItem(ATHLETE_PROFILE_STORAGE_KEY);
+          if (legacy) {
+            try {
+              raw = JSON.parse(legacy);
+              await secureStorage.setItem(ATHLETE_PROFILE_STORAGE_KEY, raw);
+              window.localStorage.removeItem(ATHLETE_PROFILE_STORAGE_KEY);
+            } catch {
+              raw = null;
+            }
+          }
+        }
         if (!raw) return;
-        const normalized = AthleteProfile.normalize(JSON.parse(raw));
+        const normalized = AthleteProfile.normalize(raw);
         this.athleteProfile = {
           weightKg: normalized.weightKg ?? '',
           shoeSizeEu: normalized.shoeSizeEu ?? '',
@@ -3543,7 +3556,7 @@ export default {
           cleatPosition: normalized.cleatPosition ?? '',
         };
       } catch (err) {
-        this.debugLogMgr.addLog('warn', `Perfil do atleta não pôde ser lido: ${err?.message || err}`);
+        this.debugLogMgr?.addLog('warn', `Perfil do atleta não pôde ser lido: ${err?.message || err}`);
       }
     },
 
@@ -3558,7 +3571,7 @@ export default {
     },
 
     /** Valida, guarda e — se havia uma análise à espera do perfil — arranca-a. */
-    saveAthleteProfile() {
+    async saveAthleteProfile() {
       const normalized = AthleteProfile.normalize(this.athleteProfile);
       if (normalized.issues.length) {
         this.showToast(`⚠️ ${normalized.issues[0].message}`, 5000);
@@ -3581,23 +3594,29 @@ export default {
         cleatPosition: normalized.cleatPosition ?? '',
       };
       try {
-        window.localStorage.setItem(ATHLETE_PROFILE_STORAGE_KEY, JSON.stringify(this.athleteProfile));
+        await secureStorage.setItem(ATHLETE_PROFILE_STORAGE_KEY, this.athleteProfile);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(ATHLETE_PROFILE_STORAGE_KEY);
+        }
       } catch (err) {
-        this.debugLogMgr.addLog('warn', 'Perfil do atleta não pôde ser guardado localmente.');
+        this.debugLogMgr?.addLog('warn', 'Perfil do atleta não pôde ser guardado com segurança.');
       }
 
       const pending = this.profilePendingAction;
       this.showProfileModal = false;
       this.profilePendingAction = null;
-      this.showToast('✅ Perfil do atleta registado.');
+      this.showToast('✅ Perfil do atleta registado no armazenamento seguro.');
       if (pending === 'video-analysis') this.startFullVideoAnalysis();
       return true;
     },
 
-    clearAthleteProfile() {
+    async clearAthleteProfile() {
       this.athleteProfile = { weightKg: '', shoeSizeEu: '', waistCm: '', heightCm: '', inseamCm: '', cleatPosition: '' };
       try {
-        window.localStorage.removeItem(ATHLETE_PROFILE_STORAGE_KEY);
+        await secureStorage.removeItem(ATHLETE_PROFILE_STORAGE_KEY);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(ATHLETE_PROFILE_STORAGE_KEY);
+        }
       } catch (err) {
         // ignorar: o perfil em memória já foi limpo
       }
@@ -4018,7 +4037,7 @@ export default {
     /**
      * Guarda a sessão atual como linha de base (pré-ajuste) para comparação posterior.
      */
-    saveAsBaselineSession() {
+    async saveAsBaselineSession() {
       const session = {
         id: `session-baseline-${Date.now()}`,
         name: `${this.uploadedVideoName || 'Vídeo'} (Linha de Base - Pré-Ajuste)`,
@@ -4034,8 +4053,11 @@ export default {
         report: this.activeTuningReport,
       };
       try {
-        window.localStorage.setItem('athleteMotion_baseline_session', JSON.stringify(session));
-        this.showToast('💾 Sessão guardada como Linha de Base! Após aplicar as afinações na bicicleta, grave ou carregue o novo vídeo e clique em "Comparar Antes vs Depois".', 7000);
+        await secureStorage.setItem('athleteMotion_baseline_session', session);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem('athleteMotion_baseline_session');
+        }
+        this.showToast('💾 Sessão guardada como Linha de Base no armazenamento seguro!', 7000);
       } catch (err) {
         this.showToast('Erro ao guardar a linha de base no dispositivo.');
       }

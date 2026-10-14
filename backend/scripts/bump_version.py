@@ -6,6 +6,7 @@ Supports:
 - Inspection: python scripts/bump_version.py --current
 - Simulation: python scripts/bump_version.py --dry-run [patch|minor|major]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,18 +53,25 @@ def detect_increment_from_git() -> str:
         # Get commit message of HEAD
         result = subprocess.run(
             ["git", "log", "-1", "--pretty=%B"],
-            cwd=ROOT,
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         message = result.stdout.strip()
     except Exception as exc:
-        print(f"[warning] Could not read git commit message ({exc}). Defaulting to 'patch'.", file=sys.stderr)
+        print(
+            f"[warning] Could not read git commit message ({exc}). Defaulting to 'patch'.",
+            file=sys.stderr,
+        )
         return "patch"
 
     # Conventional commits analysis
-    if "#major" in message or "BREAKING CHANGE:" in message or re.search(r"^[a-z]+(\([^\)]+\))?!:", message, re.MULTILINE):
+    if (
+        "#major" in message
+        or "BREAKING CHANGE:" in message
+        or re.search(r"^[a-z]+(\([^\)]+\))?!:", message, re.MULTILINE)
+    ):
         return "major"
     if "#minor" in message or re.search(r"^feat(\([^\)]+\))?:", message, re.MULTILINE):
         return "minor"
@@ -90,7 +98,7 @@ def update_frontend(version: str) -> None:
                 json.dumps(lock, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             pass
 
 
@@ -100,22 +108,16 @@ def main() -> None:
         "part",
         nargs="?",
         choices=("major", "minor", "patch"),
-        help="SemVer increment part (major, minor, or patch)"
+        help="SemVer increment part (major, minor, or patch)",
     )
     parser.add_argument(
         "--auto",
         action="store_true",
-        help="Automatically determine increment from recent git commit message"
+        help="Automatically determine increment from recent git commit message",
     )
+    parser.add_argument("--current", action="store_true", help="Print the current version and exit")
     parser.add_argument(
-        "--current",
-        action="store_true",
-        help="Print the current version and exit"
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Calculate the next version without modifying files"
+        "--dry-run", action="store_true", help="Calculate the next version without modifying files"
     )
 
     args = parser.parse_args()

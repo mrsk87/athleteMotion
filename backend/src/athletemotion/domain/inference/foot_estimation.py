@@ -21,6 +21,7 @@ import math
 from collections.abc import Mapping
 
 import numpy as np
+
 from athletemotion.domain.inference.types import Landmark2D
 
 # Proporção canónica pé / tíbia segundo tabelas antropométricas de Winter (2009)
@@ -33,9 +34,7 @@ HEEL_DROP_RATIO: float = 0.10
 TOE_DROP_RATIO: float = 0.16
 
 
-def determine_facing_direction(
-    landmarks: Mapping[str, Landmark2D], side: str = "right"
-) -> bool:
+def determine_facing_direction(landmarks: Mapping[str, Landmark2D], side: str = "right") -> bool:
     """Determina se o ciclista está virado para a direita (True) ou esquerda (False).
 
     Analisa a orientação relativa do ombro em relação à anca ou do nariz/orelha.
@@ -52,12 +51,7 @@ def determine_facing_direction(
     # Fallback por cabeça/nariz
     nose = landmarks.get("nose")
     ear = landmarks.get(f"{side}_ear") or landmarks.get("ear")
-    if (
-        nose is not None
-        and ear is not None
-        and nose.visibility >= 0.20
-        and ear.visibility >= 0.20
-    ):
+    if nose is not None and ear is not None and nose.visibility >= 0.20 and ear.visibility >= 0.20:
         return nose.x >= ear.x
 
     return side == "right"

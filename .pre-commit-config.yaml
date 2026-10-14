@@ -1,0 +1,29 @@
+# Configuration for pre-commit (https://pre-commit.com)
+# Install hooks with: pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: semver-check
+        name: Check SemVer Synchronization
+        entry: python -c "import json; from pathlib import Path; assert Path('backend/VERSION').read_text().strip() == json.loads(Path('frontend/web/package.json').read_text())['version'], 'VERSION mismatch'"
+        language: system
+        files: ^(backend/VERSION|frontend/web/package\.json)$
+        pass_filenames: false

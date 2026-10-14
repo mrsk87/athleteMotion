@@ -1,4 +1,5 @@
 """Fórmulas antropométricas teóricas de ajuste de bicicleta (LeMond, Hamley 109%, etc.)."""
+
 from __future__ import annotations
 
 from .thresholds import RidingStyle
@@ -53,7 +54,9 @@ def recommend_handlebar_width(
     modality: RidingStyle,
 ) -> float:
     """Recomenda a largura ideal do guiador em milímetros."""
-    base_shoulder = shoulder_width_cm if shoulder_width_cm and shoulder_width_cm > 20 else (height_cm * 0.235)
+    base_shoulder = (
+        shoulder_width_cm if shoulder_width_cm and shoulder_width_cm > 20 else (height_cm * 0.235)
+    )
 
     if modality == RidingStyle.ROAD:
         if base_shoulder < 39.0:

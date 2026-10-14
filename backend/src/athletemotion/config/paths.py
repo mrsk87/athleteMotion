@@ -3,6 +3,7 @@
 Permite configuração por variáveis de ambiente para portabilidade entre
 Windows (Desktop nativo), Linux (CI/Container) e testes unitários.
 """
+
 from __future__ import annotations
 
 import os

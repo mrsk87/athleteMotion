@@ -3,6 +3,7 @@
 Desenvolvido para ser facilmente compreendido por juniores e completamente
 livre de efeitos colaterais (funções puras).
 """
+
 from __future__ import annotations
 
 import math
@@ -74,7 +75,9 @@ def calculate_inclination_angle(
     Retorna o ângulo em graus [0.0, 90.0] onde 0° é totalmente horizontal
     e 90° é totalmente vertical.
     """
-    bx, by = (bottom.x, bottom.y) if isinstance(bottom, (Point2D, Point3D)) else (bottom[0], bottom[1])
+    bx, by = (
+        (bottom.x, bottom.y) if isinstance(bottom, (Point2D, Point3D)) else (bottom[0], bottom[1])
+    )
     tx, ty = (top.x, top.y) if isinstance(top, (Point2D, Point3D)) else (top[0], top[1])
 
     dx = abs(tx - bx)
@@ -87,4 +90,3 @@ def calculate_inclination_angle(
     sin_val = max(0.0, min(1.0, dy / mag))
     angle_rad = math.asin(sin_val)
     return round(math.degrees(angle_rad), 2)
-

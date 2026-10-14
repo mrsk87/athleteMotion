@@ -48,7 +48,7 @@ export class CanvasOverlayRenderer {
   /**
    * Desenha um segmento ósseo unitário com cor dinâmica e iluminação de halo.
    */
-  static drawBoneSegment(ctx, p1, p2, color, w, h, lineWidth = 4) {
+  static drawBoneSegment(ctx, p1, p2, color, w, h, lineWidth = 4, forceDashed = false) {
     if (!ctx || !p1 || !p2) return;
     if (typeof p1.visibility === 'number' && p1.visibility < 0.25) return;
     if (typeof p2.visibility === 'number' && p2.visibility < 0.25) return;
@@ -59,6 +59,7 @@ export class CanvasOverlayRenderer {
     const y1 = p1.y * h;
     const x2 = p2.x * w;
     const y2 = p2.y * h;
+    const isEstimated = Boolean(p1.estimated || p2.estimated || forceDashed);
 
     ctx.save();
     ctx.beginPath();
@@ -68,6 +69,10 @@ export class CanvasOverlayRenderer {
     ctx.lineWidth = Math.max(3, Math.round(lineWidth * scale));
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    if (isEstimated) {
+      ctx.setLineDash([Math.round(6 * scale), Math.round(4 * scale)]);
+      ctx.globalAlpha = 0.65;
+    }
     ctx.shadowColor = color;
     ctx.shadowBlur = Math.round(6 * scale);
     ctx.stroke();
@@ -147,15 +152,33 @@ export class CanvasOverlayRenderer {
 
   /**
    * Desenha marcador de articulação com anotação angular e halo ergonómico tricolor.
+   * Suporta supressão honesta com withheld=true e marcação de estimativa.
    */
-  static drawJointMarker(ctx, point, angle, targetRange, w, h) {
-    if (!ctx || !point || angle === null || angle === undefined) return;
+  static drawJointMarker(ctx, point, angle, targetRange, w, h, withheld = false) {
+    if (!ctx || !point) return;
     const scale = Math.max(1.0, Math.min(4.0, Math.max(w, h) / 720));
     const px = point.x * w;
     const py = point.y * h;
+
+    if (withheld) {
+      // Supressão honesta: não inventa ângulos quando confiança ou calibração são insuficientes
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, Math.round(5 * scale), 0, 2 * Math.PI);
+      ctx.fillStyle = '#64748b';
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    if (angle === null || angle === undefined) return;
     const color = this.getComplianceHexColor(angle, targetRange);
+    const isEstimated = Boolean(point.estimated);
 
     ctx.save();
+    if (isEstimated) {
+      ctx.globalAlpha = 0.75;
+    }
     ctx.beginPath();
     ctx.arc(px, py, Math.round(7 * scale), 0, 2 * Math.PI);
     ctx.fillStyle = color;
@@ -166,6 +189,9 @@ export class CanvasOverlayRenderer {
     ctx.beginPath();
     ctx.arc(px, py, Math.round(13 * scale), 0, 2 * Math.PI);
     ctx.strokeStyle = color;
+    if (isEstimated) {
+      ctx.setLineDash([Math.round(4 * scale), Math.round(3 * scale)]);
+    }
     ctx.lineWidth = Math.max(2, Math.round(2 * scale));
     ctx.stroke();
 
@@ -174,7 +200,8 @@ export class CanvasOverlayRenderer {
     ctx.fillStyle = '#FFFFFF';
     ctx.shadowColor = '#000000';
     ctx.shadowBlur = Math.round(4 * scale);
-    ctx.fillText(`${Math.round(angle)}°`, px + Math.round(16 * scale), py - Math.round(6 * scale));
+    const labelText = isEstimated ? `${Math.round(angle)}° (est.)` : `${Math.round(angle)}°`;
+    ctx.fillText(labelText, px + Math.round(16 * scale), py - Math.round(6 * scale));
     ctx.restore();
   }
 

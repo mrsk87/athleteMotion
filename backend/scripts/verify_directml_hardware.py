@@ -1,8 +1,9 @@
 """Script de teste que valida a aceleração DirectML e a geração de tensores."""
+
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Garantir que a pasta backend/src está no sys.path
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
@@ -11,8 +12,10 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 import time
+
 import numpy as np
 import onnxruntime as ort
+
 from athletemotion.infrastructure.hardware import hardware_manager
 
 
@@ -31,7 +34,7 @@ def main():
         print("[SUCESSO] DirectML detetado com sucesso para a GPU AMD!")
 
     # Criar modelo dummy ONNX em memória para testar execução
-    from onnx import helper, TensorProto
+    from onnx import TensorProto, helper
 
     X = helper.make_tensor_value_info("X", TensorProto.FLOAT, [1, 640, 640, 3])
     Y = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, 640, 640, 3])

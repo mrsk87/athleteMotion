@@ -72,9 +72,7 @@ def test_compute_joint_angles_aspect_ratio_invariance():
 
     # 2. Resolução quadrada 1:1 (1080x1080)
     w_1_1, h_1_1 = 1080, 1080
-    lms_1_1 = _make_150_deg_leg_pixels(
-        w_1_1, h_1_1, knee_px=(540.0, 540.0), length=300.0
-    )
+    lms_1_1 = _make_150_deg_leg_pixels(w_1_1, h_1_1, knee_px=(540.0, 540.0), length=300.0)
     angles_1_1 = compute_joint_angles(lms_1_1, w_1_1, h_1_1)
 
     assert angles_1_1.knee is not None

@@ -85,3 +85,17 @@ O código deve ser uma ferramenta de aprendizagem e clareza para toda a equipa:
 1. **Testes Unitários Obrigatórios:** Qualquer lógica de negócio adicionada ou alterada deve vir acompanhada de testes unitários com asserções numéricas determinísticas.
 2. **Sem Dados Falsificados em Produção:** Se uma medição não puder ser calculada por falta de confiança dos keypoints, o sistema deve reportar explicitamente `insufficient_data` ou `None`, nunca inventar valores padrão clínicos.
 3. **Verificação Estática:** Código submetido deve passar em linters e type-checkers sem avisos (`ruff check`, `mypy --strict`).
+
+---
+
+## 6. Escopo de Atuação Estrito (Delimitação de Projetos)
+
+1. **Escopo Autorizado para o Agente Antigravity:**
+   - O agente Antigravity apenas pode operar e modificar ficheiros nos projetos de:
+     - `backend/` (API REST, WebSockets, infraestrutura, serviços e domínio biomecânico puro `athletemotion`);
+     - `frontend/` (`frontend/web/` — aplicação web Vue 3);
+     - Documentação global e tarefas em `docs/` e `TASKS/REVIEW_2026/`.
+2. **Proibição Absoluta sobre `desktopapp/`:**
+   - É **estritamente proibido** criar, modificar, formatar ou apagar ficheiros dentro do diretório `desktopapp/` (Desktop App PyQt6), **salvo instrução explícita em contrário dada pelo utilizador**.
+   - O projeto `desktopapp/` é mantido de forma independente e isolada por outro agente/equipa. Qualquer sugestão de próximos passos ou intervenção deve respeitar integralmente esta fronteira de projeto.
+

@@ -11,6 +11,7 @@ Três mudanças que tornam o motor "instantâneo" a acompanhar a pedalada:
 3. **Aquecimento na construção.** A primeira passagem do DirectML (compilação do
    grafo) é paga no arranque, não no primeiro fotograma do atleta.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,8 +19,10 @@ import math
 from collections.abc import Sequence
 from pathlib import Path
 
+import cv2
 import numpy as np
 import onnxruntime as ort
+
 from athletemotion.config.paths import MODELS_DIR
 from athletemotion.domain.biomechanics.angles import compute_joint_angles
 from athletemotion.domain.inference.foot_estimation import (
@@ -30,21 +33,35 @@ from athletemotion.domain.inference.stabilizer import (
     StabilizerState,
     stabilize,
 )
+from athletemotion.domain.inference.target_selector import DetectionCandidate, TargetSelector
 from athletemotion.infrastructure.hardware import hardware_manager
 
 from .base import BasePoseEngine, PoseEngineRegistry
-from .onnx_utils import preprocess_roi_for_onnx
 from .person_tracker import PersonTracker, box_to_pixels
+from .preprocess_fast import fast_preprocess_roi
 from .types import BiomechanicalAngles, InferenceOutput, Landmark2D, SegmentValidation
 
 logger = logging.getLogger("athlete_motion.yolo_engine")
 
 # Mapeamento dos 17 Keypoints COCO para o esqueleto sagital do ciclista
 COCO_KP_NAMES = [
-    "nose", "left_eye", "right_eye", "left_ear", "right_ear",
-    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
-    "left_wrist", "right_wrist", "left_hip", "right_hip",
-    "left_knee", "right_knee", "left_ankle", "right_ankle",
+    "nose",
+    "left_eye",
+    "right_eye",
+    "left_ear",
+    "right_ear",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle",
 ]
 
 # Ordem de preferência quando há mais do que um modelo exportado.
@@ -93,6 +110,8 @@ class YOLO11PoseEngine(BasePoseEngine):
         self.min_confidence = float(min_confidence)
         self.prefer_fast_model = bool(prefer_fast_model)
 
+        self.license = "AGPL-3.0"
+        self.license_risk = True
         self.model_path = self._resolve_model_path(model_path, prefer_fast_model)
         self.session: ort.InferenceSession | None = None
         self.input_name: str | None = None
@@ -100,10 +119,13 @@ class YOLO11PoseEngine(BasePoseEngine):
         self.warmup_ms = 0.0
 
         self.tracker = PersonTracker(redetect_interval=redetect_interval)
+        self.target_selector = TargetSelector()
         self.stabilizer_state = StabilizerState()
 
         if self.model_path is None or not self.model_path.exists():
-            logger.warning("Modelo YOLO-Pose não encontrado (%s). Usando fallback seguro.", model_path)
+            logger.warning(
+                "Modelo YOLO-Pose não encontrado (%s). Usando fallback seguro.", model_path
+            )
             return
 
         session_opts = hardware_manager.create_session_options(gpu=use_gpu)
@@ -123,7 +145,9 @@ class YOLO11PoseEngine(BasePoseEngine):
                 self.model_path,
             )
             if warmup:
-                self.warmup_ms = hardware_manager.warmup_session(self.session, runs=1, input_name=self.input_name)
+                self.warmup_ms = hardware_manager.warmup_session(
+                    self.session, runs=1, input_name=self.input_name
+                )
         except Exception as e:
             logger.error("Falha ao inicializar sessão ONNX para YOLO11: %s", e)
             self.session = None
@@ -133,8 +157,11 @@ class YOLO11PoseEngine(BasePoseEngine):
     def _resolve_model_path(explicit: str | None, prefer_fast: bool) -> Path | None:
         if explicit:
             return Path(explicit)
-        candidates = (FAST_MODEL_CANDIDATES + DEFAULT_MODEL_CANDIDATES) if prefer_fast \
+        candidates = (
+            (FAST_MODEL_CANDIDATES + DEFAULT_MODEL_CANDIDATES)
+            if prefer_fast
             else DEFAULT_MODEL_CANDIDATES
+        )
         for candidate in candidates:
             p = Path(candidate)
             if p.exists():
@@ -151,6 +178,7 @@ class YOLO11PoseEngine(BasePoseEngine):
 
     def reset(self) -> None:
         self.tracker.reset()
+        self.target_selector.reset()
         self.stabilizer_state = StabilizerState()
 
     @property
@@ -165,24 +193,23 @@ class YOLO11PoseEngine(BasePoseEngine):
             timestamp_ms=timestamp_ms,
             landmarks={},
             angles=BiomechanicalAngles(),
-            validation=SegmentValidation(femur_length=0, tibia_length=0, femur_valid=False, tibia_valid=False),
+            validation=SegmentValidation(
+                femur_length=0, tibia_length=0, femur_valid=False, tibia_valid=False
+            ),
         )
 
-    def _extract_person(
-        self, preds: np.ndarray, ratio: float, pad: tuple[float, float], rect, full_w: int, full_h: int
-    ) -> tuple[np.ndarray, tuple[float, float, float, float]] | None:
-        """Escolhe a pessoa com maior confiança e devolve (keypoints, caixa normalizada)."""
-        if preds.shape[0] < 5:
-            return None
-
-        best_index = int(np.argmax(preds[:, 4]))
-        best = preds[best_index]
-        if float(best[4]) < self.min_confidence:
-            return None
-
+    def _to_normalized_box(
+        self,
+        pred_row: np.ndarray,
+        ratio: float,
+        pad: tuple[float, float],
+        rect: Sequence[int] | None,
+        full_w: int,
+        full_h: int,
+    ) -> tuple[float, float, float, float]:
+        """Converte caixa delimitadora (cx, cy, w, h) para caixa normalizada (x1, y1, x2, y2)."""
         pad_w, pad_h = pad
-        # Caixa (cx, cy, w, h) no espaço da entrada → espaço do recorte → fotograma inteiro.
-        cx, cy, bw, bh = (float(v) for v in best[0:4])
+        cx, cy, bw, bh = (float(v) for v in pred_row[0:4])
         crop_cx = (cx - pad_w) / ratio if ratio > 0 else 0.0
         crop_cy = (cy - pad_h) / ratio if ratio > 0 else 0.0
         crop_w = bw / ratio if ratio > 0 else 0.0
@@ -194,13 +221,12 @@ class YOLO11PoseEngine(BasePoseEngine):
         y1 = (crop_cy - crop_h / 2.0 + off_y) / max(1, full_h)
         x2 = (crop_cx + crop_w / 2.0 + off_x) / max(1, full_w)
         y2 = (crop_cy + crop_h / 2.0 + off_y) / max(1, full_h)
-        box = (
+        return (
             float(np.clip(x1, 0.0, 1.0)),
             float(np.clip(y1, 0.0, 1.0)),
             float(np.clip(x2, 0.0, 1.0)),
             float(np.clip(y2, 0.0, 1.0)),
         )
-        return best, box
 
     def _decode_keypoints(
         self,
@@ -216,25 +242,28 @@ class YOLO11PoseEngine(BasePoseEngine):
         off_y = float(rect[1]) if rect else 0.0
         kpts_raw = best[5:]
 
-        landmarks_raw: dict[str, Landmark2D] = {}
-        for i, name in enumerate(COCO_KP_NAMES):
-            kx = float(kpts_raw[i * 3])
-            ky = float(kpts_raw[i * 3 + 1])
-            kconf = float(kpts_raw[i * 3 + 2])
+        # Otimização sénior (R14): transformação vetorial direta em NumPy
+        kpts = kpts_raw.reshape(-1, 3).copy()
+        if ratio > 0:
+            kpts[:, 0] = (kpts[:, 0] - pad_w) / ratio + off_x
+            kpts[:, 1] = (kpts[:, 1] - pad_h) / ratio + off_y
+        kpts[:, 0] = np.clip(kpts[:, 0] / max(1, full_w), 0.0, 1.0)
+        kpts[:, 1] = np.clip(kpts[:, 1] / max(1, full_h), 0.0, 1.0)
+        kpts[:, 2] = np.clip(kpts[:, 2], 0.0, 1.0)
 
-            crop_x = (kx - pad_w) / ratio if ratio > 0 else 0.0
-            crop_y = (ky - pad_h) / ratio if ratio > 0 else 0.0
-            orig_x = (crop_x + off_x) / max(1, full_w)
-            orig_y = (crop_y + off_y) / max(1, full_h)
-
-            landmarks_raw[name] = Landmark2D(
-                x=float(np.clip(orig_x, 0.0, 1.0)),
-                y=float(np.clip(orig_y, 0.0, 1.0)),
-                visibility=float(np.clip(kconf, 0.0, 1.0)),
+        landmarks_raw: dict[str, Landmark2D] = {
+            name: Landmark2D(
+                x=float(kpts[i, 0]),
+                y=float(kpts[i, 1]),
+                visibility=float(kpts[i, 2]),
             )
+            for i, name in enumerate(COCO_KP_NAMES)
+        }
         return landmarks_raw
 
-    def _add_foot_estimates(self, landmarks_raw: dict[str, Landmark2D], full_w: int, full_h: int) -> None:
+    def _add_foot_estimates(
+        self, landmarks_raw: dict[str, Landmark2D], full_w: int, full_h: int
+    ) -> None:
         """Calcâneo e biqueira estimados proporcionalmente à tíbia em píxeis.
 
         Garante invariância à distância da câmara e atribui explicitamente estimated=True.
@@ -267,7 +296,11 @@ class YOLO11PoseEngine(BasePoseEngine):
             active_lm = landmarks_raw[target_key]
             other_key = f"{other_prefix}_{part}"
             # Apoio adaptativo se o lado ativo estiver ocluso (<0.20) mas o contralateral visível (>0.50)
-            if active_lm.visibility < 0.20 and other_key in landmarks_raw and landmarks_raw[other_key].visibility > 0.50:
+            if (
+                active_lm.visibility < 0.20
+                and other_key in landmarks_raw
+                and landmarks_raw[other_key].visibility > 0.50
+            ):
                 landmarks_raw[part] = landmarks_raw[other_key]
             else:
                 landmarks_raw[part] = active_lm
@@ -294,33 +327,66 @@ class YOLO11PoseEngine(BasePoseEngine):
         # 1. Decidir o recorte. Sem rastreio, ou quando o rastreio pede, é fotograma inteiro.
         rect: Sequence[int] | None = None
         used_tracker = False
-        if self.tracking:
-            if not self.tracker.needs_full_frame():
-                roi = self.tracker.roi_box()
-                if roi is not None:
-                    rect = box_to_pixels(roi, w_orig, h_orig)
-                    used_tracker = True
-                    self.tracker.note_roi_reuse()
+        if self.tracking and not self.tracker.needs_full_frame():
+            roi = self.tracker.roi_box()
+            if roi is not None:
+                rect = box_to_pixels(roi, w_orig, h_orig)
+                used_tracker = True
+                self.tracker.note_roi_reuse()
 
-        # 2. Pré-processamento: recorte + letterbox para o tamanho FIXO da rede.
-        input_tensor, ratio, (pad_w, pad_h), used_rect = preprocess_roi_for_onnx(
+        # 2. Pré-processamento: recorte + letterbox rápido para o tamanho FIXO da rede.
+        input_tensor, ratio, (pad_w, pad_h), used_rect = fast_preprocess_roi(
             frame_bgr, self.input_size, rect
         )
 
         # 3. Execução na GPU via DirectML (ou CPU AVX2)
         outputs = self.session.run(None, {self.input_name: input_tensor})
-        preds = np.squeeze(outputs[0], axis=0)  # [56, 8400]
-        if preds.ndim != 2:
-            self.tracker.tick(pose_found=False)
-            return self._empty_output(timestamp_ms)
-        preds = preds.transpose((1, 0))  # [8400, 56]
-
-        found = self._extract_person(preds, ratio, (pad_w, pad_h), used_rect, w_orig, h_orig)
-        if found is None:
+        raw_preds = np.squeeze(outputs[0], axis=0)  # [56, 8400]
+        if raw_preds.ndim != 2 or raw_preds.shape[0] < 5:
             self.tracker.tick(pose_found=False)
             return self._empty_output(timestamp_ms)
 
-        best, box = found
+        # Otimização sénior (R13): filtrar por confiança antes de transpor e alocar 8400 candidatos
+        confidences = raw_preds[4, :]
+        mask = confidences >= self.min_confidence
+        if not np.any(mask):
+            self.tracker.tick(pose_found=False)
+            return self._empty_output(timestamp_ms)
+
+        # Transpõe apenas os candidatos válidos (K << 8400)
+        filtered = raw_preds[:, mask].T  # [K, 56]
+
+        candidates: list[DetectionCandidate] = []
+        if filtered.shape[0] == 1:
+            box = self._to_normalized_box(filtered[0], ratio, (pad_w, pad_h), used_rect, w_orig, h_orig)
+            candidates.append(DetectionCandidate(box=box, confidence=float(filtered[0, 4]), keypoints=filtered[0]))
+        else:
+            boxes_px: list[list[int]] = []
+            scores: list[float] = []
+            for i in range(filtered.shape[0]):
+                cx, cy, bw, bh = (float(v) for v in filtered[i, :4])
+                boxes_px.append([int(cx - bw / 2.0), int(cy - bh / 2.0), int(bw), int(bh)])
+                scores.append(float(filtered[i, 4]))
+            indices = cv2.dnn.NMSBoxes(boxes_px, scores, score_threshold=self.min_confidence, nms_threshold=0.45)
+            if len(indices) > 0:
+                indices_flat = np.array(indices).flatten()
+                for idx in indices_flat:
+                    box = self._to_normalized_box(filtered[idx], ratio, (pad_w, pad_h), used_rect, w_orig, h_orig)
+                    candidates.append(DetectionCandidate(box=box, confidence=scores[idx], keypoints=filtered[idx]))
+
+        if not candidates:
+            self.tracker.tick(pose_found=False)
+            return self._empty_output(timestamp_ms)
+
+        # Seleção e associação temporal robusta do ciclista
+        selected = self.target_selector.select_target(candidates)
+        if selected is None or selected.keypoints is None:
+            self.tracker.tick(pose_found=False)
+            return self._empty_output(timestamp_ms)
+
+        best = selected.keypoints
+        box = selected.box
+
         if self.tracking and not used_tracker:
             # Deteção nova em fotograma inteiro: reinicia o contador de idade da caixa.
             self.tracker.observe(box, score=float(best[4]))
@@ -328,7 +394,9 @@ class YOLO11PoseEngine(BasePoseEngine):
             # Recorte reutilizado: é um fotograma sem deteção nova.
             self.tracker.tick(pose_found=True)
 
-        landmarks_raw = self._decode_keypoints(best, ratio, (pad_w, pad_h), used_rect, w_orig, h_orig)
+        landmarks_raw = self._decode_keypoints(
+            best, ratio, (pad_w, pad_h), used_rect, w_orig, h_orig
+        )
         self._add_foot_estimates(landmarks_raw, w_orig, h_orig)
         self._apply_side_aliases(landmarks_raw)
         landmarks_raw, angles, val = self._compute_angles(landmarks_raw, w_orig, h_orig)
@@ -344,7 +412,9 @@ class YOLO11PoseEngine(BasePoseEngine):
 
 
 PoseEngineRegistry.register("yolo11_pose", YOLO11PoseEngine)
-PoseEngineRegistry.register("yolo11_pose_cpu", lambda **kwargs: YOLO11PoseEngine(use_gpu=False, **kwargs))
+PoseEngineRegistry.register(
+    "yolo11_pose_cpu", lambda **kwargs: YOLO11PoseEngine(use_gpu=False, **kwargs)
+)
 PoseEngineRegistry.register(
     "yolo11_pose_fast",
     lambda **kwargs: YOLO11PoseEngine(

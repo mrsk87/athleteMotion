@@ -1,4 +1,5 @@
 """Endpoints REST para gestão de bicicletas e especificações dos componentes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,7 +18,9 @@ def create_bike(payload: BikeCreate):
     with unit_of_work() as session:
         athlete = session.query(AthleteModel).filter_by(id=payload.athlete_id).first()
         if not athlete:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Atleta não encontrado.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Atleta não encontrado."
+            )
 
         bike = BikeModel(
             athlete_id=payload.athlete_id,
@@ -43,5 +46,3 @@ def get_athlete_bikes(athlete_id: str, db: Session = Depends(get_db)):
     """Retorna todas as bicicletas associadas a um atleta."""
     bikes = db.query(BikeModel).filter_by(athlete_id=athlete_id).all()
     return [BikeResponse.model_validate(b) for b in bikes]
-
-

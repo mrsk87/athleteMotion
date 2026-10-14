@@ -1,8 +1,6 @@
 import io
 
 
-
-
 def test_system_endpoints(client):
     res_health = client.get("/health")
     assert res_health.status_code == 200
@@ -36,6 +34,8 @@ def test_full_acid_lifecycle(client):
         "inseam_cm": 84.0,
         "flexibility": "medium",
         "riding_style": "road",
+        "consent_version": "v1.0",
+        "consent_scope": ["processing", "store_landmarks"],
     }
     res_athlete = client.post("/api/v1/athletes", json=athlete_data)
     assert res_athlete.status_code == 201
@@ -100,36 +100,45 @@ def test_full_acid_lifecycle(client):
     assert history[0]["id"] == session_id
 
     # 8. Descarregar Relatório PDF Oficial (FEAT-09)
-    res_pdf = client.get(f"/api/v1/sessions/{session_id}/pdf?lang=pt&kops_offset=12.0&saddle_drop=6.5")
+    res_pdf = client.get(
+        f"/api/v1/sessions/{session_id}/pdf?lang=pt&kops_offset=12.0&saddle_drop=6.5"
+    )
     assert res_pdf.status_code == 200
     assert res_pdf.headers["content-type"] == "application/pdf"
     assert res_pdf.content.startswith(b"%PDF")
 
-    # 9. Consultar Parecer do Treinador Biomecânico de IA (FEAT-21)
+    # 9. Consultar Parecer do Treinador Biomecânico (FEAT-21 / R09)
     res_coach = client.get(f"/api/v1/sessions/{session_id}/ai-coach?lang=pt&kops_offset=12.0")
     assert res_coach.status_code == 200
     coach_data = res_coach.json()
     assert "executive_summary" in coach_data
     assert "adaptation_plan" in coach_data
     assert len(coach_data["adaptation_plan"]) == 3
-
-
+    assert coach_data["generator"] == "rules-v1"
+    assert "disclaimer" in coach_data
+    assert "data_quality" in coach_data
+    assert isinstance(coach_data["data_quality"]["missing_joints"], list)
 
 
 def test_process_frame_upload_security(client):
     # Ficheiro vazio -> 400
     empty_file = io.BytesIO(b"")
-    res_empty = client.post("/process_frame", files={"file": ("test.jpg", empty_file, "image/jpeg")})
+    res_empty = client.post(
+        "/process_frame", files={"file": ("test.jpg", empty_file, "image/jpeg")}
+    )
     assert res_empty.status_code == 400
 
     # Ficheiro sem assinatura mágica -> 415
     invalid_bytes = io.BytesIO(b"Texto normal nao imagem")
-    res_invalid = client.post("/process_frame", files={"file": ("test.jpg", invalid_bytes, "image/jpeg")})
+    res_invalid = client.post(
+        "/process_frame", files={"file": ("test.jpg", invalid_bytes, "image/jpeg")}
+    )
     assert res_invalid.status_code == 415
 
 
 def test_export_gif_endpoint(client):
     import base64
+
     from PIL import Image
 
     # Gerar 2 fotogramas de teste com Pillow

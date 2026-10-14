@@ -1,4 +1,5 @@
 """Endpoints para cálculos biomecânicos imediatos e dimensionamento teórico de BikeFit."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter
@@ -38,6 +39,8 @@ def estimate_theoretical_fit(payload: EstimateRequest):
             modality,
         ),
         target_knee_angle_range=(thresholds.knee_extension_min, thresholds.knee_extension_max),
-        target_back_angle_range=(thresholds.torso_inclination_min, thresholds.torso_inclination_max),
+        target_back_angle_range=(
+            thresholds.torso_inclination_min,
+            thresholds.torso_inclination_max,
+        ),
     )
-

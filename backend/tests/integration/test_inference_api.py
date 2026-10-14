@@ -1,13 +1,15 @@
 """Testes de integração para as rotas REST e WebSocket de inferência postural."""
+
 import struct
+
 import cv2
-from fastapi.testclient import TestClient
 import numpy as np
-import pytest
+from fastapi.testclient import TestClient
 
 from athletemotion.api.app import app
+from athletemotion.api.security.auth import get_or_create_api_token
 
-client = TestClient(app)
+client = TestClient(app, headers={"Authorization": f"Bearer {get_or_create_api_token()}"})
 
 
 def test_list_inference_engines():
@@ -24,6 +26,16 @@ def test_list_inference_engines():
     assert "rtmpose" in engine_names
     assert "opencv_markers" in engine_names
 
+    # Validação R13 de metadados honestos
+    rtm = next(e for e in data["available_engines"] if e["name"] == "rtmpose")
+    assert rtm["available"] is True
+    assert rtm["model_verified"] is True
+    assert rtm["license"] == "Apache-2.0"
+    assert "provider_actual" in rtm
+
+    yolo = next(e for e in data["available_engines"] if e["name"] == "yolo11_pose")
+    assert yolo["license"] == "AGPL-3.0"
+
 
 def test_switch_inference_engine():
     # Trocar para mediapipe no lado esquerdo
@@ -37,13 +49,13 @@ def test_switch_inference_engine():
     assert data["active_engine"] == "mediapipe"
     assert data["active_side"] == "left"
 
-    # Trocar para opencv_markers no lado direito
-    response2 = client.post(
+    # Trocar para rtmpose no lado direito
+    response3 = client.post(
         "/api/v1/inference/engine/switch",
-        json={"engine": "opencv_markers", "side": "right", "smoothing": "one_euro"},
+        json={"engine": "rtmpose", "side": "right", "smoothing": "one_euro"},
     )
-    assert response2.status_code == 200
-    assert response2.json()["active_engine"] == "opencv_markers"
+    assert response3.status_code == 200
+    assert response3.json()["active_engine"] == "rtmpose"
 
 
 def test_websocket_live_inference():

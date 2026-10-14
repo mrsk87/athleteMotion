@@ -1,7 +1,7 @@
 # R12 — Medidas bikefit adicionais, qualidade/confiança e vista frontal
 
 > **ID:** R12 · **Prioridade:** P1 · **Onda:** 3
-> **Status:** 🔴 TODO · **Progresso:** 0/9 · **Atribuído a:** — · **Início:** — · **Última atualização:** 2026-10-13
+> **Status:** 🔵 REVIEW · **Progresso:** 9/9 · **Atribuído a:** Antigravity · **Início:** 2026-10-14 · **Última atualização:** 2026-10-14
 > **Depende de:** R10, R11 · **Bloqueia:** R17 · **Branch:** `feat/r12-measures-quality` · **PR:** —
 > **Referência:** CODE_REVIEW §4.3, §4.4 · **Protocolo:** [00_PROTOCOLO_LLM.md](00_PROTOCOLO_LLM.md)
 
@@ -19,15 +19,15 @@ Medidas completas por ciclo (vista sagital e frontal), cada uma com **confiança
 **Não mexe:** modelos de IA (R13), calibração (R11), UI.
 
 ## 4. Subtarefas
-- [ ] **1. Fontes dos limiares:** em `thresholds.py` cada limiar ganha `source` (Holmes 1994, Bini, Silberman 2005, Peveler…) e `confidence_level`; novo campo `fit_goal ∈ {comfort, performance, aero}` e `injury_flags` que ajustam limites (documentar em `docs/measures.md`). **Sem inventar referências**: se não houver fonte verificável, marcar `source="empirical/unverified"`.
-- [ ] **2. Curvas por ciclo (sagital):** reamostrar cada ciclo (R10) para 0–360° (100 pontos): joelho, anca (tronco–fémur), tornozelo (dorsiflexão), ombro (tronco–braço), cotovelo; média ± DP entre ciclos; `ROM` e fase do pico.
-- [ ] **3. Medidas estáticas derivadas (em mm, requer R11):** *setback* (KOPS), *knee-over-pedal-spindle* no 3h, *saddle-to-bar drop*, *reach* — cada uma com `uncertainty_mm`; sem calibração → `None` + motivo.
-- [ ] **4. Vista frontal:** `hip_drop_deg`, `lateral_sway_mm`, `knee_tracking (varo/valgo)` por ciclo, `q_factor_mm` (se escala), `symmetry_index` L/R por articulação; reutilizar `alignment.py`/`symmetry.py`, ligando a dados reais por ciclo.
-- [ ] **5. Fadiga/deriva:** `fatigue.py` compara janelas (1.º vs último terço) para joelho BDC, tronco, cadência; devolve `drift_deg`, `p_value` (teste não-paramétrico, Mann-Whitney) e flag `significant`.
-- [ ] **6. Confiança e gating (`confidence.py`):** `MeasureConfidence(score ∈ [0,1], factors{visibility,cycles,periodicity,calibration,model_agreement})`; regra de gating: score < 0.6 → medida **não entra** no diagnóstico (marcada `withheld` com motivo). Concordância entre 2 motores (quando disponível) como fator.
-- [ ] **7. Deteção do lado:** `detect_visible_side(landmarks_history) -> ("left"|"right", confidence)` a partir da posição relativa nariz/orelha vs. ombros/anca e da visibilidade; sugerir `set_side` automaticamente (nunca mudar sozinho no meio de um ciclo).
-- [ ] **8. Kalman com restrição de segmentos:** `kalman_skeleton.py` — estado por articulação (x,y,vx,vy) com *update* por visibilidade/confiança e projeção que mantém comprimentos fémur/tíbia (em px, escala corrente) dentro de ±8 %; opcional e ligado/desligado por parâmetro; teste com ruído e oclusões: RMSE do ângulo do joelho ≤ 70 % do sem filtro.
-- [ ] **9. Integração e docs:** agregação em `SessionMeasuresSummary` consumida pelo relatório (R08/R17); tabela em `docs/measures.md` (definição, convenção de sinal, unidade, requisitos, incerteza típica). Marcar CODE_REVIEW §4.3/§4.4 `✅ Resolvido em R12`.
+- [x] **1. Fontes dos limiares:** em `thresholds.py` cada limiar ganha `source` (Holmes 1994, Bini, Silberman 2005, Peveler…) e `confidence_level`; novo campo `fit_goal ∈ {comfort, performance, aero}` e `injury_flags` que ajustam limites (documentar em `docs/measures.md`). **Sem inventar referências**: se não houver fonte verificável, marcar `source="empirical/unverified"`.
+- [x] **2. Curvas por ciclo (sagital):** reamostrar cada ciclo (R10) para 0–360° (100 pontos): joelho, anca (tronco–fémur), tornozelo (dorsiflexão), ombro (tronco–braço), cotovelo; média ± DP entre ciclos; `ROM` e fase do pico.
+- [x] **3. Medidas estáticas derivadas (em mm, requer R11):** *setback* (KOPS), *knee-over-pedal-spindle* no 3h, *saddle-to-bar drop*, *reach* — cada uma com `uncertainty_mm`; sem calibração → `None` + motivo.
+- [x] **4. Vista frontal:** `hip_drop_deg`, `lateral_sway_mm`, `knee_tracking (varo/valgo)` por ciclo, `q_factor_mm` (se escala), `symmetry_index` L/R por articulação; reutilizar `alignment.py`/`symmetry.py`, ligando a dados reais por ciclo.
+- [x] **5. Fadiga/deriva:** `fatigue.py` compara janelas (1.º vs último terço) para joelho BDC, tronco, cadência; devolve `drift_deg`, `p_value` (teste não-paramétrico, Mann-Whitney) e flag `significant`.
+- [x] **6. Confiança e gating (`confidence.py`):** `MeasureConfidence(score ∈ [0,1], factors{visibility,cycles,periodicity,calibration,model_agreement})`; regra de gating: score < 0.6 → medida **não entra** no diagnóstico (marcada `withheld` com motivo). Concordância entre 2 motores (quando disponível) como fator.
+- [x] **7. Deteção do lado:** `detect_visible_side(landmarks_history) -> ("left"|"right", confidence)` a partir da posição relativa nariz/orelha vs. ombros/anca e da visibilidade; sugerir `set_side` automaticamente (nunca mudar sozinho no meio de um ciclo).
+- [x] **8. Kalman com restrição de segmentos:** `kalman_skeleton.py` — estado por articulação (x,y,vx,vy) com *update* por visibilidade/confiança e projeção que mantém comprimentos fémur/tíbia (em px, escala corrente) dentro de ±8 %; opcional e ligado/desligado por parâmetro; teste com ruído e oclusões: RMSE do ângulo do joelho ≤ 70 % do sem filtro.
+- [x] **9. Integração e docs:** agregação em `SessionMeasuresSummary` consumida pelo relatório (R08/R17); tabela em `docs/measures.md` (definição, convenção de sinal, unidade, requisitos, incerteza típica). Marcar CODE_REVIEW §4.3/§4.4 `✅ Resolvido em R12`.
 
 ## 5. Critérios de aceitação
 - Cada medida expõe `value`, `unit`, `confidence`, `uncertainty` (quando aplicável), `source` (ciclos/manual) e `withheld`.

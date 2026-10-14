@@ -507,6 +507,7 @@ export const messages = {
     exportClipBtn: '🎥 Download Video Clip',
     anglesTimelineTitle: '📈 Angles Evolution Along Video',
     anglesTimelineEmpty: 'No angle samples yet: the curve appears as soon as the video analysis records pedalling.',
+    anglesTimelineLiveHint: 'Live tracking of knee, back, arm and head in real time — cursor follows the running video.',
 
     // Foot Dynamics (the orbit the foot draws while turning the crank)
     footOrbitGroupTitle: '🦶 Foot Dynamics',

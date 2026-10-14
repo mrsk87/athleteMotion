@@ -1,5 +1,9 @@
 """Endpoints REST para gestão de ciclistas e medidas antropométricas."""
+
 from __future__ import annotations
+
+import datetime
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -13,7 +17,7 @@ router = APIRouter(prefix="/athletes", tags=["athletes"])
 
 @router.post("", response_model=AthleteResponse, status_code=status.HTTP_201_CREATED)
 def create_athlete(payload: AthleteCreate):
-    """Cria o perfil do ciclista com as suas medidas antropométricas iniciais."""
+    """Cria o perfil do ciclista com as suas medidas antropométricas e consentimento explícito."""
     if payload.inseam_cm >= payload.height_cm:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -31,6 +35,9 @@ def create_athlete(payload: AthleteCreate):
             arm_length_cm=payload.arm_length_cm,
             flexibility=payload.flexibility,
             riding_style=payload.riding_style,
+            consent_at=datetime.datetime.now(datetime.UTC),
+            consent_version=payload.consent_version,
+            consent_scope=json.dumps(payload.consent_scope),
         )
         session.add(athlete)
         session.flush()
@@ -40,17 +47,26 @@ def create_athlete(payload: AthleteCreate):
 
 @router.get("", response_model=list[AthleteResponse])
 def list_athletes(db: Session = Depends(get_db)):
-    """Lista todos os ciclistas registados."""
-    athletes = db.query(AthleteModel).order_by(AthleteModel.created_at.desc()).all()
+    """Lista todos os ciclistas registados (excluindo perfis eliminados)."""
+    athletes = (
+        db.query(AthleteModel)
+        .filter(AthleteModel.deleted_at.is_(None))
+        .order_by(AthleteModel.created_at.desc())
+        .all()
+    )
     return [AthleteResponse.model_validate(a) for a in athletes]
 
 
 @router.get("/{athlete_id}", response_model=AthleteResponse)
 def get_athlete(athlete_id: str, db: Session = Depends(get_db)):
     """Obtém detalhes e medidas corporais de um ciclista."""
-    athlete = db.query(AthleteModel).filter_by(id=athlete_id).first()
+    athlete = (
+        db.query(AthleteModel)
+        .filter(AthleteModel.id == athlete_id, AthleteModel.deleted_at.is_(None))
+        .first()
+    )
     if not athlete:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ciclista não encontrado.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ciclista não encontrado."
+        )
     return AthleteResponse.model_validate(athlete)
-
-

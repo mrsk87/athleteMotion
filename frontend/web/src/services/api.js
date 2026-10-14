@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { offlineStorage } from './offlineStorage';
+import { authToken } from './authToken';
+import { syncQueue } from './syncQueue';
 
 // Detecta o IP do servidor automaticamente para suportar telemóveis e tablets na mesma rede Wi-Fi
 const getBaseUrl = () => {
@@ -16,6 +18,36 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Interceptor para injeção de Token Bearer (R16 / R04)
+apiClient.interceptors.request.use((config) => {
+  const token = authToken.getToken();
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Interceptor para tratamento de 401 (Unauthorized) e 429 (Rate Limit) (R16 / R04)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      if (error.response.status === 401) {
+        authToken.notifyUnauthorized({
+          url: error.config?.url,
+          status: 401,
+          data: error.response.data,
+        });
+      } else if (error.response.status === 429) {
+        const retryHeader = error.response.headers?.['retry-after'];
+        const retrySec = retryHeader ? parseInt(retryHeader, 10) : 5;
+        authToken.notifyRateLimit(isNaN(retrySec) ? 5 : retrySec);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // O cliente é partilhado: quem precisa de uma rota da API (ex.: compilação do GIF) tem de usar a
 // MESMA base URL, senão o pedido relativo cai no servidor de desenvolvimento (404) e a exportação
@@ -45,17 +77,19 @@ export const apiService = {
     }
   },
 
-  // Criar ciclista
+  // Criar ciclista com suporte a consentimento e fila offline (R16 / R06)
   async createAthlete(athleteData) {
     try {
       const response = await apiClient.post('/api/v1/athletes', athleteData);
       return response.data;
     } catch (err) {
-      console.warn('Guardando ciclista em modo offline:', err.message);
+      console.warn('Guardando ciclista em modo offline / fila sync:', err.message);
+      await syncQueue.enqueue('athlete', athleteData);
       return {
         id: `offline-ath-${Date.now()}`,
         ...athleteData,
         is_offline: true,
+        queued: true,
       };
     }
   },
@@ -95,19 +129,38 @@ export const apiService = {
         created_at: new Date().toISOString(),
       };
       await offlineStorage.saveOfflineSession(sessionRecord);
+      await syncQueue.enqueue('session_start', { athlete_id: athleteId, bike_id: bikeId });
       return sessionRecord;
     }
   },
 
-  // Registar snapshot
+  // Registar snapshot com fila offline robusta (R16 / R08)
   async recordSnapshot(sessionId, snapshotData) {
     try {
       const response = await apiClient.post(`/api/v1/sessions/${sessionId}/snapshot`, snapshotData);
       return response.data;
     } catch (err) {
-      console.warn('Guardando snapshot em IndexedDB offline:', err.message);
+      console.warn('Guardando snapshot em syncQueue offline:', err.message);
       await offlineStorage.saveOfflineSnapshot(sessionId, snapshotData);
-      return { status: 'recorded_offline', session_id: sessionId, is_offline: true };
+      await syncQueue.enqueue('snapshot', { sessionId, snapshotData });
+      return { status: 'queued_offline', session_id: sessionId, is_offline: true };
+    }
+  },
+
+  // Registar lote de snapshots (R16 / R08 - POST /sessions/{id}/snapshots:batch)
+  async recordSnapshotsBatch(sessionId, snapshots) {
+    try {
+      const response = await apiClient.post(`/api/v1/sessions/${sessionId}/snapshots:batch`, {
+        snapshots,
+      });
+      return response.data;
+    } catch (err) {
+      console.warn('Guardando lote em syncQueue offline:', err.message);
+      for (const snap of snapshots) {
+        await offlineStorage.saveOfflineSnapshot(sessionId, snap);
+        await syncQueue.enqueue('snapshot', { sessionId, snapshotData: snap });
+      }
+      return { status: 'batch_queued_offline', session_id: sessionId, count: snapshots.length, is_offline: true };
     }
   },
 
@@ -123,6 +176,7 @@ export const apiService = {
       target.status = 'completed';
       target.completed_at = new Date().toISOString();
       await offlineStorage.saveOfflineSession(target);
+      await syncQueue.enqueue('session_complete', { sessionId });
       return {
         session_id: sessionId,
         status: 'completed_offline',
@@ -184,6 +238,12 @@ export const apiService = {
     return offlineStorage.getOfflineSessions();
   },
 
+  // Forçar processamento da fila offline
+  async syncOfflineQueue() {
+    await syncQueue.processQueue();
+    return syncQueue.getStatus();
+  },
+
   // Sincronizar sessões pendentes com o servidor backend
   async syncOfflineSessions() {
     const offlineList = await offlineStorage.getOfflineSessions();
@@ -228,6 +288,3 @@ export const apiService = {
     }
   },
 };
-
-
-

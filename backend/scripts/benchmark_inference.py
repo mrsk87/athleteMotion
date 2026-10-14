@@ -21,6 +21,7 @@ pessoa, pelo que o filtro de confiança corta logo no início. O custo dominante
 (a passagem pela rede) é medido na mesma; a pós-detecção (decodificação dos 17
 keypoints e cálculo de ângulos) só é exercitada quando há pessoa detetada.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,14 +31,14 @@ import statistics
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
 # Correr a partir da pasta backend sem instalar o pacote.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-import athletemotion.domain.inference  # noqa: E402,F401  (regista todos os motores no Factory)
+import athletemotion.domain.inference  # noqa: F401  (regista todos os motores no Factory)
 from athletemotion.domain.inference.base import PoseEngineRegistry
 from athletemotion.infrastructure.hardware import hardware_manager
 
@@ -59,7 +60,7 @@ def make_frame(width: int, height: int, seed: int = 7) -> np.ndarray:
     return rng.integers(0, 256, size=(height, width, 3), dtype=np.uint8)
 
 
-def load_frame(image_path: Optional[str], width: int, height: int) -> np.ndarray:
+def load_frame(image_path: str | None, width: int, height: int) -> np.ndarray:
     if not image_path:
         return make_frame(width, height)
     import cv2
@@ -73,11 +74,11 @@ def load_frame(image_path: Optional[str], width: int, height: int) -> np.ndarray
     return frame
 
 
-def percentile(values: List[float], pct: float) -> float:
+def percentile(values: list[float], pct: float) -> float:
     if not values:
         return 0.0
     ordered = sorted(values)
-    index = min(len(ordered) - 1, max(0, int(round((pct / 100.0) * (len(ordered) - 1)))))
+    index = min(len(ordered) - 1, max(0, round((pct / 100.0) * (len(ordered) - 1))))
     return ordered[index]
 
 
@@ -87,9 +88,9 @@ def benchmark_engine(
     runs: int,
     warmup: int,
     side: str = "right",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Constrói o motor, aquece-o e mede a latência em regime estável."""
-    result: Dict[str, Any] = {"engine": name, "ok": False}
+    result: dict[str, Any] = {"engine": name, "ok": False}
 
     build_start = time.perf_counter()
     try:
@@ -109,8 +110,8 @@ def benchmark_engine(
         except Exception:
             pass
 
-    timings: List[float] = []
-    first_frame_ms: Optional[float] = None
+    timings: list[float] = []
+    first_frame_ms: float | None = None
     total = warmup + runs
 
     try:
@@ -163,15 +164,19 @@ def main() -> int:
     print("=" * 78)
     print("BANCO DE ENSAIO — MOTORES DE ANÁLISE DE POSE HUMANA")
     print("=" * 78)
-    print(f"Fotograma: {frame.shape[1]}x{frame.shape[0]} | fotogramas medidos: {args.runs} "
-          f"| aquecimento: {args.warmup}")
+    print(
+        f"Fotograma: {frame.shape[1]}x{frame.shape[0]} | fotogramas medidos: {args.runs} "
+        f"| aquecimento: {args.warmup}"
+    )
     print(f"Providers ONNX Runtime: {hardware_manager.available_providers}")
     print(f"DirectML disponível: {hardware_manager.has_directml}")
-    print(f"Threads de CPU: intra={hardware_manager.intra_op_threads} "
-          f"inter={hardware_manager.inter_op_threads} (núcleos lógicos={hardware_manager.logical_cores})")
+    print(
+        f"Threads de CPU: intra={hardware_manager.intra_op_threads} "
+        f"inter={hardware_manager.inter_op_threads} (núcleos lógicos={hardware_manager.logical_cores})"
+    )
     print("-" * 78)
 
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for name in args.engines:
         if name not in PoseEngineRegistry.get_registered_names():
             print(f"[{name}] ignorado — não registado.")
@@ -209,7 +214,9 @@ def main() -> int:
             "providers": list(hardware_manager.available_providers),
             "results": results,
         }
-        Path(args.json).write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        Path(args.json).write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         print(f"Resultado gravado em {args.json}")
 
     return 0

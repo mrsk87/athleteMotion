@@ -1,20 +1,21 @@
 """Filtro temporal One-Euro para estabilização de landmarks biomecânicos."""
+
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional
+
 from .types import Landmark2D
 
 
 class LowPassFilter:
     def __init__(self, alpha: float = 0.5):
         self.alpha = alpha
-        self.hat_x_prev: Optional[float] = None
+        self.hat_x_prev: float | None = None
 
     def reset(self):
         self.hat_x_prev = None
 
-    def filter(self, x: float, alpha: Optional[float] = None) -> float:
+    def filter(self, x: float, alpha: float | None = None) -> float:
         if alpha is not None:
             self.alpha = alpha
         if self.hat_x_prev is None:
@@ -32,7 +33,7 @@ class OneEuroFilter1D:
         self.d_cutoff = d_cutoff
         self.x_filter = LowPassFilter()
         self.dx_filter = LowPassFilter()
-        self.t_prev: Optional[float] = None
+        self.t_prev: float | None = None
 
     def reset(self):
         self.x_filter.reset()
@@ -78,8 +79,8 @@ class LandmarkFilterPipeline:
     def __init__(self, min_cutoff: float = 1.2, beta: float = 0.05):
         self.min_cutoff = min_cutoff
         self.beta = beta
-        self.filters_x: Dict[str, OneEuroFilter1D] = {}
-        self.filters_y: Dict[str, OneEuroFilter1D] = {}
+        self.filters_x: dict[str, OneEuroFilter1D] = {}
+        self.filters_y: dict[str, OneEuroFilter1D] = {}
 
     def reset(self):
         for f in self.filters_x.values():
@@ -87,13 +88,16 @@ class LandmarkFilterPipeline:
         for f in self.filters_y.values():
             f.reset()
 
-    def filter_landmarks(self, landmarks: Dict[str, Landmark2D], timestamp_ms: int) -> Dict[str, Landmark2D]:
+    def filter_landmarks(
+        self, landmarks: dict[str, Landmark2D], timestamp_ms: int
+    ) -> dict[str, Landmark2D]:
         import time
+
         if timestamp_ms <= 0:
             t_sec = time.perf_counter()
         else:
             t_sec = timestamp_ms / 1000.0
-        filtered: Dict[str, Landmark2D] = {}
+        filtered: dict[str, Landmark2D] = {}
 
         for name, lm in landmarks.items():
             if name not in self.filters_x:

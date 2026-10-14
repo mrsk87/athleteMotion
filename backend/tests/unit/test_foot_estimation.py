@@ -53,9 +53,7 @@ def test_foot_estimation_scale_invariance_for_ankle_angle():
     knee_a = Landmark2D(x=knee_px_a[0] / w, y=knee_px_a[1] / h, visibility=1.0)
     ankle_a = Landmark2D(x=ankle_px_a[0] / w, y=ankle_px_a[1] / h, visibility=1.0)
 
-    foot_a = estimate_foot(
-        ankle_a, knee_a, facing_right=True, tibia_px=tibia_px_a, w=w, h=h
-    )
+    foot_a = estimate_foot(ankle_a, knee_a, facing_right=True, tibia_px=tibia_px_a, w=w, h=h)
     toe_px_a = (foot_a["toe"].x * w, foot_a["toe"].y * h)
 
     angle_a = calculate_safe_angle(
@@ -72,9 +70,7 @@ def test_foot_estimation_scale_invariance_for_ankle_angle():
     knee_b = Landmark2D(x=knee_px_b[0] / w, y=knee_px_b[1] / h, visibility=1.0)
     ankle_b = Landmark2D(x=ankle_px_b[0] / w, y=ankle_px_b[1] / h, visibility=1.0)
 
-    foot_b = estimate_foot(
-        ankle_b, knee_b, facing_right=True, tibia_px=tibia_px_b, w=w, h=h
-    )
+    foot_b = estimate_foot(ankle_b, knee_b, facing_right=True, tibia_px=tibia_px_b, w=w, h=h)
     toe_px_b = (foot_b["toe"].x * w, foot_b["toe"].y * h)
 
     angle_b = calculate_safe_angle(

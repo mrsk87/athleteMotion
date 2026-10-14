@@ -3,6 +3,7 @@
 Configura o hook 'pre-push' para garantir conformidade de versão e opcionalmente
 autoincrementar o SemVer antes do envio para o repositório remoto.
 """
+
 from __future__ import annotations
 
 import os
@@ -68,10 +69,18 @@ def install_hooks() -> None:
     except Exception:
         pass
 
+    import subprocess
+
+    # Tentar instalar via pre-commit se instalado
+    try:
+        subprocess.run(["pre-commit", "install"], cwd=ROOT, check=True)
+        print("[Sucesso] Pre-commit framework instalado com sucesso nos Git hooks.")
+    except (FileNotFoundError, subprocess.SubprocessError):
+        print("[Info] Ferramenta 'pre-commit' não detetada no PATH; mantendo hook nativo.")
+
     print(f"[Sucesso] Git hook 'pre-push' instalado em: {PRE_PUSH_HOOK}")
-    print("Agora qualquer push efetuado validará a sincronização da versão SemVer.")
+    print("Agora qualquer push efetuado validará a integridade e sincronização da versão SemVer.")
 
 
 if __name__ == "__main__":
     install_hooks()
-

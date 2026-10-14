@@ -6,24 +6,39 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  backend-quality:
-    name: Backend Tests & Quality Gates
-    runs-on: ubuntu-latest
+  backend-windows:
+    name: Backend (Windows ${{ matrix.python-version }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
 
-      - name: Install Python Dependencies
+      - name: Upgrade Pip and Build Tooling
         working-directory: backend
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Install Dependencies (Dev + DirectML)
+        working-directory: backend
+        run: |
+          pip install -e ".[dev,directml]"
 
       - name: Validate SemVer Synchronization
         shell: bash
@@ -37,13 +52,69 @@ jobs:
           print(f'SemVer validado e sincronizado: v{v_file}')
           "
 
-      - name: Run Pytest Test Suite
+      - name: Static Analysis (Ruff Linter)
         working-directory: backend
         run: |
-          pytest tests/ -v --maxfail=1
+          ruff check src tests scripts
+
+      - name: Code Formatting (Ruff Format Check)
+        working-directory: backend
+        run: |
+          ruff format --check src tests scripts
+
+      - name: Type Checking (mypy strict domain/schemas)
+        working-directory: backend
+        run: |
+          mypy src/athletemotion/domain/biomechanics src/athletemotion/schemas
+
+      - name: Run Pytest Suite with Coverage Gate (fail-under >= 70%)
+        working-directory: backend
+        run: |
+          pytest -v --cov=athletemotion --cov-fail-under=70 --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Dependency Vulnerability Audit (pip-audit)
+        working-directory: backend
+        run: |
+          pip-audit
+
+      - name: Upload Coverage Artifact
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/coverage.xml
+
+  backend-ubuntu-cpu:
+    name: Backend Domain & Unit Tests (Ubuntu CPU)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Upgrade Pip
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip setuptools
+
+      - name: Install Dependencies (CPU only - no DirectML wheels)
+        working-directory: backend
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run Pytest Unit Tests
+        working-directory: backend
+        run: |
+          pytest tests/unit/ -v
 
   frontend-quality:
-    name: Frontend Lint & Build Gates
+    name: Frontend Lint, Build & Security Gates
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -63,3 +134,11 @@ jobs:
       - name: Run Frontend Production Build
         working-directory: frontend/web
         run: npm run build
+
+      - name: Run Frontend Verification Scripts
+        working-directory: frontend/web
+        run: npm run verify
+
+      - name: Security Audit (npm audit)
+        working-directory: frontend/web
+        run: npm audit --omit=dev --audit-level=high

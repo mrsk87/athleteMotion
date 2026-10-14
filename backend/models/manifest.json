@@ -1,0 +1,134 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": "1.0",
+  "updated_at": "2026-10-14T09:15:00Z",
+  "models": {
+    "yolo11n-pose-320": {
+      "id": "yolo11n-pose-320",
+      "name": "YOLO11n-Pose (320x320 DirectML)",
+      "task": "pose_estimation",
+      "framework": "onnx",
+      "filename": "yolo11n-pose-320.onnx",
+      "license": "AGPL-3.0",
+      "license_risk": true,
+      "sha256": "d3d542a31e829aef9a381de8d9e851cd5364ca8a36a4e9f46aead34b5ab623be",
+      "size_bytes": 11609474,
+      "input_shape": [1, 3, 320, 320],
+      "input_norm": {
+        "mean": [0.0, 0.0, 0.0],
+        "std": [255.0, 255.0, 255.0],
+        "to_rgb": true
+      },
+      "output_format": "yolo_v8_pose",
+      "keypoint_layout": "coco17",
+      "min_ort_version": "1.16.0",
+      "verified": true,
+      "description": "Modelo YOLO11n pose leve otimizado para inferência rápida a 320x320 em tempo real."
+    },
+    "yolo11n-pose": {
+      "id": "yolo11n-pose",
+      "name": "YOLO11n-Pose (640x640 Standard)",
+      "task": "pose_estimation",
+      "framework": "onnx",
+      "filename": "yolo11n-pose.onnx",
+      "license": "AGPL-3.0",
+      "license_risk": true,
+      "sha256": "1fcb3de7a560ffa1bd75f0d1698988e6a895fca1133b2c04bc44eeb30b941f47",
+      "size_bytes": 11811082,
+      "input_shape": [1, 3, 640, 640],
+      "input_norm": {
+        "mean": [0.0, 0.0, 0.0],
+        "std": [255.0, 255.0, 255.0],
+        "to_rgb": true
+      },
+      "output_format": "yolo_v8_pose",
+      "keypoint_layout": "coco17",
+      "min_ort_version": "1.16.0",
+      "verified": true,
+      "description": "Modelo YOLO11n pose standard a 640x640 com maior resolução para deteção estável."
+    },
+    "mediapipe-pose-lite": {
+      "id": "mediapipe-pose-lite",
+      "name": "MediaPipe Pose Landmarker (Lite)",
+      "task": "pose_estimation",
+      "framework": "mediapipe_tasks",
+      "filename": "pose_landmarker_lite.task",
+      "license": "Apache-2.0",
+      "license_risk": false,
+      "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+      "size_bytes": 5777746,
+      "urls": [
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
+      ],
+      "keypoint_layout": "mediapipe33",
+      "min_ort_version": null,
+      "verified": true,
+      "description": "Modelo MediaPipe Tasks Lite para CPU com complexidade reduzida."
+    },
+    "mediapipe-pose-full": {
+      "id": "mediapipe-pose-full",
+      "name": "MediaPipe Pose Landmarker (Full)",
+      "task": "pose_estimation",
+      "framework": "mediapipe_tasks",
+      "filename": "pose_landmarker_full.task",
+      "license": "Apache-2.0",
+      "license_risk": false,
+      "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+      "size_bytes": 9398198,
+      "urls": [
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
+      ],
+      "keypoint_layout": "mediapipe33",
+      "min_ort_version": null,
+      "verified": true,
+      "description": "Modelo MediaPipe Tasks Full equilibrando velocidade e fidelidade anatómica."
+    },
+    "mediapipe-pose-heavy": {
+      "id": "mediapipe-pose-heavy",
+      "name": "MediaPipe Pose Landmarker (Heavy)",
+      "task": "pose_estimation",
+      "framework": "mediapipe_tasks",
+      "filename": "pose_landmarker_heavy.task",
+      "license": "Apache-2.0",
+      "license_risk": false,
+      "sha256": "64437af838a65d18e5ba7a0d39b465540069bc8aae8308de3e318aad31fcbc7b",
+      "size_bytes": 30664242,
+      "urls": [
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+      ],
+      "keypoint_layout": "mediapipe33",
+      "min_ort_version": null,
+      "verified": true,
+      "description": "Modelo MediaPipe Tasks Heavy com máxima precisão em CPU."
+    },
+    "rtmpose-m-halpe26": {
+      "id": "rtmpose-m-halpe26",
+      "name": "RTMPose-m Body8 Halpe26 (Top-Down SimCC)",
+      "task": "pose_estimation",
+      "framework": "onnx",
+      "filename": "rtmpose-m.onnx",
+      "license": "Apache-2.0",
+      "license_risk": false,
+      "sha256": "26f3a19e61304a600dfb82d1001d41d24343b89fc70a33ffc84657e0b0bf2ecf",
+      "size_bytes": 55685444,
+      "urls": [
+        "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7-halpe26_700e-256x192-4d3e73dd_20230605.zip"
+      ],
+      "archive_type": "zip",
+      "archive_member_pattern": "end2end.onnx",
+      "input_shape": [1, 3, 256, 192],
+      "input_norm": {
+        "mean": [123.675, 116.28, 103.53],
+        "std": [58.395, 57.12, 57.375],
+        "to_rgb": true
+      },
+      "padding": 1.25,
+      "output_format": "simcc",
+      "simcc_split_ratio": 2.0,
+      "keypoint_layout": "halpe26",
+      "min_ort_version": "1.16.0",
+      "verified": true,
+      "description": "RTMPose Medium com Halpe26 (inclui calcanhar, hálux e 5º dedo reais sem estimativa)."
+    }
+  }
+}
