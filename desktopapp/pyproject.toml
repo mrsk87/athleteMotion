@@ -35,6 +35,7 @@ dev = [
     "pytest-qt>=4.4.0",
     "pytest-benchmark>=4.0.0",
     "pytest-cov>=5.0.0",
+    "pytest-timeout>=2.3.1",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
     "types-psutil>=5.9.0",
@@ -66,7 +67,45 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = [
-    "slow: testes de longa duração (corridas de robustez, múltiplos minutos)",
-    "perf: medições de desempenho com limites do orçamento (arranque, latência, FPS)",
+# `--strict-markers` é essencial neste projeto: a seleção do CI faz-se por marcadores
+# (`-m "not slow and not needs_camera and not directml"`), e um marcador escrito com erro
+# ortográfico deixaria um teste de GPU a correr em silêncio no runner errado.
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--timeout=300",
 ]
+# O `timeout` acima é a rede de segurança contra hangs de multiprocessing/Qt; o método
+# `thread` imprime a stack do que ficou preso antes de abortar a execução inteira, ao
+# contrário de um simples `signal` (que não existe no Windows para este efeito).
+# Os testes de robustez marcados `slow` sobrepõem-no com `@pytest.mark.timeout(...)`.
+timeout_method = "thread"
+timeout_func_only = true
+markers = [
+    "unit: unidade pura, sem I/O real (é o que corre sempre)",
+    "integration: atravessa módulos, processos ou o arranque da aplicação",
+    "ui: interface com pytest-qt, sempre com QT_QPA_PLATFORM=offscreen",
+    "perf: medição de desempenho com limites de orçamento (arranque, latência, FPS)",
+    "slow: longa duração (corridas de robustez de minutos); excluído do CI por omissão",
+    "directml: exige onnxruntime-directml (ou WARP) no ambiente",
+    "needs_camera: exige câmara real ligada; nunca corre por omissão",
+    "no_leak_check: dispensa o portão de fugas (só em testes que provocam fugas de propósito)",
+]
+
+[tool.coverage.run]
+source = ["athletemotion_desktop"]
+branch = false
+
+[tool.coverage.report]
+# Só se exclui o que não é código executável em produção. `pragma: no cover` é usado no
+# código para caminhos defensivos/POSIX documentados, não para esconder lógica sem testes.
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+# Medido em 91,9 % na D14 (339 testes). O limite fica 4 pontos abaixo: uma regressão real
+# (um módulo novo sem testes, um caminho de erro por cobrir) acciona o limite, enquanto uma
+# oscilação de refactor não transforma o portão em ruído.
+fail_under = 88

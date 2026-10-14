@@ -1,0 +1,12 @@
+# Artefactos de teste gerados localmente: nunca versionados (ver README.md).
+# A lista é por tipo e não por pasta (`*`) de propósito: uma pasta totalmente ignorada
+# esconde também a política que lhe dá sentido, do repositório e das ferramentas.
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.npy
+*.onnx
+
+# Landmarks anonimizados (.npz) NÃO são ignorados: se entrarem, entram documentados
+# (o teste test_archived_landmarks_are_small_and_documented verifica-o).

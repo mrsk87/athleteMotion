@@ -32,7 +32,7 @@ from athletemotion_desktop.runtime.capture.device import (
     fourcc_to_code,
     fourcc_to_text,
 )
-from tests.support.fake_capture import FakeCaptureDevice, camera_properties, fake_camera
+from tests.fakes.fake_camera import FakeCaptureDevice, camera_properties, fake_camera
 
 
 def _config(**overrides: object) -> CameraConfig:

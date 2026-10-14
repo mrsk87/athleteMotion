@@ -25,6 +25,8 @@ from athletemotion_desktop.runtime.preprocess.pipeline import (
     PreprocessRequest,
 )
 from athletemotion_desktop.runtime.preprocess.roi import Roi
+from tests.fakes.synthetic import synthetic_frame
+from tests.support.perf_baseline import Measurement, PerfBaseline
 
 pytestmark = pytest.mark.perf
 
@@ -32,6 +34,11 @@ pytestmark = pytest.mark.perf
 BUDGET_MS_720P = 2.0
 #: Aquecimento antes de medir: a primeira chamada inclui inicializações do OpenCV.
 WARMUP_FRAMES = 30
+
+#: Chaves das métricas na baseline de desempenho.
+METRIC_720P = "preprocess 720p->320"
+METRIC_1080P = "preprocess 1080p->640"
+METRIC_RTMPOSE = "preprocess rt 192x256"
 
 
 class FrameTimer:
@@ -59,16 +66,10 @@ class FrameTimer:
         return float(np.percentile(self.samples_ms, fraction * 100))
 
 
-def _frame(width: int, height: int) -> np.ndarray:
-    """Frame sintética do tamanho pedido (textura determinística, não ruído puro)."""
-    generator = np.random.default_rng(11)
-    return generator.integers(0, 256, size=(height, width, 3), dtype=np.uint8)
-
-
 def _measured_720p() -> tuple[FrameTimer, Preprocessor, np.ndarray, Roi]:
     """Prepara o cenário 720p: recorte de pessoa (400x500) para entrada 320x320."""
     processor = Preprocessor(PreprocessRequest(target_size=(320, 320)))
-    frame = _frame(1280, 720)
+    frame = synthetic_frame(1280, 720)
     roi = Roi(x=440, y=110, width=400, height=500)
 
     def measure() -> None:
@@ -81,28 +82,32 @@ def _measured_720p() -> tuple[FrameTimer, Preprocessor, np.ndarray, Roi]:
     return timer, processor, frame, roi
 
 
-def test_preprocess_720p_stays_within_budget(benchmark: BenchmarkFixture) -> None:
-    """O ROI + letterbox + blob a 720p fica dentro dos 2 ms (p95), com p50 bem abaixo."""
+def test_preprocess_720p_stays_within_budget(
+    benchmark: BenchmarkFixture, perf_gate: PerfBaseline
+) -> None:
+    """O ROI + letterbox + blob a 720p fica dentro dos 2 ms (p95), com p50 bem abaixo.
+
+    O critério da tarefa é o orçamento de 2 ms; a comparação com a baseline é adicional e
+    não o substitui (não se aperta a mediana para "metade do orçamento": essa margem
+    auto-imposta transformava uma variação de turbo/carga da máquina — 0,84 → 1,10 ms
+    entre execuções — numa falha sem relação com o requisito).
+    """
     timer, _processor, _frame_data, _roi = _measured_720p()
 
     benchmark(timer)
 
-    median_ms = timer.percentile(0.50)
-    p95_ms = timer.percentile(0.95)
-    print(
-        f"\n[preprocess 720p->320] p50={median_ms:.3f} ms p95={p95_ms:.3f} ms "
-        f"n={len(timer.samples_ms)} (orçamento {BUDGET_MS_720P} ms)"
+    perf_gate.check(
+        Measurement(
+            metric=METRIC_720P,
+            p50_ms=timer.percentile(0.50),
+            p95_ms=timer.percentile(0.95),
+            budget_ms=BUDGET_MS_720P,
+            samples=len(timer.samples_ms),
+        )
     )
 
-    # O critério da tarefa é o orçamento de 2 ms para o pré-processamento a 720p. Não se
-    # aperta a mediana para "metade do orçamento": essa margem auto-imposta transformava
-    # uma variação de turbo/load da máquina (0,84 → 1,10 ms entre execuções) numa falha,
-    # sem relação com o requisito. O valor medido fica impresso acima e registado na tarefa.
-    assert median_ms < BUDGET_MS_720P, f"p50 de {median_ms:.3f} ms excede {BUDGET_MS_720P} ms"
-    assert p95_ms < BUDGET_MS_720P, f"p95 de {p95_ms:.3f} ms excede {BUDGET_MS_720P} ms"
 
-
-def test_preprocess_1080p_is_measured(benchmark: BenchmarkFixture) -> None:
+def test_preprocess_1080p_is_measured(benchmark: BenchmarkFixture, perf_gate: PerfBaseline) -> None:
     """A 1080p (entrada 640x640) o custo é maior: mede-se e registra-se, sem meta fixa.
 
     1080p a 30 FPS tem 33 ms de orçamento por frame, pelo que 4x o custo do pré-processamento
@@ -110,7 +115,7 @@ def test_preprocess_1080p_is_measured(benchmark: BenchmarkFixture) -> None:
     poder decidir a resolução por máquina.
     """
     processor = Preprocessor(PreprocessRequest(target_size=(640, 640)))
-    frame = _frame(1920, 1080)
+    frame = synthetic_frame(1920, 1080)
     roi = Roi(x=700, y=200, width=500, height=700)
 
     def measure() -> None:
@@ -123,20 +128,25 @@ def test_preprocess_1080p_is_measured(benchmark: BenchmarkFixture) -> None:
 
     benchmark(timer)
 
-    median_ms = timer.percentile(0.50)
-    p95_ms = timer.percentile(0.95)
-    print(
-        f"\n[preprocess 1080p->640] p50={median_ms:.3f} ms p95={p95_ms:.3f} ms "
-        f"n={len(timer.samples_ms)}"
+    perf_gate.check(
+        Measurement(
+            metric=METRIC_1080P,
+            p50_ms=timer.percentile(0.50),
+            p95_ms=timer.percentile(0.95),
+            # 1080p a 30 FPS tem 33 ms por frame: 10 ms é o teto que ainda deixa margem
+            # para inferência e pós-processamento.
+            budget_ms=10.0,
+            samples=len(timer.samples_ms),
+        )
     )
 
-    assert p95_ms < 10.0, f"p95 de {p95_ms:.3f} ms inviabiliza 1080p a 30 FPS (33 ms/frame)"
 
-
-def test_preprocess_rtmpose_input_stays_within_budget(benchmark: BenchmarkFixture) -> None:
+def test_preprocess_rtmpose_input_stays_within_budget(
+    benchmark: BenchmarkFixture, perf_gate: PerfBaseline
+) -> None:
     """A entrada 192x256 do RTMPose (a do bikefit) também cabe no orçamento de 2 ms."""
     processor = Preprocessor(PreprocessRequest(target_size=RTMPOSE_INPUT_SIZE))
-    frame = _frame(1280, 720)
+    frame = synthetic_frame(1280, 720)
     roi = Roi(x=440, y=110, width=320, height=400)
 
     def measure() -> None:
@@ -149,12 +159,12 @@ def test_preprocess_rtmpose_input_stays_within_budget(benchmark: BenchmarkFixtur
 
     benchmark(timer)
 
-    median_ms = timer.percentile(0.50)
-    p95_ms = timer.percentile(0.95)
-    print(
-        f"[preprocess rt 192x256] p50={median_ms:.3f} ms p95={p95_ms:.3f} ms "
-        f"n={len(timer.samples_ms)} (orçamento {BUDGET_MS_720P} ms)"
+    perf_gate.check(
+        Measurement(
+            metric=METRIC_RTMPOSE,
+            p50_ms=timer.percentile(0.50),
+            p95_ms=timer.percentile(0.95),
+            budget_ms=BUDGET_MS_720P,
+            samples=len(timer.samples_ms),
+        )
     )
-
-    assert median_ms < BUDGET_MS_720P
-    assert p95_ms < BUDGET_MS_720P

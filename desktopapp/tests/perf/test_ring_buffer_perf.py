@@ -20,8 +20,12 @@ import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 
 from athletemotion_desktop.runtime.ring_buffer.shm_ring import ShmRing
+from tests.support.perf_baseline import Measurement, PerfBaseline
 
 pytestmark = pytest.mark.perf
+
+#: Chave da métrica na baseline (nome estável: muda só se a medição mudar de sentido).
+METRIC = "anel SPSC 720p (escrita+leitura)"
 
 #: Critério da tarefa D04: escrita + leitura por frame abaixo de 0,2 ms.
 BUDGET_MS_PER_FRAME = 0.2
@@ -59,7 +63,7 @@ def ring() -> Iterator[ShmRing]:
 
 
 def test_write_and_read_latency_stays_within_budget(
-    benchmark: BenchmarkFixture, ring: ShmRing
+    benchmark: BenchmarkFixture, ring: ShmRing, perf_gate: PerfBaseline
 ) -> None:
     """Escrever, publicar, arrendar e devolver um frame 720p fica abaixo de 0,2 ms."""
     consumer = ShmRing.attach(ring.name)
@@ -88,15 +92,15 @@ def test_write_and_read_latency_stays_within_budget(
         timer = FrameTimer(transfer_one_frame)
         benchmark(timer)
 
-        median_ms = timer.percentile(0.50)
-        p95_ms = timer.percentile(0.95)
-        print(
-            f"\n[anel 720p] p50={median_ms:.4f} ms p95={p95_ms:.4f} ms "
-            f"n={len(timer.samples_ms)} (orçamento {BUDGET_MS_PER_FRAME} ms)"
+        perf_gate.check(
+            Measurement(
+                metric=METRIC,
+                p50_ms=timer.percentile(0.50),
+                p95_ms=timer.percentile(0.95),
+                budget_ms=BUDGET_MS_PER_FRAME,
+                samples=len(timer.samples_ms),
+            )
         )
-
-        assert median_ms < BUDGET_MS_PER_FRAME
-        assert p95_ms < BUDGET_MS_PER_FRAME
     finally:
         consumer.close()
 

@@ -1,10 +1,10 @@
 """Testes da fonte de ficheiro, com vídeos gerados no próprio teste.
 
-O vídeo é criado com o `cv2.VideoWriter` e cada frame tem um valor de cinzento
-identificável (`10 + índice × 5`). Isso permite verificar por **conteúdo** — e não só pelo
-contador — que `step` e `seek` devolvem o frame certo: é o critério «frame N devolve o
-N-ésimo» da tarefa, e o único que deteta um `seek` que se desloca para o *keyframe*
-anterior.
+O vídeo vem do gerador partilhado (`tests.fakes.synthetic.write_synthetic_video`): cada
+frame tem um valor de cinzento identificável (`10 + índice × 5`). Isso permite verificar por
+**conteúdo** — e não só pelo contador — que `step` e `seek` devolvem o frame certo: é o
+critério «frame N devolve o N-ésimo» da tarefa, e o único que deteta um `seek` que se
+desloca para o *keyframe* anterior.
 
 A tolerância de ±4 níveis de cinzento existe porque a compressão MJPG não é sem perdas;
 o valor exato não é recuperável, a posição é.
@@ -15,7 +15,6 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import cv2
 import numpy as np
 import pytest
 
@@ -24,53 +23,35 @@ from athletemotion_desktop.runtime.capture.base import (
     CaptureSourceError,
     CaptureState,
 )
-from athletemotion_desktop.runtime.capture.device import fourcc_to_code
 from athletemotion_desktop.runtime.capture.file_source import (
     MAX_SPEED,
     MIN_SPEED,
     FileSource,
     LoopRange,
 )
+from tests.fakes.synthetic import GRAY_TOLERANCE, gray_value, mean_gray, write_synthetic_video
 
 FRAME_WIDTH = 64
 FRAME_HEIGHT = 48
 FRAME_COUNT = 20
 FPS = 25.0
-GRAY_TOLERANCE = 4
-
-
-def gray_value(index: int) -> int:
-    """Valor de cinzento escrito no frame `index` (bem separado dos vizinhos)."""
-    return 10 + index * 5
-
-
-def make_video(path: Path, *, frame_count: int = FRAME_COUNT) -> Path:
-    """Gera um vídeo com frames sólidos e identificáveis."""
-    writer = cv2.VideoWriter(
-        str(path),
-        fourcc_to_code("MJPG"),
-        FPS,
-        (FRAME_WIDTH, FRAME_HEIGHT),
-    )
-    assert writer.isOpened(), "o escritor de vídeo não abriu (codec MJPG indisponível)"
-    try:
-        for index in range(frame_count):
-            writer.write(np.full((FRAME_HEIGHT, FRAME_WIDTH, 3), gray_value(index), dtype=np.uint8))
-    finally:
-        writer.release()
-    return path
 
 
 @pytest.fixture
 def video(tmp_path: Path) -> Path:
     """Vídeo de 20 frames em `/tmp`, removido no fim do teste."""
-    return make_video(tmp_path / "clip.avi")
+    return write_synthetic_video(
+        tmp_path / "clip.avi",
+        frame_count=FRAME_COUNT,
+        width=FRAME_WIDTH,
+        height=FRAME_HEIGHT,
+        fps=FPS,
+    )
 
 
-def mean_gray(frame: object) -> float:
-    """Média dos píxeis de um frame (identifica o frame no vídeo gerado)."""
-    data = np.asarray(frame.data)  # type: ignore[attr-defined]
-    return float(data.mean())
+def frame_mean(frame: object) -> float:
+    """Média dos píxeis de um frame do contrato de captura (identifica-o no vídeo)."""
+    return mean_gray(np.asarray(frame.data))  # type: ignore[attr-defined]
 
 
 def test_open_reports_real_metadata(video: Path) -> None:
@@ -102,7 +83,7 @@ def test_sequential_reads_advance_one_frame_at_a_time(video: Path) -> None:
             indices.append(frame.index)
             # O conteúdo só pode ser validado no momento da leitura: todos os frames
             # partilham o mesmo buffer (é o que torna o caminho sem cópias possível).
-            assert mean_gray(frame) == pytest.approx(gray_value(index), abs=GRAY_TOLERANCE)
+            assert frame_mean(frame) == pytest.approx(gray_value(index), abs=GRAY_TOLERANCE)
 
         assert indices == list(range(FRAME_COUNT))
         stats = source.stats()
@@ -137,12 +118,12 @@ def test_step_returns_exactly_the_requested_frame(video: Path) -> None:
         forward = source.step(5)
         assert forward is not None
         assert forward.index == 5
-        assert mean_gray(forward) == pytest.approx(gray_value(5), abs=GRAY_TOLERANCE)
+        assert frame_mean(forward) == pytest.approx(gray_value(5), abs=GRAY_TOLERANCE)
 
         backward = source.step(-3)
         assert backward is not None
         assert backward.index == 2
-        assert mean_gray(backward) == pytest.approx(gray_value(2), abs=GRAY_TOLERANCE)
+        assert frame_mean(backward) == pytest.approx(gray_value(2), abs=GRAY_TOLERANCE)
     finally:
         source.close()
 
@@ -182,7 +163,7 @@ def test_seek_by_frame_and_by_milliseconds(video: Path) -> None:
         assert source.seek(ms=400.0) is True  # 400 ms a 25 FPS = frame 10
         by_ms = source.read()
         assert by_ms is not None and by_ms.index == 10
-        assert mean_gray(by_ms) == pytest.approx(gray_value(10), abs=GRAY_TOLERANCE)
+        assert frame_mean(by_ms) == pytest.approx(gray_value(10), abs=GRAY_TOLERANCE)
     finally:
         source.close()
 

@@ -27,7 +27,7 @@ from athletemotion_desktop.runtime.capture.controls import (
     save_presets,
     set_control,
 )
-from tests.support.fake_capture import FakeCaptureDevice, camera_properties
+from tests.fakes.fake_camera import FakeCaptureDevice, camera_properties
 
 
 def _device(

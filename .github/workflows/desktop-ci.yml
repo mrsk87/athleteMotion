@@ -1,0 +1,201 @@
+name: Desktop CI
+
+# O CI do backend/frontend vive em `ci.yml` (tarefa R15). Este ficheiro é do desktop e
+# corre apenas quando o desktop muda, para não gastar runners a cada alteração do backend.
+on:
+  pull_request:
+    paths:
+      - "desktopapp/**"
+      - ".github/workflows/desktop-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "desktopapp/**"
+      - ".github/workflows/desktop-ci.yml"
+  schedule:
+    # Corrida noturna: inclui os testes marcados `slow` (corridas de robustez da D13), que
+    # não têm lugar no ciclo de um PR por durarem minutos.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      directml:
+        description: "Correr também os testes marcados directml (instala o extra directml)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # O desktop é uma aplicação gráfica: no runner não existe servidor gráfico nem câmara.
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  quality:
+    name: Qualidade e testes (Windows · Python ${{ matrix.python-version }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # O `pyproject.toml` fixa `>=3.11,<3.13`; testar as duas pontas evita descobrir a
+        # incompatibilidade no PC do utilizador.
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Criar o ambiente e instalar dependências
+        working-directory: desktopapp
+        # `uv pip install` e não `uv sync --frozen`: ainda não existe `uv.lock` no projeto
+        # (a versão de Python e as dependências estão fixadas no `pyproject.toml`). Criar o
+        # lockfile é trabalho próprio; enquanto não existir, o `--frozen` falharia sempre.
+        run: |
+          uv venv --python ${{ matrix.python-version }}
+          uv pip install -e ".[dev]"
+
+      - name: Lint (ruff check)
+        working-directory: desktopapp
+        run: .venv/Scripts/ruff.exe check src tests scripts
+
+      - name: Formatação (ruff format --check)
+        working-directory: desktopapp
+        run: .venv/Scripts/ruff.exe format --check src tests scripts
+
+      - name: Tipos (mypy --strict em src e tests)
+        working-directory: desktopapp
+        run: .venv/Scripts/mypy.exe src tests
+
+      - name: Testes com cobertura
+        working-directory: desktopapp
+        # `--cov-fail-under` vem do `[tool.coverage.report]` do `pyproject.toml` (88 %,
+        # medido 91,9 % na D14). Os testes de câmara, DirectML e `slow` ficam de fora: o
+        # runner não tem hardware e a duração não cabe no ciclo de um PR.
+        run: |
+          .venv/Scripts/python.exe -m pytest -m "not slow and not needs_camera and not directml" `
+            --cov --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Publicar cobertura e relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-coverage-${{ matrix.python-version }}
+          path: desktopapp/coverage.xml
+          if-no-files-found: warn
+
+  perf:
+    name: Portões de desempenho
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Criar o ambiente e instalar dependências
+        working-directory: desktopapp
+        run: |
+          uv venv --python "3.11"
+          uv pip install -e ".[dev]"
+
+      - name: Medições (orçamentos absolutos)
+        working-directory: desktopapp
+        # Os **orçamentos** são impostos aqui (são requisitos de produto e independem da
+        # máquina). A comparação com a baseline relativa fica desligada: foi gravada na
+        # estação de referência e um runner partilhado não é a mesma máquina — ver a
+        # política em desktopapp/docs/testing.md. `--benchmark-json` guarda a medição para
+        # se poder comparar a tendência entre execuções.
+        run: |
+          .venv/Scripts/python.exe -m pytest tests/perf -q `
+            --benchmark-json=benchmark.json
+
+      - name: Publicar medições
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-perf
+          path: |
+            desktopapp/benchmark.json
+            desktopapp/tests/perf/baseline.json
+          if-no-files-found: warn
+
+  soak:
+    name: Corrida longa (slow)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v5
+      - name: Criar o ambiente e instalar dependências
+        working-directory: desktopapp
+        run: |
+          uv venv --python "3.11"
+          uv pip install -e ".[dev]"
+      - name: Suíte completa (inclui `slow`)
+        working-directory: desktopapp
+        # Inclui os testes `slow` (corridas de robustez de minutos, D13). Enquanto não
+        # existirem, a seleção corre a suíte normal — e não um `-m slow` que falharia por
+        # não ter nenhum teste selecionado (o erro clássico neste ponto).
+        run: |
+          .venv/Scripts/python.exe -m pytest -m "not needs_camera and not directml" -q
+
+  directml:
+    name: Testes DirectML (opcional)
+    if: github.event_name == 'workflow_dispatch' && inputs.directml
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v5
+      - name: Criar o ambiente com o extra directml
+        working-directory: desktopapp
+        # O DirectML funciona em CPU/WARP no runner, o que permite validar a integração
+        # sem GPU. Não corre por omissão: o `onnxruntime-directml` é pesado e conflitua com
+        # o `onnxruntime` normal.
+        run: |
+          uv venv --python "3.11"
+          uv pip install -e ".[dev,directml]"
+      - name: Testes marcados directml
+        working-directory: desktopapp
+        run: .venv/Scripts/python.exe -m pytest -m directml -q
+
+  security:
+    name: Auditoria de dependências
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar o uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Criar o ambiente e instalar dependências + pip-audit
+        working-directory: desktopapp
+        run: |
+          uv venv --python "3.11"
+          uv pip install -e ".[dev]" pip-audit
+      - name: Auditoria (pip-audit)
+        working-directory: desktopapp
+        # `--skip-editable` porque o próprio projeto está instalado em modo editável.
+        # Uma vulnerabilidade de uma dependência **não** se silencia: ou se sobe a versão,
+        # ou se acrescenta `--ignore-vuln <ID>` aqui com a justificação em comentário (e a
+        # referência ao aviso). Um `--ignore` sem explicação é o mesmo que desligar o passo.
+        run: .venv/Scripts/pip-audit.exe --skip-editable

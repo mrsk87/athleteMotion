@@ -1,6 +1,6 @@
 # STATUS BOARD — Desktop App (PyQt6)
 
-> **Status global:** 🔴 0/16 concluídas (4 em REVIEW) · **Última atualização:** 2026-10-13 · **Mantido por:** todos os executores ([protocolo](00_PROTOCOLO_LLM.md))
+> **Status global:** 🔴 0/16 concluídas (5 em REVIEW) · **Última atualização:** 2026-10-14 · **Mantido por:** todos os executores ([protocolo](00_PROTOCOLO_LLM.md))
 > Legenda: 🔴 TODO · 🟡 IN_PROGRESS · 🔵 REVIEW · 🟢 DONE · ⛔ BLOCKED · Dependências `Rxx` = tarefas do [board do backend](../../TASKS/REVIEW_2026/STATUS_BOARD.md)
 
 | ID | Tarefa | Prio | Depende de | Status | Progresso | Atribuído | Atualizado |
@@ -18,14 +18,14 @@
 | [D11](D11_REPORTS_EXPORT_VIEW.md) | Vista de relatório e exportações | P1 | D08, D10, R17 | 🔴 TODO | 0/6 | — | 2026-10-13 |
 | [D12](D12_BENCHMARK_METRICS_VIEW.md) | Vista Benchmark/Diagnóstico + overlay de métricas | P1 | D05, D07, D02 | 🔴 TODO | 0/7 | — | 2026-10-13 |
 | [D13](D13_ROBUSTNESS_LONGRUN.md) | Robustez: crash handler, reconnect, corridas longas | P1 | D05, D08 | 🔴 TODO | 0/8 | — | 2026-10-13 |
-| [D14](D14_TESTING_CI.md) | Testes (pytest-qt), portões de desempenho, CI Windows | P0 | D01 | 🔴 TODO | 0/7 | — | 2026-10-13 |
+| [D14](D14_TESTING_CI.md) | Testes (pytest-qt), portões de desempenho, CI Windows | P0 | D01 | 🔵 REVIEW | 7/7 | Buffy (Codebuff) | 2026-10-14 |
 | [D15](D15_PACKAGING_INSTALLER.md) | Empacotamento, instalador, assinatura, atualização | P1 | D08, D09, D10, D13 | 🔴 TODO | 0/8 | — | 2026-10-13 |
 | [D16](D16_EXTRAS_OPTIONAL.md) | Extras opcionais: ncnn/Vulkan, ViTPose, LLM local, API local | P3 | D05, D15 | 🔴 TODO | 0/6 | — | 2026-10-13 |
 
 ## Ondas
 | Onda | Tarefas |
 |---|---|
-| 0 | D01 (🔵 REVIEW · 8/8) · D14 (após D01) |
+| 0 | D01 (🔵 REVIEW · 8/8) · D14 (🔵 REVIEW · 7/7) |
 | 1 | D02 (🔵 REVIEW · 7/7) · D03 (🔵 REVIEW · 8/8) · D04 (🔵 REVIEW · 8/8) · D07 (paralelo) |
 | 2 | D05 · D06 · D10 |
 | 3 | D08 · D09 · D12 |
@@ -34,7 +34,7 @@
 
 > **Pré-requisitos do backend:** R01 (pacote), R14 (backends/pipeline), R13 (modelos), R10/R11/R12 (domínio de ciclos/calibração/medidas), R06/R07/R08 (dados), R17 (relatório). Sem eles, D05/D08/D11 ficam ⛔ BLOCKED.
 >
-> **D05 (próxima):** a captura (D03) e o anel/pré-processamento (D04) estão prontos; o que falta é o `onnxruntime-directml` no ambiente (R01) e o `preprocess_fast`/perfil do autotune (R14).
+> **D05 (próxima):** a captura (D03) e o anel/pré-processamento (D04) estão prontos; o que falta é o `onnxruntime-directml` no ambiente (R01) e o `preprocess_fast`/perfil do autotune (R14). A infraestrutura de testes da D14 já a espera: `FakeBackend` (com a restrição de sessão única do DirectML) e `FakePipeline` para os testes rápidos, mais o portão de desempenho com baseline onde a sobrecarga do pipeline entra como métrica nova (`docs/testing.md` §5.4).
 
 ## Bloqueios ativos
 - **R01 🟡 IN_PROGRESS** (executada em paralelo por Antigravity; `backend/` e `athletemotion` já em disco) → ainda não está 🟢 DONE, pelo que o desktop **não declara ainda** a dependência `athletemotion @ file:../backend` no `pyproject.toml`.

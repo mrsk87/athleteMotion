@@ -1,12 +1,12 @@
 # Athlete Motion Desktop — Plano de Implementação (Python + PyQt6)
 
-> **Status:** 🟡 EM CURSO (0/16 concluídas, 2 em REVIEW) · **Última atualização:** 2026-10-13 · **Hardware de referência:** Xeon E5-1660 v3 (8C/16T, AVX2) + RX 580 8 GB
+> **Status:** 🟡 EM CURSO (0/16 concluídas, 5 em REVIEW) · **Última atualização:** 2026-10-14 · **Hardware de referência:** Xeon E5-1660 v3 (8C/16T, AVX2) + RX 580 8 GB
 > **Tarefas para LLMs:** [`TASKS/STATUS_BOARD.md`](TASKS/STATUS_BOARD.md) · **Protocolo:** [`TASKS/00_PROTOCOLO_LLM.md`](TASKS/00_PROTOCOLO_LLM.md) · **Pré-requisitos do backend:** [`../TASKS/REVIEW_2026/STATUS_BOARD.md`](../TASKS/REVIEW_2026/STATUS_BOARD.md)
 > **Regra:** quem conclui ou altera uma tarefa atualiza este cabeçalho e a tabela abaixo (§12 → coluna *Tarefas*).
 
 | Fase (§12) | Tarefas | Estado |
 |---|---|---|
-| 0 Preparação | D01, D14 | 🔴 |
+| 0 Preparação | D01 (🔵 REVIEW · 8/8), D14 (🔵 REVIEW · 7/7) | 🟡 |
 | 1 Runtime mínimo | D03 (🔵 REVIEW · 8/8), D04 (🔵 REVIEW · 8/8), D07 | 🟡 |
 | 2 Pipeline paralelo | D05 | 🔴 |
 | 3 Modelo com pés | D06 (+R13) | 🔴 |
@@ -255,6 +255,8 @@ Câmara: **exposição e ganho manuais** (evita *auto-exposure flicker* e desfoq
 - **Concorrência**: testes de *shutdown* limpo, *backpressure*, perda de câmara, reinício do processo de inferência.
 - CI: `windows-latest` (DirectML funciona em CPU/WARP para testes funcionais), `ruff`, `mypy --strict` em `runtime/`, cobertura mínima, `pip-audit`.
 
+> **Implementado na D14** (🔵 REVIEW 7/7): marcadores `unit/integration/ui/perf/slow/directml/needs_camera` com `--strict-markers`, timeouts para hangs de multiprocessing, cobertura com teto de 88 % (medido 91,6 %), fakes determinísticos em `tests/fakes/`, guarda de fugas em todos os testes, portões de desempenho com orçamento absoluto (sempre) e regressão relativa contra baseline por máquina (a pedido) e CI Windows de 5 jobs. Manual completo em [`desktopapp/docs/testing.md`](docs/testing.md).
+
 ---
 
 ## 10. LLM local opcional (sem chaves de API)
@@ -280,7 +282,7 @@ Câmara: **exposição e ganho manuais** (evita *auto-exposure flicker* e desfoq
 
 | Fase | Duração (est.) | Entregas | Critério de saída |
 |---|---|---|---|
-| **0 — Preparação** 🔵 | 1 sem | Estrutura de pastas ✅, `pyproject` do desktop ✅, `ruff/mypy` ✅, i18n PT/EN ✅, logging/crash/ACID locais ✅, testes (43) ✅ · backend como pacote `athletemotion` 🟡 (R01 em curso, pacote já importável), CI Windows ⏸️ (D14) | `python -m athletemotion_desktop` abre janela em 812–1014 ms (< 2 s) e fecha limpa ✅; testes correm no CI ⏸️ |
+| **0 — Preparação** 🔵 | 1 sem | Estrutura de pastas ✅, `pyproject` do desktop ✅, `ruff/mypy` ✅, i18n PT/EN ✅, logging/crash/ACID locais ✅, testes (395) ✅ · backend como pacote `athletemotion` 🟡 (R01 em curso, pacote já importável), CI Windows ✅ (D14 em 🔵 REVIEW — workflow escrito e comandos verificados localmente; ainda **não** executado num runner) | `python -m athletemotion_desktop` abre janela em 812–1014 ms (< 2 s) e fecha limpa ✅; testes com cobertura e portões de desempenho correm no CI ⏸️ (primeira execução no runner) |
 | **1 — Runtime mínimo** | 2 sem | Captura + pré + `OrtDirectML` + YOLO11n-pose 320 + overlay GL simples; métricas por estágio | 30 FPS estáveis, latência medida, sem fugas de memória em 30 min |
 | **2 — Pipeline paralelo** | 2 sem | Processo de inferência + shared memory + latest-frame-wins + double buffering + watchdog | Latência p95 reduzida vs. fase 1; UI nunca bloqueia |
 | **3 — Modelo com pés** | 2 sem | RTMPose Halpe26 + detetor intermitente + ROI tracking + model zoo/manifest | Ângulo de tornozelo com pés reais; falha explícita sem modelo |
@@ -325,3 +327,4 @@ Câmara: **exposição e ganho manuais** (evita *auto-exposure flicker* e desfoq
 6. ✅ Anel SPSC em memória partilhada (`runtime/ring_buffer`) e pré-processamento sem cópias (`runtime/preprocess`) — **D04 em 🔵 REVIEW (8/8)**: 10 000 frames entre dois processos sem um único frame rasgado, 0,84 ms p50 a 720p (orçamento 2 ms) e equivalência **bit-idêntica** com o domínio. O teste de dois processos encontrou e fechou uma janela não-atómica real (ver §10 do ficheiro da tarefa).
 7. Portar `scripts/benchmark_inference.py` para `desktopapp/scripts/benchmark.py` usando a interface `InferenceBackend`.
 8. Abrir issues/ADRs para: formato do ring buffer *(feito em D04: protocolo documentado no `layout.py` e §10 da tarefa)*, política de descarte *(feita em D03: descarte contado e *latest-frame-wins* documentados na base da captura)*, formato do manifest de modelos.
+9. ✅ Infraestrutura de testes e CI do desktop — **D14 em 🔵 REVIEW (7/7)**: fakes determinísticos, guarda de fugas em todos os testes, portões de desempenho com baseline, marcadores e CI Windows; 395 testes, cobertura 91,60 % e `mypy --strict` limpo. Falta a primeira execução no runner GitHub e o `uv.lock` (ver `docs/testing.md` §7).

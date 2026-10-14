@@ -21,15 +21,20 @@ import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 
 from athletemotion_desktop.runtime.capture.base import CaptureStats
-from athletemotion_desktop.runtime.capture.device import fourcc_to_code
 from athletemotion_desktop.runtime.capture.file_source import FileSource
-from tests.support.fake_capture import FakeSource
+from tests.fakes.fake_camera import FakeSource
+from tests.fakes.synthetic import write_synthetic_video
+from tests.support.perf_baseline import Measurement, PerfBaseline
 
 pytestmark = pytest.mark.perf
 
 #: Orçamento da leitura de um frame já disponível (o que resta do frame de 16,6 ms a 60 FPS).
 BUDGET_READ_MS = 1.0
 WARMUP_FRAMES = 200
+
+#: Chaves das métricas na baseline de desempenho.
+METRIC_READ = "captura read() com frame pronto"
+METRIC_BATCH = "captura ficheiro 320x240 (débito)"
 
 
 class ReadTimer:
@@ -77,7 +82,7 @@ def source() -> Iterator[FakeSource]:
 
 
 def test_read_of_an_available_frame_stays_within_budget(
-    benchmark: BenchmarkFixture, source: FakeSource
+    benchmark: BenchmarkFixture, source: FakeSource, perf_gate: PerfBaseline
 ) -> None:
     """`read()` com frame disponível fica muito abaixo de 1 ms (p50 e p95)."""
     for _ in range(WARMUP_FRAMES):
@@ -86,15 +91,15 @@ def test_read_of_an_available_frame_stays_within_budget(
     timer = ReadTimer(source)
     benchmark(timer)
 
-    median_ms = timer.percentile(0.50)
-    p95_ms = timer.percentile(0.95)
-    print(
-        f"\n[captura read()] p50={median_ms:.4f} ms p95={p95_ms:.4f} ms "
-        f"n={len(timer.samples_ms)} (orçamento {BUDGET_READ_MS} ms)"
+    perf_gate.check(
+        Measurement(
+            metric=METRIC_READ,
+            p50_ms=timer.percentile(0.50),
+            p95_ms=timer.percentile(0.95),
+            budget_ms=BUDGET_READ_MS,
+            samples=len(timer.samples_ms),
+        )
     )
-
-    assert median_ms < BUDGET_READ_MS
-    assert p95_ms < BUDGET_READ_MS
 
 
 def test_read_allocates_nothing_per_frame(source: FakeSource) -> None:
@@ -109,20 +114,13 @@ def test_read_allocates_nothing_per_frame(source: FakeSource) -> None:
         assert id(frame.data.base) == buffer_identity
 
 
-def test_file_batch_throughput(benchmark: BenchmarkFixture, tmp_path: Path) -> None:
+def test_file_batch_throughput(
+    benchmark: BenchmarkFixture, tmp_path: Path, perf_gate: PerfBaseline
+) -> None:
     """Ler um ficheiro em modo batch é limitado pelo disco, não pela cadência."""
-    import cv2
-
-    video = tmp_path / "perf.avi"
-    writer = cv2.VideoWriter(str(video), fourcc_to_code("MJPG"), 30.0, (320, 240))
-    assert writer.isOpened()
-    try:
-        frame = np.zeros((240, 320, 3), dtype=np.uint8)
-        for index in range(300):
-            frame[:] = index % 256
-            writer.write(frame)
-    finally:
-        writer.release()
+    video = write_synthetic_video(
+        tmp_path / "perf.avi", frame_count=300, width=320, height=240, fps=30.0
+    )
 
     source = FileSource(video, realtime=False)
     source.open()
@@ -141,8 +139,20 @@ def test_file_batch_throughput(benchmark: BenchmarkFixture, tmp_path: Path) -> N
 
         stats = benchmark(read_all)
         median_pass_ms = float(np.median(per_pass_ms))
+        # Métrica informativa: o débito depende do disco e do codec, não de um requisito de
+        # tempo real. Mede-se e registra-se (`budget_ms=None`) para detetar uma regressão
+        # estrutural — por exemplo, passar a descodificar duas vezes por frame.
+        perf_gate.check(
+            Measurement(
+                metric=METRIC_BATCH,
+                p50_ms=median_pass_ms,
+                p95_ms=max(float(np.percentile(per_pass_ms, 95)), median_pass_ms),
+                budget_ms=None,
+                samples=len(per_pass_ms),
+            )
+        )
         print(
-            f"\n[captura ficheiro] {stats.frames_delivered} frames em "
+            f"[captura ficheiro] {stats.frames_delivered} frames em "
             f"{median_pass_ms:.1f} ms por passagem "
             f"({stats.frames_delivered / (median_pass_ms / 1000):.0f} frames/s)"
         )

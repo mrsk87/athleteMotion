@@ -40,9 +40,19 @@ hardware_profile.json
 .ruff_cache/
 .coverage
 htmlcov/
+# Artefactos das ferramentas de teste (D14): históricos de benchmark e relatórios de
+# cobertura gerados localmente/CI. A baseline versionada é `tests/perf/baseline.json`.
+.benchmarks/
+coverage.xml
+benchmark.json
+coverage-report.json
+
 
 # Dados locais e modelos pesados
-data/
+# `/data/` (com barra inicial) e não `data/`: a regra existe para a pasta de dados local da
+# aplicação e não pode engolir `tests/data`, que é versionada e tem política própria
+# (ver tests/data/README.md).
+/data/
 models/weights/*.onnx
 models/weights/*.engine
 models/weights/*.bin

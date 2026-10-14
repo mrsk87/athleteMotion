@@ -18,7 +18,7 @@ from athletemotion_desktop.runtime.capture.base import (
     CaptureSourceError,
     CaptureState,
 )
-from tests.support.fake_capture import FakeSource, make_source_info
+from tests.fakes.fake_camera import FakeSource, make_source_info
 
 
 def _wait_for(predicate: object, timeout_s: float = 2.0) -> bool:

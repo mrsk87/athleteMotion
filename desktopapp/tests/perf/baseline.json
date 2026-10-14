@@ -1,0 +1,85 @@
+{
+  "generated_at": "2026-10-13T23:57:08+00:00",
+  "metrics": {
+    "anel SPSC 720p (escrita+leitura)": {
+      "budget_ms": 0.2,
+      "metric": "anel SPSC 720p (escrita+leitura)",
+      "p50_ms": 0.0175,
+      "p95_ms": 0.0182,
+      "recorded_at": "2026-10-13T23:57:06+00:00",
+      "samples": 41155,
+      "schema_version": 1,
+      "signature": "69e277454450b10b",
+      "unit": "ms"
+    },
+    "arranque da aplicação (subprocesso)": {
+      "budget_ms": 2000.0,
+      "metric": "arranque da aplicação (subprocesso)",
+      "p50_ms": 868.8365999842063,
+      "p95_ms": 868.8365999842063,
+      "recorded_at": "2026-10-13T23:57:07+00:00",
+      "samples": 1,
+      "schema_version": 1,
+      "signature": "69e277454450b10b",
+      "unit": "ms"
+    },
+    "captura ficheiro 320x240 (débito)": {
+      "budget_ms": null,
+      "metric": "captura ficheiro 320x240 (débito)",
+      "p50_ms": 117.0074,
+      "p95_ms": 150.03534,
+      "recorded_at": "2026-10-13T23:57:02+00:00",
+      "samples": 9,
+      "schema_version": 1,
+      "signature": "69e277454450b10b",
+      "unit": "ms"
+    },
+    "captura read() com frame pronto": {
+      "budget_ms": 1.0,
+      "metric": "captura read() com frame pronto",
+      "p50_ms": 0.0047,
+      "p95_ms": 0.09050499999999997,
+      "recorded_at": "2026-10-13T23:57:00+00:00",
+      "samples": 2400,
+      "schema_version": 1,
+      "signature": "69e277454450b10b",
+      "unit": "ms"
+    },
+    "preprocess 1080p->640": {
+      "budget_ms": 10.0,
+      "metric": "preprocess 1080p->640",
+      "p50_ms": 3.09025,
+      "p95_ms": 3.9917249999999997,
+      "recorded_at": "2026-10-13T23:57:04+00:00",
+      "samples": 288,
+      "schema_version": 1,
+      "signature": "69e277454450b10b",
+      "unit": "ms"
+    },
+    "preprocess 720p->320": {
+      "budget_ms": 2.0,
+      "metric": "preprocess 720p->320",
+      "p50_ms": 1.0949499999999999,
+      "p95_ms": 1.22749,
+      "recorded_at": "2026-10-13T23:57:03+00:00",
+      "samples": 1192,
+      "schema_version": 1,
+      "signature": "69e277454450b10b",
+      "unit": "ms"
+    },
+    "preprocess rt 192x256": {
+      "budget_ms": 2.0,
+      "metric": "preprocess rt 192x256",
+      "p50_ms": 0.4159,
+      "p95_ms": 0.4218,
+      "recorded_at": "2026-10-13T23:57:05+00:00",
+      "samples": 2322,
+      "schema_version": 1,
+      "signature": "69e277454450b10b",
+      "unit": "ms"
+    }
+  },
+  "schema_version": 1,
+  "signature": "69e277454450b10b",
+  "tolerance": 0.15
+}

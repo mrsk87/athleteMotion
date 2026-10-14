@@ -26,7 +26,7 @@ from athletemotion_desktop.runtime.capture.devices import (
     parse_pnp_cameras,
     probe_indices,
 )
-from tests.support.fake_capture import FakeCaptureDevice
+from tests.fakes.fake_camera import FakeCaptureDevice
 
 PNP_TWO_CAMERAS = json.dumps(
     [

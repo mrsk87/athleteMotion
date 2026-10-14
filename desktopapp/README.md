@@ -2,7 +2,7 @@
 
 Aplicação desktop nativa Windows para análise biomecânica e bikefit em tempo real, concebida para extrair o máximo desempenho do computador físico (AMD Radeon RX 580 DirectML + Intel Xeon E5-1660 v3 AVX2 OpenVINO).
 
-**Estado atual:** D01, D02, D03 e D04 em 🔵 REVIEW — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado, **vista de Definições com diagnóstico de hardware** (GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual) e o **motor de tempo real**: captura de câmara e ficheiros (*latest-frame-wins*, reconexão, controlos), anel SPSC em memória partilhada (sem cópias) e pré-processamento (ROI + letterbox + tensor NCHW) numericamente idêntico ao domínio. A inferência chega na D05 (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
+**Estado atual:** D01, D02, D03, D04 e D14 em 🔵 REVIEW — janela com tema escuro, navegação, i18n PT/EN, logging estruturado, fecho controlado, **vista de Definições com diagnóstico de hardware** (GPU/VRAM, CPU/AVX2, providers ORT/OpenVINO, perfil de autotune e *override* manual), o **motor de tempo real**: captura de câmara e ficheiros (*latest-frame-wins*, reconexão, controlos), anel SPSC em memória partilhada (sem cópias) e pré-processamento (ROI + letterbox + tensor NCHW) numericamente idêntico ao domínio — e a **infraestrutura de testes e CI** do desktop (fakes determinísticos, guarda de fugas, portões de desempenho com baseline, CI Windows). A inferência chega na D05 (ver [TASKS/STATUS_BOARD.md](TASKS/STATUS_BOARD.md)).
 
 ---
 
@@ -42,12 +42,15 @@ A saída **nunca inventa valores**: quando um componente não pode ser lido (pac
 ### 4. Verificações (portões de qualidade)
 ```powershell
 cd desktopapp
-$env:QT_QPA_PLATFORM="offscreen"; .venv\Scripts\python.exe -m pytest -q
+# O mesmo que o CI corre num PR (sem câmara, sem DirectML, sem testes de minutos):
+$env:QT_QPA_PLATFORM="offscreen"
+.venv\Scripts\python.exe -m pytest -m "not slow and not needs_camera and not directml" -q --cov
 .venv\Scripts\python.exe -m pytest tests/perf -q -s            # portões de desempenho (p50/p95)
-.venv\Scripts\ruff.exe check src tests
+.venv\Scripts\ruff.exe check src tests scripts
 .venv\Scripts\ruff.exe format --check src tests scripts
 .venv\Scripts\mypy.exe src tests                     # modo strict
 ```
+Marcadores (`unit`, `integration`, `ui`, `perf`, `slow`, `directml`, `needs_camera`), fakes, guarda de fugas e a política dos portões de desempenho (orçamento absoluto sempre; regressão relativa contra baseline por máquina) estão em **[docs/testing.md](docs/testing.md)**. Um teste novo herda a marca pela pasta; `--strict-markers` recusa marcadores escritos com erro.
 
 ### 5. Motor de tempo real (sem interface gráfica)
 O `runtime/` é testável sem Qt, o que permite medir captura, anel e pré-processamento isoladamente:
@@ -130,14 +133,17 @@ desktopapp/
 │       ├── i18n/                      # translator.py + pt_PT.ts + en.ts
 │       ├── theme/dark.qss             # Tema escuro
 │       └── views/ widgets/ viewmodels/  # settings_view/settings_vm (D02); Live/Benchmark em D07–D12
+├── docs/testing.md                    # Marcadores, fakes, portões de desempenho, política do CI
 └── tests/
     ├── unit/                          # Configuração, logging, ambiente, i18n, sonda/perfil/avisos,
     │                                  #   capture (câmara simulada/ficheiros), ring_buffer e preprocess
     ├── ui/                            # pytest-qt: janela, navegação, idioma, vista de Definições
-    ├── integration/                   # Arranque real, locks, sinais, falha nativa
+    ├── integration/                   # Arranque real, locks, sinais, falha nativa, câmara real (opt-in)
     ├── perf/                          # Portões: arranque (< 2 s), captura (< 1 ms), anel (< 0,2 ms),
-    │                                  #   pré-processamento (< 2 ms)
-    └── support/                       # Lançador headless reutilizado pelos testes
+    │                                  #   pré-processamento (< 2 ms) + baseline.json
+    ├── fakes/                         # Dobres determinísticos (câmara, backend, pipeline) e geradores
+    ├── data/                          # Política de proveniência dos dados (nada pesado versionado)
+    └── support/                       # Lançador headless, portão de desempenho e guarda de fugas
 ```
 
 ---
