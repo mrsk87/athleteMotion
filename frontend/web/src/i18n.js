@@ -326,7 +326,35 @@ export const messages = {
     physicalActionsTitle: 'Checklist de Ajustes Físicos Recomendados na Bicicleta',
     newSessionBtn: '↺ Iniciar Nova Sessão de Fit',
     printReportBtn: '🖨 Imprimir Relatório / Salvar PDF',
-    medicalDisclaimer: 'Aviso: Este software destina-se a otimização de performance e conforto ergonómico ciclístico, não substituindo avaliação médica ou fisioterapêutica para lesões prévias.'
+    medicalDisclaimer: 'Aviso: Este software destina-se a otimização de performance e conforto ergonómico ciclístico, não substituindo avaliação médica ou fisioterapêutica para lesões prévias.',
+
+    // Assistente Pré-Voo e Diagnóstico de Câmara
+    preflightBtn: '📐 Assistente Pré-Voo',
+    preflightTitle: 'Assistente Pré-Voo & Diagnóstico de Câmara',
+    preflightSubtitle: 'Valide o nivelamento da câmara, iluminação, nitidez ótica e enquadramento antes de gravar.',
+    preflightReadyLabel: 'Pronto para Gravação',
+    preflightAcceptableLabel: 'Aceitável com Avisos',
+    preflightNotReadyLabel: 'Requer Ajustes',
+    preflightLevelTitle: 'Nível & Horizonte Artificial',
+    preflightLevelPerfect: 'Câmara perfeitamente nivelada',
+    preflightLevelAcceptable: 'Ligeira inclinação; aceitável',
+    preflightLevelExcessive: 'Inclinada (> 3°); ajuste o tripé',
+    preflightLightingTitle: 'Iluminação & Contraste',
+    preflightLuminance: 'Luminância Média',
+    preflightContrast: 'Contraste Perceptual',
+    preflightLightingGood: 'Luz e contraste excelentes',
+    preflightLightingTooDark: 'Imagem escura; aumente a luz',
+    preflightLightingTooBright: 'Luz estourada; reduza reflexos',
+    preflightLightingLowContrast: 'Baixo contraste; ajuste a luz',
+    preflightSharpnessTitle: 'Nitidez Ótica & Foco',
+    preflightSharpnessGood: 'Foco e contornos nítidos',
+    preflightSharpnessBlurry: 'Desfocado ou com vibração',
+    preflightFramingTitle: 'Enquadramento & Esqueleto',
+    preflightFramingComplete: 'Ciclista 100% enquadrado',
+    preflightFramingNearEdge: 'Atenção: muito perto da borda',
+    preflightFramingMissing: 'Articulações chave não visíveis',
+    preflightSkipBtn: 'Avançar Mesmo Assim',
+    preflightStartBtn: 'Iniciar Sessão de BikeFit'
   },
   en: {
     // Header & System
@@ -647,7 +675,35 @@ export const messages = {
     physicalActionsTitle: 'Recommended Physical Adjustments Checklist',
     newSessionBtn: '↺ Start New BikeFit Session',
     printReportBtn: '🖨 Print Report / Save PDF',
-    medicalDisclaimer: 'Notice: This software is designed for ergonomic comfort and athletic cycling optimization. It does not replace clinical or orthopedic evaluation for pre-existing injuries.'
+    medicalDisclaimer: 'Notice: This software is designed for ergonomic comfort and athletic cycling optimization. It does not replace clinical or orthopedic evaluation for pre-existing injuries.',
+
+    // Pre-Flight Setup & Camera Diagnostic
+    preflightBtn: '📐 Pre-Flight Setup',
+    preflightTitle: 'Pre-Flight Setup & Camera Diagnostic',
+    preflightSubtitle: 'Verify camera leveling, lighting, optical sharpness, and framing before recording.',
+    preflightReadyLabel: 'Ready to Record',
+    preflightAcceptableLabel: 'Acceptable with Warnings',
+    preflightNotReadyLabel: 'Requires Adjustment',
+    preflightLevelTitle: 'Level & Artificial Horizon',
+    preflightLevelPerfect: 'Camera perfectly leveled',
+    preflightLevelAcceptable: 'Slight tilt; acceptable',
+    preflightLevelExcessive: 'Excessive tilt (> 3°); adjust tripod',
+    preflightLightingTitle: 'Lighting & Contrast',
+    preflightLuminance: 'Average Luminance',
+    preflightContrast: 'Perceptual Contrast',
+    preflightLightingGood: 'Excellent light and contrast',
+    preflightLightingTooDark: 'Too dark; increase lighting',
+    preflightLightingTooBright: 'Overexposed; reduce reflections',
+    preflightLightingLowContrast: 'Low contrast; adjust lighting',
+    preflightSharpnessTitle: 'Optical Sharpness & Focus',
+    preflightSharpnessGood: 'Sharp focus and edges',
+    preflightSharpnessBlurry: 'Blurry or vibrating',
+    preflightFramingTitle: 'Framing & Skeleton',
+    preflightFramingComplete: 'Cyclist 100% framed',
+    preflightFramingNearEdge: 'Warning: too close to edge',
+    preflightFramingMissing: 'Key joints not visible',
+    preflightSkipBtn: 'Skip & Continue Anyway',
+    preflightStartBtn: 'Start BikeFit Session'
   }
 };
 

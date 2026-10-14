@@ -84,6 +84,8 @@ import { FootOrbitTrace, drawFootOrbit } from './modules/footOrbitTrace';
 import { applyChromaMarkers, createChromaState } from './modules/chromaFusion';
 import HelpTip from '../common/HelpTip';
 import VideoScrubberBar from './components/VideoScrubberBar';
+import PreflightWizard from '../common/PreflightWizard/PreflightWizard.vue';
+import { usePreflightQuality } from '../../composables/usePreflightQuality';
 
 /** Posições do cranque usadas para medir a dispersão do tronco entre pedaladas. */
 const STABILITY_POSITIONS = ['tdc', '90deg', 'bdc', '270deg'];
@@ -109,7 +111,7 @@ const POSTURE_ASK_COOLDOWN_MS = 60000;
 
 export default {
   name: 'LiveCameraCapture',
-  components: { HelpTip, VideoScrubberBar },
+  components: { HelpTip, VideoScrubberBar, PreflightWizard },
   props: {
     sessionData: { type: Object, default: null },
   },
@@ -282,6 +284,10 @@ export default {
     this.loadFootOrbitPreference();
     this._lastFootOrbitPointAt = 0;
 
+    // Assistente Pré-Voo: motor de diagnóstico e qualidade da câmara
+    this.preflightQuality = markRaw(usePreflightQuality());
+    this._deviceOrientationHandler = null;
+
     this.ctx = null;
     this.lastSmoothedLandmarks = null;
     this.consecutiveWarnFrames = 0;
@@ -427,6 +433,20 @@ export default {
       imageStabilization: null,
       showMultiPositionModal: false,
       isRangeScrubbing: false,
+      // --- Assistente Pré-Voo e Diagnóstico de Setup ---
+      showPreflightWizard: false,
+      preflightRollDeg: 0.0,
+      preflightLightStatus: 'good',
+      preflightLuminance: 120,
+      preflightContrast: 45,
+      preflightSharpnessScore: 85,
+      preflightIsSharp: true,
+      preflightFramingDetected: false,
+      preflightIsFramed: false,
+      preflightFramingScore: 0,
+      preflightCyclistOrientation: 'unknown',
+      preflightMissingJoints: [],
+      preflightReadinessStatus: 'acceptable',
       // --- Análise integral do vídeo (prescrição final única) ---
       athleteProfile: { weightKg: '', shoeSizeEu: '', waistCm: '', heightCm: '', inseamCm: '', cleatPosition: '' },
       showProfileModal: false,
@@ -1124,9 +1144,17 @@ export default {
           this.availableVisionEngines = this.backendInferenceStore.availableEngines || [];
         })
         .catch(() => {});
+      if (typeof window !== 'undefined' && 'addEventListener' in window) {
+        this._deviceOrientationHandler = (e) => this.handleDeviceOrientation(e);
+        window.addEventListener('deviceorientation', this._deviceOrientationHandler, { passive: true });
+      }
       this.$nextTick(() => this.initPipeline());
     },
     beforeUnmount() {
+      if (typeof window !== 'undefined' && this._deviceOrientationHandler) {
+        window.removeEventListener('deviceorientation', this._deviceOrientationHandler);
+        this._deviceOrientationHandler = null;
+      }
       this.cancelFullVideoAnalysis();
       this.videoUploadMgr.cleanup();
       this.debugLogMgr.teardown();
@@ -1618,6 +1646,9 @@ export default {
       await this.startPipeline();
     },
     onPoseResults(results, frameTime = null) {
+      if (this.showPreflightWizard && (!results?.poseLandmarks?.length)) {
+        this.updatePreflightDiagnosis(null);
+      }
       if (!this.isAnalyzing || !results?.poseLandmarks?.length) {
         this.hasDetectedPose = false;
         return;
@@ -1629,6 +1660,10 @@ export default {
       const rawLandmarks = this.isFlippedHorizontal
         ? results.poseLandmarks.map((lm) => ({ ...lm, x: 1.0 - lm.x }))
         : results.poseLandmarks;
+
+      if (this.showPreflightWizard) {
+        this.updatePreflightDiagnosis(rawLandmarks);
+      }
       // O instante de VÍDEO do fotograma analisado acompanha a suavização: depois de um
       // seek ou de um fotograma novo, o filtro recomeça da leitura crua em vez de arrastar
       // a posição antiga — de outro modo o esqueleto chegava visivelmente atrasado à perna.
@@ -2446,6 +2481,51 @@ export default {
     },
     toggleDebugModal() {
       this.showDebugModal = !this.showDebugModal;
+    },
+    handleDeviceOrientation(event) {
+      if (!event || event.gamma === null || !Number.isFinite(event.gamma)) return;
+      const roll = Math.abs(window.orientation || 0) === 90 ? (event.beta || 0) : (event.gamma || 0);
+      this.preflightRollDeg = Math.round(roll * 10) / 10;
+      if (this.preflightQuality) {
+        this.preflightQuality.setSimulatedLevel(this.preflightRollDeg);
+      }
+    },
+    openPreflightWizard() {
+      this.showPreflightWizard = true;
+      this.updatePreflightDiagnosis();
+    },
+    closePreflightWizard() {
+      this.showPreflightWizard = false;
+    },
+    startSessionFromPreflight() {
+      this.showPreflightWizard = false;
+      this.showToast(this.t('preflightReadyToast') || 'Configuração validada! A iniciar sessão de BikeFit.', 3500);
+      if (!this.isAnalyzing) {
+        this.toggleAnalysis();
+      }
+    },
+    updatePreflightDiagnosis(rawLandmarks = null) {
+      if (!this.preflightQuality) return;
+      const canvas = this.$refs.canvas;
+      const landmarks = rawLandmarks || this.lastSmoothedLandmarks || null;
+
+      this.preflightQuality.evaluateFrame(canvas, landmarks, this.preflightRollDeg, {
+        pxPerMm: this.spatialCalibrator?.pixelsPerMm || null,
+        uncertainty: 0.05,
+      });
+
+      this.preflightRollDeg = this.preflightQuality.rollDeg.value;
+      this.preflightLightStatus = this.preflightQuality.lightStatus.value;
+      this.preflightLuminance = this.preflightQuality.luminanceVal.value;
+      this.preflightContrast = this.preflightQuality.contrastVal.value;
+      this.preflightSharpnessScore = this.preflightQuality.sharpnessScore.value;
+      this.preflightIsSharp = this.preflightQuality.isSharp.value;
+      this.preflightFramingDetected = this.preflightQuality.framingDetected.value;
+      this.preflightIsFramed = this.preflightQuality.isFramed.value;
+      this.preflightFramingScore = this.preflightQuality.framingScore.value;
+      this.preflightCyclistOrientation = this.preflightQuality.cyclistOrientation.value;
+      this.preflightMissingJoints = [...this.preflightQuality.missingJoints.value];
+      this.preflightReadinessStatus = this.preflightQuality.readinessStatus.value;
     },
     toggleAnalysis() {
       this.isAnalyzing = !this.isAnalyzing;

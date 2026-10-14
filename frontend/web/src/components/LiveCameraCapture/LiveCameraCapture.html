@@ -60,6 +60,15 @@
     </button>
     <button
       type="button"
+      class="btn-source-mode btn-preflight-toggle"
+      :class="{ active: showPreflightWizard }"
+      @click="openPreflightWizard"
+      title="Assistente Pré-Voo: nivelamento de câmara, iluminação, nitidez e enquadramento"
+    >
+      {{ t('preflightBtn') }}
+    </button>
+    <button
+      type="button"
       class="btn-source-mode btn-tools-toggle"
       :class="{ active: showAdvancedTools }"
       @click="showAdvancedTools = !showAdvancedTools"
@@ -2065,6 +2074,26 @@
       </div>
     </div>
   </div>
+
+  <!-- Assistente Pré-Voo e Diagnóstico de Câmara -->
+  <PreflightWizard
+    :is-open="showPreflightWizard"
+    :roll-deg="preflightRollDeg"
+    :light-status="preflightLightStatus"
+    :luminance-val="preflightLuminance"
+    :contrast-val="preflightContrast"
+    :sharpness-score="preflightSharpnessScore"
+    :is-sharp="preflightIsSharp"
+    :framing-detected="preflightFramingDetected"
+    :is-framed="preflightIsFramed"
+    :framing-score="preflightFramingScore"
+    :cyclist-orientation="preflightCyclistOrientation"
+    :missing-joints="preflightMissingJoints"
+    :calibration-scale-px-per-mm="spatialCalibrator?.pixelsPerMm ? 1 / spatialCalibrator.pixelsPerMm : null"
+    :readiness-status="preflightReadinessStatus"
+    @close="closePreflightWizard"
+    @startSession="startSessionFromPreflight"
+  />
 
   <div v-if="toastMessage" class="toast-notification">
     {{ toastMessage }}
