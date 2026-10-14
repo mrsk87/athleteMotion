@@ -1,30 +1,30 @@
-# STATUS BOARD — Plano de Implementação do Code Review
+# STATUS BOARD — Plano de Implementação do Code Review (Concluído)
 
-> **Status global:** 🟢 18/18 concluídas/em review (R01..R18 — 100%) · **Última atualização:** 2026-10-14 · **Mantido por:** todos os executores (ver [protocolo](00_PROTOCOLO_LLM.md) §3)
-> Legenda: 🔴 TODO · 🟡 IN_PROGRESS · 🔵 REVIEW · 🟢 DONE · ⛔ BLOCKED
+> **Status global:** 🟢 18/18 tarefas concluídas (100% entregue em produção) · **Última atualização:** 2026-10-14 · **Mantido por:** Antigravity (ver [protocolo](00_PROTOCOLO_LLM.md) §3)
+> **Branch oficial:** `bikefitweb` · **Histórico de tarefas:** consolidado no [CHANGELOG.md](CHANGELOG.md) e na documentação oficial em [`docs/`](../../docs/)
 
-## Quadro
+## Resumo das Entregas (Todas Concluídas e Validadas)
 
-| ID | Tarefa | Prio | Depende de | Status | Progresso | Atribuído | Atualizado |
-|---|---|---|---|---|---|---|---|
-| [R01](R01_REPO_RESTRUCTURE.md) | Reestruturação `backend/ frontend/ desktopapp/` + pacote `athletemotion` | P0 | — | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-13 |
-| [R02](R02_DOMAIN_ANGLES_FEET_STABILIZER.md) | Correção biomecânica: ângulos em pixels, pés, estabilizador | P0 | R01 | 🔵 REVIEW | 8/8 | Antigravity | 2026-10-13 |
-| [R03](R03_ENGINE_SESSIONS_CONCURRENCY.md) | Motor por ligação, concorrência DML, lifespan | P0 | R01 | 🔵 REVIEW | 8/8 | Antigravity | 2026-10-13 |
-| [R04](R04_SECURITY_AUTH_CORS_HEADERS.md) | Auth, bind local, CORS, headers, erros, rate limit | P0 | R01 | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-13 |
-| [R05](R05_SECURITY_UPLOAD_WS_GIF_INPUT.md) | Hardening upload / WebSocket / GIF / validação | P0 | R01, R04 | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-14 |
-| [R06](R06_PRIVACY_GDPR.md) | RGPD: consentimento, exportar, apagar, cifra | P1 | R01, R07 | 🔵 REVIEW | 8/8 | Antigravity | 2026-10-14 |
-| [R07](R07_DATABASE_ALEMBIC_INDEXES.md) | BD: Alembic, índices, SQLAlchemy 2, configuração | P1 | R01 | 🔵 REVIEW | 8/8 | Antigravity | 2026-10-13 |
-| [R08](R08_SESSIONS_SERVICE_REFACTOR.md) | Serviço de relatórios, idempotência, paginação, batch | P1 | R01, R07 | 🔵 REVIEW | 8/8 | Antigravity | 2026-10-14 |
-| [R09](R09_AI_COACH_REWRITE.md) | AI Coach determinístico, i18n, sem valores inventados | P0 | R01 | 🔵 REVIEW | 7/7 | Antigravity | 2026-10-13 |
-| [R10](R10_CYCLE_DETECTOR_BDC_TDC.md) | Deteção de ciclos, BDC/TDC, cadência | P0 | R02 | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-14 |
-| [R11](R11_CALIBRATION_SCALE.md) | Calibração: ArUco, pedivela, lente, roll | P1 | R02 | 🔵 REVIEW | 8/8 | Antigravity | 2026-10-14 |
-| [R12](R12_BIKEFIT_MEASURES_QUALITY.md) | Medidas extra, qualidade/confiança, vista frontal | P1 | R10, R11 | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-14 |
-| [R13](R13_MODELS_RTMPOSE_TRACKING_MANIFEST.md) | RTMPose Halpe26, associação de pessoa, manifest de modelos | P1 | R02, R03 | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-14 |
-| [R14](R14_PERF_BACKENDS_PIPELINE_AUTOTUNE.md) | Backends (DML/OpenVINO), pipeline, INT8, autotune | P1 | R03, R13 | 🔵 REVIEW | 10/10 | Antigravity | 2026-10-14 |
-| [R15](R15_CI_QUALITY_SUPPLYCHAIN_OBSERVABILITY.md) | CI, lint/tipos, auditoria, observabilidade | P1 | R01 | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-13 |
-| [R16](R16_FRONTEND_REFACTOR_PRIVACY_OFFLINE.md) | Frontend: refactor, privacidade, offline, testes, TS | P1 | R01, R04 | 🔵 REVIEW | 9/9 | Antigravity | 2026-10-14 |
-| [R17](R17_REPORTS_VALIDATION_SCIENCE.md) | Relatório PDF, rastreabilidade, validação científica | P2 | R10, R12 | 🔵 REVIEW | 7/7 | Antigravity | 2026-10-14 |
-| [R18](R18_DOCS_CONSOLIDATION.md) | Consolidação de documentação e ADRs | P2 | — | 🔵 REVIEW | 6/6 | Antigravity | 2026-10-14 |
+| ID | Área / Entrega Principal | Status | Entregas Técnicas | Data |
+|---|---|---|---|---|
+| **R01** | Reestruturação `backend/`, `frontend/web/`, pacote `athletemotion` | 🟢 CONCLUÍDO | Monorepo modular, imports limpos, entry point único | 2026-10-13 |
+| **R02** | Correção biomecânica: ângulos em pixels, pés, estabilizador | 🟢 CONCLUÍDO | Ângulos sem distorção $16:9$, estimativa Winter 2009 (`estimated=True`), filtros | 2026-10-13 |
+| **R03** | Motor por ligação, concorrência DML, lifespan | 🟢 CONCLUÍDO | `EngineLease`, single-worker serializado, arranque leve sem modelos na import | 2026-10-13 |
+| **R04** | Auth, bind local, CORS, headers, erros, rate limit | 🟢 CONCLUÍDO | Bearer token local, bind `127.0.0.1`, headers OWASP, RFC 7807, rate limiting | 2026-10-13 |
+| **R05** | Hardening upload / WebSocket / GIF / validação | 🟢 CONCLUÍDO | Streaming 64 KB com aborto 413, inspeção Pillow, DoS protection, escape XML | 2026-10-14 |
+| **R06** | RGPD: consentimento, exportar, apagar, cifra | 🟢 CONCLUÍDO | `FieldCipher` AES-128-CBC + HMAC, purga segura (VACUUM/secure_delete), soft-delete | 2026-10-14 |
+| **R07** | BD: Alembic, índices, SQLAlchemy 2, configuração | 🟢 CONCLUÍDO | Migrações Alembic 0001..0005, SQLAlchemy 2.0, modo WAL, backup nativo | 2026-10-13 |
+| **R08** | Serviço de sessões, idempotência, paginação, batch | 🟢 CONCLUÍDO | `ReportBuilder` DRY, `SessionService` ACID, ingestão em batch (/snapshots:batch) | 2026-10-14 |
+| **R09** | AI Coach determinístico, i18n, sem valores inventados | 🟢 CONCLUÍDO | Motor de regras puro, eliminação de placebos (148°/45°), i18n PT/EN, narrative | 2026-10-13 |
+| **R10** | Deteção de ciclos, BDC/TDC, cadência | 🟢 CONCLUÍDO | Periodicidade FFT/autocorrelação, refinamento BDC $\pm 80\text{ ms}$, streaming ring buffer | 2026-10-14 |
+| **R11** | Calibração: ArUco, pedivela, lente, roll | 🟢 CONCLUÍDO | ArUco DICT_4X4_50 com solvePnP, pedivela, desdistorção ótica, incerteza expandida | 2026-10-14 |
+| **R12** | Medidas extra, qualidade/confiança, vista frontal | 🟢 CONCLUÍDO | Planos sagital/frontal, reamostragem a 100 pontos, portão de qualidade, Kalman 2D | 2026-10-14 |
+| **R13** | RTMPose Halpe26, associação de pessoa, manifest de modelos | 🟢 CONCLUÍDO | RTMPose-m Apache-2.0 (26 keypoints reais), TargetSelector com lock-in, ModelZoo | 2026-10-14 |
+| **R14** | Backends (DML/OpenVINO), pipeline, INT8, autotune | 🟢 CONCLUÍDO | OrtDirectML, OpenVinoCPU, blobFromImage SIMD (-46% tempo), autotune, INT8 rejeitado | 2026-10-14 |
+| **R15** | CI, lint/tipos, auditoria, observabilidade | 🟢 CONCLUÍDO | GitHub Actions, Ruff 0 avisos, Mypy strict em domínio, CodeQL, logging JSON, /metrics | 2026-10-13 |
+| **R16** | Frontend: refactor, privacidade, offline, testes, TS | 🟢 CONCLUÍDO | Composables puros Vue 3, IndexedDB WebCrypto, fila offline sync, Vitest | 2026-10-14 |
+| **R17** | Relatório PDF, rastreabilidade, validação científica | 🟢 CONCLUÍDO | PDF v2 ReportLab (0.18s), gráficos Agg thread-safe, Bland-Altman LoA 95% | 2026-10-14 |
+| **R18** | Consolidação de documentação e ADRs | 🟢 CONCLUÍDO | 15 docs normalizados em `docs/`, 7 ADRs, runbook, glossário e README enxuto | 2026-10-14 |
 
 ## Ordem de execução recomendada (ondas)
 
