@@ -41,7 +41,21 @@ async function main() {
 
     dts += `export interface LiveTelemetry {\n  timestamp_ms: number;\n  landmarks: Record<string, Landmark2D>;\n  angles: JointAngles;\n  is_bdc: boolean;\n  is_tdc: boolean;\n  clock_position?: number | null;\n  cycle?: CycleMetrics | null;\n  confidence?: number;\n  withheld?: boolean;\n  warnings?: string[];\n}\n\n`;
 
-    dts += `export interface SessionReport {\n  session_id: string;\n  status: string;\n  compliance_score: number;\n  diagnostics: Array<Record<string, unknown>>;\n  recommendations: string[];\n}\n`;
+    dts += `export interface SessionReport {\n  session_id: string;\n  status: string;\n  compliance_score: number;\n  diagnostics: Array<Record<string, unknown>>;\n  recommendations: string[];\n}\n\n`;
+
+    dts += `export interface MeasureWithConfidence {\n  value: number | null;\n  unit: string;\n  confidence: number;\n  uncertainty: number | null;\n  source: string;\n  withheld: boolean;\n  withhold_reason?: string | null;\n}\n\n`;
+
+    dts += `export interface Point2DCoord {\n  x: number;\n  y: number;\n}\n\n`;
+
+    dts += `export interface SimulatedPostureSnapshot {\n  crank_phase: 'BDC' | 'TDC' | 'POWER_3H';\n  crank_angle_deg: number;\n  hip_point: Point2DCoord;\n  knee_point: Point2DCoord;\n  ankle_point: Point2DCoord;\n  pedal_point: Point2DCoord;\n  shoulder_point: Point2DCoord;\n  elbow_point: Point2DCoord;\n  hand_point: Point2DCoord;\n  knee_angle_deg: number;\n  hip_angle_deg: number;\n  torso_angle_deg: number;\n  elbow_angle_deg: number;\n  shoulder_angle_deg: number;\n}\n\n`;
+
+    dts += `export interface KinematicRiskWarning {\n  code: string;\n  severity: 'optimal' | 'warning' | 'critical';\n  joint: string;\n  message_pt: string;\n  message_en: string;\n  measured_value: number;\n  threshold_value: number;\n}\n\n`;
+
+    dts += `export interface SimulateAdjustmentsResponse {\n  baseline_knee_bdc_deg: number;\n  simulated_knee_bdc_deg: number;\n  delta_knee_bdc_deg: number;\n  baseline_hip_tdc_deg: number;\n  simulated_hip_tdc_deg: number;\n  delta_hip_tdc_deg: number;\n  baseline_torso_deg: number;\n  simulated_torso_deg: number;\n  delta_torso_deg: number;\n  baseline_elbow_deg: number;\n  simulated_elbow_deg: number;\n  delta_elbow_deg: number;\n  kops_offset_3h_mm: number;\n  bdc_posture: SimulatedPostureSnapshot;\n  tdc_posture: SimulatedPostureSnapshot;\n  power_3h_posture: SimulatedPostureSnapshot;\n  warnings: KinematicRiskWarning[];\n  is_anatomically_feasible: boolean;\n  summary_pt: string;\n  summary_en: string;\n}\n\n`;
+
+    dts += `export interface BikeCadReportResponse {\n  stack_bb_to_bar: MeasureWithConfidence;\n  reach_bb_to_bar: MeasureWithConfidence;\n  saddle_height_bb: MeasureWithConfidence;\n  saddle_setback_bb: MeasureWithConfidence;\n  saddle_to_bar_distance: MeasureWithConfidence;\n  saddle_to_bar_drop: MeasureWithConfidence;\n  saddle_to_hood_distance?: MeasureWithConfidence | null;\n  wheelbase?: MeasureWithConfidence | null;\n  effective_seat_tube_angle_deg: number;\n  confidence_score: number;\n  warnings: string[];\n}\n\n`;
+
+    dts += `export interface PatellofemoralRevolutionResponse {\n  peak_compressive_force_n: number;\n  peak_stress_mpa: number;\n  peak_force_crank_angle_deg: number;\n  mean_downstroke_force_n: number;\n  risk_level: 'low' | 'moderate' | 'high';\n  saddle_height_correlation_note_pt: string;\n  saddle_height_correlation_note_en: string;\n  recommendation_pt: string;\n  recommendation_en: string;\n  samples: Array<Record<string, unknown>>;\n}\n`;
 
     fs.writeFileSync(OUTPUT_FILE, dts, 'utf-8');
     console.log(`[gen:api] Definições de tipos guardadas em ${OUTPUT_FILE}`);

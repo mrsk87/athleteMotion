@@ -233,6 +233,9 @@ def get_active_profile() -> dict[str, Any]:
     if not PROFILE_FILE.exists():
         return run_autotune(force=False)
     try:
-        return cast(dict[str, Any], json.loads(PROFILE_FILE.read_text(encoding="utf-8")))
+        data = cast(dict[str, Any], json.loads(PROFILE_FILE.read_text(encoding="utf-8")))
+        if "hardware" in data and "profiles" in data:
+            return data
+        return run_autotune(force=True)
     except Exception:
         return run_autotune(force=True)

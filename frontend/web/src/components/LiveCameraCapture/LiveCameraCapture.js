@@ -17,6 +17,7 @@
 import { markRaw } from 'vue';
 import { useI18n } from '../../i18n';
 import { useInferenceStore } from '../../stores/inferenceStore';
+import { authToken } from '../../services/authToken';
 import { apiService } from '../../services/api';
 import { secureStorage } from '../../services/secureStorage';
 import { audioService } from '../../services/audioFeedback';
@@ -1167,6 +1168,34 @@ export default {
       }
     },
     methods: {
+      async promptForBackendToken() {
+        const currentToken = authToken.getToken() || '';
+        const tokenInput = window.prompt(
+          'Introduza o Token de Autenticação do Backend (disponível em %APPDATA%\\AthleteMotion\\api_token):',
+          currentToken
+        );
+        if (tokenInput !== null && tokenInput.trim()) {
+          const cleanToken = tokenInput.trim();
+          authToken.setToken(cleanToken, true);
+          if (typeof window !== 'undefined' && window.localStorage) {
+            try {
+              window.localStorage.setItem('athletemotion_auth_token', cleanToken);
+            } catch (_) {}
+          }
+          try {
+            await this.backendInferenceStore.fetchEngines();
+            this.availableVisionEngines = this.backendInferenceStore.availableEngines || [];
+            if (this.availableVisionEngines.length > 0) {
+              this.showToast(`Motores carregados (${this.availableVisionEngines.length} disponíveis)`, 3000);
+            } else {
+              this.showToast('Nenhum motor retornado pelo backend.', 3000);
+            }
+          } catch (err) {
+            this.showToast('Falha na autenticação com o backend.', 3000);
+          }
+        }
+      },
+
       async onVisionEngineChange() {
         if (this.smoother && typeof this.smoother.resetFilters === 'function') {
           this.smoother.resetFilters();

@@ -32,8 +32,115 @@
     </div>
   </div>
 
-  <!-- Ecrã Dividido Lado a Lado (Split-Screen) -->
-  <div v-if="sessionA && sessionB" class="split-screen-grid">
+  <!-- Barra de Seleção de Modo: Split-Screen vs Modo Fantasma -->
+  <div v-if="sessionA && sessionB" class="mode-tabs-container">
+    <button
+      :class="['mode-tab-btn', viewMode === 'split' ? 'active' : '']"
+      @click="viewMode = 'split'"
+    >
+      📊 {{ t('splitView') || 'Lado a Lado (Split-Screen)' }}
+    </button>
+    <button
+      :class="['mode-tab-btn', viewMode === 'ghost' ? 'active' : '']"
+      @click="viewMode = 'ghost'"
+    >
+      👻 {{ t('ghostView') || 'Modo Fantasma (Ghost Overlay)' }}
+    </button>
+  </div>
+
+  <!-- 1. Modo Fantasma (Ghost Overlay 2D Sincronizado) -->
+  <div v-if="sessionA && sessionB && viewMode === 'ghost'" class="ghost-container">
+    <div class="ghost-controls">
+      <div class="control-group">
+        <label>
+          <strong>Opacidade da Sobreposição (Antes ⇄ Depois):</strong> {{ ghostOpacity }}%
+        </label>
+        <div class="slider-wrapper">
+          <span class="slider-label label-a">Antes (100%)</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            v-model.number="ghostOpacity"
+            class="opacity-range-slider"
+          />
+          <span class="slider-label label-b">Depois (100%)</span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label><strong>Fase de Rotação (Alinhamento Angular):</strong></label>
+        <div class="phase-buttons">
+          <button
+            :class="['phase-btn', ghostPhase === 'BDC' ? 'active' : '']"
+            @click="ghostPhase = 'BDC'"
+          >
+            Ponto Morto Inferior (BDC)
+          </button>
+          <button
+            :class="['phase-btn', ghostPhase === 'POWER_3H' ? 'active' : '']"
+            @click="ghostPhase = 'POWER_3H'"
+          >
+            Fase de Potência (3h)
+          </button>
+          <button
+            :class="['phase-btn', ghostPhase === 'TDC' ? 'active' : '']"
+            @click="ghostPhase = 'TDC'"
+          >
+            Ponto Morto Superior (TDC)
+          </button>
+        </div>
+      </div>
+
+      <div class="control-group-inline">
+        <label class="checkbox-label">
+          <input type="checkbox" v-model="showVectorArrows" />
+          <span>Mostrar Vetores de Deslocamento Articular (&Delta;)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Área de Visualização do Canvas Fantasma -->
+    <div class="ghost-canvas-wrapper">
+      <canvas
+        ref="ghostCanvasRef"
+        width="760"
+        height="500"
+        class="ghost-canvas"
+      ></canvas>
+
+      <!-- Legenda Visual dos Esqueletos -->
+      <div class="ghost-legend">
+        <div class="legend-badge badge-session-a">
+          <span class="legend-indicator indicator-a"></span>
+          <span>Antes: {{ sessionA.name || 'Sessão A' }} (Joelho: {{ sessionA.measured_avg_knee_angle }}°)</span>
+        </div>
+        <div class="legend-badge badge-session-b">
+          <span class="legend-indicator indicator-b"></span>
+          <span>Depois: {{ sessionB.name || 'Sessão B' }} (Joelho: {{ sessionB.measured_avg_knee_angle }}°)</span>
+        </div>
+      </div>
+
+      <!-- HUD Dinâmico de Variações -->
+      <div v-if="deltas" class="ghost-hud-panel">
+        <div class="hud-metric">
+          <span class="hud-label">&Delta; Joelho:</span>
+          <span :class="['hud-value', deltas.kneeDelta >= 0 ? 'pos' : 'neg']">
+            {{ deltas.kneeDelta > 0 ? '+' : '' }}{{ deltas.kneeDelta }}°
+          </span>
+        </div>
+        <div class="hud-metric">
+          <span class="hud-label">&Delta; Tronco:</span>
+          <span :class="['hud-value', Math.abs(deltas.backDelta) <= 5 ? 'pos' : 'neg']">
+            {{ deltas.backDelta > 0 ? '+' : '' }}{{ deltas.backDelta }}°
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Ecrã Dividido Lado a Lado (Split-Screen) -->
+  <div v-if="sessionA && sessionB && viewMode === 'split'" class="split-screen-grid">
     <!-- Coluna Antes (Sessão A) -->
     <div class="comparison-column column-before">
       <div class="column-header">
@@ -147,4 +254,3 @@
     <p>{{ t('selectSessionPrompt') }}</p>
   </div>
 </div>
-

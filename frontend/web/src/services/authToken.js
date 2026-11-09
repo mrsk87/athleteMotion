@@ -27,16 +27,45 @@ class AuthTokenService {
       return;
     }
 
-    // 2. sessionStorage (se utilizador optou por guardar na sessão do separador)
+    // 2. Parâmetro na URL (?token=... ou ?api_token=...)
+    if (typeof window !== 'undefined' && window.location?.search) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token') || urlParams.get('api_token');
+        if (urlToken && urlToken.trim()) {
+          this._token = urlToken.trim();
+          try {
+            window.sessionStorage?.setItem(TOKEN_SESSION_KEY, this._token);
+          } catch (_) {}
+          return;
+        }
+      } catch (err) {
+        console.warn('[authToken] Erro ao ler query params:', err.message);
+      }
+    }
+
+    // 3. sessionStorage (se utilizador optou por guardar na sessão do separador)
     if (typeof window !== 'undefined' && window.sessionStorage) {
       try {
         const stored = window.sessionStorage.getItem(TOKEN_SESSION_KEY);
         if (stored) {
           this._token = stored;
+          return;
         }
       } catch (err) {
         console.warn('[authToken] sessionStorage inacessível:', err.message);
       }
+    }
+
+    // 4. localStorage como fallback persistente
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const storedLocal = window.localStorage.getItem(TOKEN_SESSION_KEY);
+        if (storedLocal) {
+          this._token = storedLocal;
+          return;
+        }
+      } catch (_) {}
     }
   }
 

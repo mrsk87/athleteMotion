@@ -79,9 +79,22 @@ export const useInferenceStore = defineStore('inference', {
         this.activeEngine = res.data.active_engine;
         this.activeSide = res.data.active_side;
         this.telemetrySamples = []; // Reiniciar gráfico
+
+        // Notificar o WebSocket em tempo real para sincronizar o motor
+        if (this.wsSocket && this.wsSocket.readyState === WebSocket.OPEN) {
+          this.wsSocket.send(
+            JSON.stringify({
+              type: 'set_engine',
+              engine: this.activeEngine,
+              side: this.activeSide,
+            })
+          );
+        }
+
         await this.warmupEngine();
       } catch (err) {
         console.error('Falha ao alternar motor de inferência:', err);
+        throw err;
       }
     },
 
@@ -138,6 +151,17 @@ export const useInferenceStore = defineStore('inference', {
         // Enviar handshake de autenticação e warmup
         if (authToken.hasToken()) {
           this.wsSocket.send(JSON.stringify({ type: 'auth', token: authToken.getToken() }));
+        }
+        if (this.activeEngine && this.activeEngine !== 'mediapipe_wasm') {
+          this.wsSocket.send(
+            JSON.stringify({
+              type: 'set_engine',
+              engine: this.activeEngine,
+              side: this.activeSide,
+            })
+          );
+        } else {
+          this.wsSocket.send(JSON.stringify({ type: 'set_side', side: this.activeSide }));
         }
         this.wsSocket.send(JSON.stringify({ type: 'warmup' }));
         console.log('[WebSocket] Conectado e autenticado no pipeline Python.');

@@ -287,4 +287,22 @@ export const apiService = {
       return false;
     }
   },
+
+  // Simulação cinemática digital twin 2D (FEAT-17 / v0.4.0)
+  async simulateKinematicAdjustments(payload) {
+    const response = await apiClient.post('/api/v1/biomechanics/simulate-adjustments', payload);
+    return response.data;
+  },
+
+  // Estimativa de esforço e sobrecarga patelofemoral (FEAT-18 / v0.4.0)
+  async estimatePatellofemoralStress(payload) {
+    const response = await apiClient.post('/api/v1/biomechanics/patellofemoral-stress', payload);
+    return response.data;
+  },
+
+  // Auto-deteção e cálculo de geometria Bike CAD sem fita métrica (FEAT-19 / v0.4.0)
+  async computeBikeCad(payload) {
+    const response = await apiClient.post('/api/v1/calibration/bike-cad', payload);
+    return response.data;
+  },
 };

@@ -1,18 +1,61 @@
 # Estado Consolidado do Projeto — Athlete Motion
 
-> **Status:** 🟢 VIGENTE · **Versão:** 0.3.1 · **Última atualização:** 2026-10-14 · **Responsável:** Senior Core Developer · **Revisto contra o código em:** `788dcbb`
+> **Status:** 🟢 VIGENTE · **Versão:** 0.4.0 · **Última atualização:** 2026-11-09 · **Responsável:** Senior Core Developer · **Revisto contra o código em:** `v0.4.0`
 
 ---
 
 ## 1. Resumo Executivo e Progresso
 
-O projeto **Athlete Motion** atingiu a maturidade arquitetural e técnica de nível Senior Core Developer com a conclusão do plano de modernização de 2026 (`TASKS/REVIEW_2026/`):
+O projeto **Athlete Motion** atingiu o patamar de referência de nível mundial com a versão **0.4.0**, introduzindo capacidades avançadas de simulação preditiva, metrologia CAD sem fita métrica, estimativa de torque e visualização de última geração:
 
-- **Progresso Global do Plano de Tarefas:** **18 / 18 Tarefas Concluídas (100%)**
-- **Testes Unitários e de Integração:** **218 / 218 testes verdes** no backend (`pytest tests -q`)
-- **Linters e Qualidade Estática:** `ruff check src/ tests/` (0 erros) · `mypy --strict` limpo
-- **Segurança de Código (SAST):** CodeQL ativo, pip-audit sem vulnerabilidades conhecidas
+- **Progresso Global do Plano de Tarefas:** **18 / 18 Tarefas Base (100%) + 7 Novas Funcionalidades de Elite Concluídas**
+- **Testes Unitários e de Integração:** **230 / 230 testes verdes** no backend (`pytest tests -q`)
+- **Testes Unitários de Frontend:** **31 / 31 testes verdes** no frontend (`npm run test`)
+- **Portões de Verificação Clínica:** **14 / 14 suites clínicas aprovadas** (`npm run verify`)
+- **Linters e Qualidade Estática:** `ruff check` (0 erros) · `mypy` limpo · `verify-theme` 100% conforme tokens CSS
 - **Desempenho de Inferência:** YOLO11n-pose @ 4.12 ms / 241 FPS · RTMPose-m @ 8.20 ms / 119 FPS em DirectML (AMD Radeon RX 580)
+
+---
+
+## 2. Novas Funcionalidades de Elite Implementadas (v0.4.0)
+
+1. **Simulador Cinemático de Ajustes ("Digital Twin 2D"):**
+   - Motor matemático analítico de cinemática direta 2D (`kinematic_simulator.py`).
+   - Resolução determinística por interseção círculo-círculo com alinhamento ao ângulo do tubo de selim (73.5° / 253.5° BDC).
+   - Detetor de riscos ergonómicos (faixa de Holmes 140°-150°, hiperextensão poplítea, sobrecarga patelar).
+   - Endpoint REST `POST /api/v1/biomechanics/simulate-adjustments`.
+   - Painel interativo Vue 3 (`KinematicSimulator.vue`) com sliders a 60 FPS.
+
+2. **Auto-Deteção de Geometria Bike CAD (Sem fita métrica):**
+   - Metrologia precisa de Stack, Reach, Altura do Selim, Recuo, Saddle Drop e Wheelbase (`bike_cad.py`).
+   - Propagação rigorosa de incerteza métrica via `ScaleCalibration` (R11).
+   - Endpoint REST `POST /api/v1/calibration/bike-cad`.
+
+3. **Estimativa de Torque Inverso & Força Patelofemoral ($F_{\text{PF}}$):**
+   - Modelo biomecânico dinâmico de Winter 2D (`joint_torque.py`).
+   - Cálculo da força compressiva patelofemoral ($F_{\text{PF}} = 2 F_q \sin(\theta/2)$) e tensão em MPa (área de contacto Huberti & Hayes).
+   - Diagnóstico clínico de sobrecarga por selim baixo.
+   - Endpoint REST `POST /api/v1/biomechanics/patellofemoral-stress`.
+
+4. **Modo Fantasma (Ghost Overlay Antes vs Depois):**
+   - Incorporado no `SessionComparator` com alternador Split-Screen vs Modo Fantasma.
+   - Controlo contínuo de opacidade (0% a 100%).
+   - Alinhamento sincronizado por fase (BDC, TDC, 3h).
+   - Sobreposição cromática: Antes (Coral `#ef4444`) vs Depois (Esmeralda `#10b981`).
+   - Vetores de deslocamento articular dinâmicos ($\Delta$).
+
+5. **Diagrama Polar 360° de Força Efetiva:**
+   - Motor de renderização atualizado (`polarPlotter.js`) com setores de potência coloridos: Impulsão (30°-150°), Transição e Recuperação (210°-330°).
+   - Cálculo de Suavidade da Pedalada (PSI %) e Eficácia do Torque (TE %).
+   - Ponteiro e agulha de orientação em tempo real.
+
+6. **Sincronização Estéreo Dual-Câmara:**
+   - Composable `useDualCamera.js` para captura simultânea de 2 câmaras USB/Webcam (Sagital + Frontal).
+   - Layouts Side-by-Side e Picture-in-Picture sincronizados com carimbo temporal ISO de precisão clínica.
+
+7. **Relatório Web Interativo com Código QR:**
+   - Emissão de Código QR vetorial nativo ReportLab em `pdf.py` sem dependências externas.
+   - Leitor web de relatório interativo (`WebReportView.vue`) na rota `/report/:id` com slow-motion scrubber e diagrama polar.
 
 ---
 

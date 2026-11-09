@@ -240,18 +240,29 @@
         <!-- Seletor de Motor de Visão / Inferência IA (DirectML GPU / MediaPipe) -->
         <div class="control-item">
           <label for="vision-engine-select" title="Motor de inteligência artificial para deteção da postura corporal">Motor de IA / Visão</label>
-          <select id="vision-engine-select" v-model="selectedVisionEngine" @change="onVisionEngineChange">
-            <option value="mediapipe_wasm">MediaPipe (Navegador WASM)</option>
-            <option
-              v-for="eng in availableVisionEngines"
-              :key="eng.name"
-              :value="eng.name"
-              :disabled="eng.available === false"
-              :title="eng.notes || eng.description"
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <select id="vision-engine-select" v-model="selectedVisionEngine" @change="onVisionEngineChange" style="flex: 1;">
+              <option value="mediapipe_wasm">MediaPipe (Navegador WASM)</option>
+              <option
+                v-for="eng in availableVisionEngines"
+                :key="eng.name"
+                :value="eng.name"
+                :disabled="eng.available === false"
+                :title="eng.notes || eng.description"
+              >
+                {{ eng.display_name }} ({{ eng.hardware_provider }}){{ eng.available === false ? ' — indisponível' : '' }}
+              </option>
+            </select>
+            <button
+              type="button"
+              class="btn-secondary"
+              style="padding: 4px 8px; font-size: 0.85rem;"
+              :title="availableVisionEngines.length ? 'Atualizar motores de IA do Backend' : 'Conectar ao Backend (Inserir Token de API)'"
+              @click="promptForBackendToken"
             >
-              {{ eng.display_name }} ({{ eng.hardware_provider }}){{ eng.available === false ? ' — indisponível' : '' }}
-            </option>
-          </select>
+              {{ availableVisionEngines.length ? '🔄' : '🔑' }}
+            </button>
+          </div>
         </div>
       </div>
 

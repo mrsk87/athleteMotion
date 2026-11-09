@@ -1,0 +1,124 @@
+<div class="web-report-container">
+  <!-- Cabeçalho do Relatório Digital -->
+  <header class="report-header">
+    <div class="brand-row">
+      <div class="brand-info">
+        <span class="brand-logo">🚴</span>
+        <div>
+          <h1>ATHLETE MOTION // RELATÓRIO TÉCNICO INTERATIVO</h1>
+          <p class="subtitle">Auditoria Biomecânica Digital e Rastreabilidade Ergonómica (v0.4.0)</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-simulator" @click="isSimulatorOpen = true">
+          🔬 Abrir Simulador 2D
+        </button>
+        <a :href="pdfUrl" target="_blank" class="btn btn-pdf">
+          📄 PDF Oficial
+        </a>
+      </div>
+    </div>
+
+    <!-- Barra de Metadados do Atleta e Provedor -->
+    <div class="meta-card">
+      <div class="meta-item">
+        <span class="meta-label">Ciclista:</span>
+        <span class="meta-value">{{ athleteName }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Sessão ID:</span>
+        <span class="meta-value mono">{{ sessionIdShort }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Data / Hora:</span>
+        <span class="meta-value">{{ sessionDate }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Confiança Geral:</span>
+        <span class="meta-value badge-conf">🟢 {{ confidencePct }}%</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Corpo Principal do Relatório -->
+  <main class="report-main-grid">
+    <!-- Coluna Esquerda: Leitor de Vídeo / Trajetória com Scrubber em Câmara Lenta -->
+    <section class="card video-section">
+      <div class="card-header">
+        <h3>🎬 Análise em Câmara Lenta (Slow-Motion)</h3>
+        <span class="phase-tag">{{ currentPhaseLabel }}</span>
+      </div>
+
+      <div class="canvas-viewport">
+        <canvas ref="reportCanvasRef" width="640" height="420" class="report-canvas"></canvas>
+      </div>
+
+      <!-- Scrubber e Controlos de Reprodução -->
+      <div class="scrubber-controls">
+        <button class="ctrl-btn" @click="togglePlay">
+          {{ isPlaying ? '⏸ Pausa' : '▶ Reproduzir' }}
+        </button>
+        <button class="ctrl-btn step-btn" @click="stepFrame(-1)">⏮ -1</button>
+        <input
+          type="range"
+          min="0"
+          :max="totalFrames - 1"
+          v-model.number="currentFrameIdx"
+          class="timeline-slider"
+        />
+        <button class="ctrl-btn step-btn" @click="stepFrame(1)">+1 ⏭</button>
+        <span class="frame-counter">{{ currentFrameIdx + 1 }} / {{ totalFrames }}</span>
+      </div>
+    </section>
+
+    <!-- Coluna Direita: Métricas Biomecânicas e Diagrama Polar 360° -->
+    <section class="card metrics-section">
+      <div class="card-header">
+        <h3>📊 Dinâmica Articular & Força Efetiva</h3>
+      </div>
+
+      <!-- Grid de Indicadores Centrais -->
+      <div class="gauges-grid">
+        <div class="gauge-card">
+          <div class="gauge-title">Extensão Joelho BDC</div>
+          <div class="gauge-value">{{ currentKneeAngle }}°</div>
+          <div class="gauge-range">Alvo: 140° - 150° (Holmes)</div>
+          <div class="gauge-status status-ok">Alinhado ✅</div>
+        </div>
+
+        <div class="gauge-card">
+          <div class="gauge-title">Inclinação do Tronco</div>
+          <div class="gauge-value">{{ currentTorsoAngle }}°</div>
+          <div class="gauge-range">Alvo: 40° - 50°</div>
+          <div class="gauge-status status-ok">Equilibrado ✅</div>
+        </div>
+
+        <div class="gauge-card">
+          <div class="gauge-title">Carga Patelofemoral</div>
+          <div class="gauge-value">{{ patellarForceN }} N</div>
+          <div class="gauge-range">Tensão: {{ patellarStressMpa }} MPa</div>
+          <div class="gauge-status status-opt">Zona Segura (&lt; 2.4 MPa)</div>
+        </div>
+      </div>
+
+      <!-- Diagrama Polar 360° -->
+      <div class="polar-diagram-card">
+        <div class="polar-header">
+          <h4>Diagrama Polar 360° (Eficiência de Pedalada)</h4>
+          <span class="psi-badge">PSI: {{ psiScore }}%</span>
+        </div>
+        <div class="polar-canvas-box">
+          <canvas ref="polarCanvasRef" width="260" height="260" class="polar-canvas"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Simulador Cinemático Incorporado (Modal) -->
+  <KinematicSimulator
+    :is-open="isSimulatorOpen"
+    @close="isSimulatorOpen = false"
+    @apply="onApplySimulator"
+  />
+</div>
+

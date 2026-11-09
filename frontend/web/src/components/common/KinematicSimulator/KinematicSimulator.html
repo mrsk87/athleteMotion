@@ -1,0 +1,183 @@
+<div class="kinematic-simulator-modal" v-if="isOpen">
+  <div class="simulator-backdrop" @click="close"></div>
+  <div class="simulator-window">
+    <div class="simulator-header">
+      <div class="title-group">
+        <h3>🔬 Simulador Cinemático de Ajustes (Digital Twin 2D)</h3>
+        <p class="subtitle">Previsão em tempo real do impacto biomecânico de alterações no selim e cockpit</p>
+      </div>
+      <button class="close-btn" @click="close">✕</button>
+    </div>
+
+    <div class="simulator-body">
+      <!-- Painel Esquerdo: Controlos e Sliders Interativos -->
+      <div class="simulator-controls-panel">
+        <h4 class="section-title">Ajustes Geométricos Propostos</h4>
+
+        <!-- 1. Altura do Selim -->
+        <div class="slider-card">
+          <div class="slider-header">
+            <span class="label">Altura do Selim (&Delta;):</span>
+            <span :class="['value-pill', deltaSaddleHeight !== 0 ? 'active' : '']">
+              {{ deltaSaddleHeight > 0 ? '+' : '' }}{{ deltaSaddleHeight }} mm
+            </span>
+          </div>
+          <input
+            type="range"
+            min="-40"
+            max="40"
+            step="1"
+            v-model.number="deltaSaddleHeight"
+            class="range-slider"
+          />
+          <div class="slider-hints">
+            <span>-40 mm (Baixar)</span>
+            <span>0</span>
+            <span>+40 mm (Subir)</span>
+          </div>
+        </div>
+
+        <!-- 2. Recuo do Selim (Setback) -->
+        <div class="slider-card">
+          <div class="slider-header">
+            <span class="label">Recuo do Selim / KOPS (&Delta;):</span>
+            <span :class="['value-pill', deltaSaddleSetback !== 0 ? 'active' : '']">
+              {{ deltaSaddleSetback > 0 ? '+' : '' }}{{ deltaSaddleSetback }} mm
+            </span>
+          </div>
+          <input
+            type="range"
+            min="-30"
+            max="30"
+            step="1"
+            v-model.number="deltaSaddleSetback"
+            class="range-slider"
+          />
+          <div class="slider-hints">
+            <span>-30 mm (Avançar)</span>
+            <span>0</span>
+            <span>+30 mm (Recuar)</span>
+          </div>
+        </div>
+
+        <!-- 3. Stack do Cockpit / Espaçadores -->
+        <div class="slider-card">
+          <div class="slider-header">
+            <span class="label">Stack do Guiador / Espaçadores (&Delta;):</span>
+            <span :class="['value-pill', deltaStemStack !== 0 ? 'active' : '']">
+              {{ deltaStemStack > 0 ? '+' : '' }}{{ deltaStemStack }} mm
+            </span>
+          </div>
+          <input
+            type="range"
+            min="-30"
+            max="30"
+            step="2"
+            v-model.number="deltaStemStack"
+            class="range-slider"
+          />
+          <div class="slider-hints">
+            <span>-30 mm (Baixar)</span>
+            <span>0</span>
+            <span>+30 mm (Elevar)</span>
+          </div>
+        </div>
+
+        <!-- 4. Comprimento do Avanço (Reach) -->
+        <div class="slider-card">
+          <div class="slider-header">
+            <span class="label">Comprimento do Avanço (&Delta;):</span>
+            <span :class="['value-pill', deltaStemReach !== 0 ? 'active' : '']">
+              {{ deltaStemReach > 0 ? '+' : '' }}{{ deltaStemReach }} mm
+            </span>
+          </div>
+          <input
+            type="range"
+            min="-30"
+            max="30"
+            step="5"
+            v-model.number="deltaStemReach"
+            class="range-slider"
+          />
+          <div class="slider-hints">
+            <span>-30 mm (Encurtar)</span>
+            <span>0</span>
+            <span>+30 mm (Alongar)</span>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn btn-secondary" @click="resetDeltas">↺ Repor Geometria</button>
+          <button class="btn btn-primary" @click="applyAdjustments">💾 Aplicar à Sessão</button>
+        </div>
+      </div>
+
+      <!-- Painel Direito: Canvas Visualizador 2D e Alertas Clínicos -->
+      <div class="simulator-visualizer-panel">
+        <div class="canvas-container">
+          <canvas
+            ref="simCanvasRef"
+            width="640"
+            height="440"
+            class="sim-canvas"
+          ></canvas>
+
+          <div class="canvas-legend">
+            <span class="legend-item baseline">
+              <span class="dot dot-baseline"></span> Referência Atual ({{ baselineKneeBdc }}°)
+            </span>
+            <span class="legend-item simulated">
+              <span class="dot dot-simulated"></span> Simulação Prevista ({{ simulatedKneeBdc }}°)
+            </span>
+          </div>
+        </div>
+
+        <!-- Métricas Previstas Dinâmicas -->
+        <div class="predictions-grid">
+          <div class="pred-card">
+            <div class="pred-title">Extensão Joelho (BDC)</div>
+            <div class="pred-val">{{ simulatedKneeBdc }}°</div>
+            <div :class="['pred-delta', deltaKneeBdc >= 0 ? 'pos' : 'neg']">
+              &Delta; {{ deltaKneeBdc > 0 ? '+' : '' }}{{ deltaKneeBdc }}°
+            </div>
+            <div class="pred-status">{{ kneeClinicalStatus }}</div>
+          </div>
+
+          <div class="pred-card">
+            <div class="pred-title">Inclinação do Tronco</div>
+            <div class="pred-val">{{ simulatedTorso }}°</div>
+            <div :class="['pred-delta', deltaTorso <= 0 ? 'pos' : 'neg']">
+              &Delta; {{ deltaTorso > 0 ? '+' : '' }}{{ deltaTorso }}°
+            </div>
+            <div class="pred-status">{{ torsoClinicalStatus }}</div>
+          </div>
+
+          <div class="pred-card">
+            <div class="pred-title">Offset KOPS (3h)</div>
+            <div class="pred-val">{{ kopsOffsetMm > 0 ? '+' : '' }}{{ kopsOffsetMm }} mm</div>
+            <div class="pred-status">Alinhamento Patelar</div>
+          </div>
+
+          <div class="pred-card">
+            <div class="pred-title">Flexão Cotovelos</div>
+            <div class="pred-val">{{ simulatedElbow }}°</div>
+            <div class="pred-status">Absorção de Impacto</div>
+          </div>
+        </div>
+
+        <!-- Alertas de Risco Biomecânico -->
+        <div v-if="clinicalWarnings.length > 0" class="warnings-container">
+          <div
+            v-for="(w, idx) in clinicalWarnings"
+            :key="idx"
+            :class="['warning-banner', w.severity]"
+          >
+            <span class="warning-icon">{{ w.severity === 'critical' ? '🛑' : '⚠️' }}</span>
+            <span class="warning-msg">{{ w.message_pt }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

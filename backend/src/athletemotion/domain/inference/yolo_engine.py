@@ -18,6 +18,7 @@ import logging
 import math
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -36,7 +37,7 @@ from athletemotion.domain.inference.stabilizer import (
 from athletemotion.domain.inference.target_selector import DetectionCandidate, TargetSelector
 from athletemotion.infrastructure.hardware import hardware_manager
 
-from .base import BasePoseEngine, PoseEngineRegistry
+from .base import BasePoseEngine, ModelUnavailableError, PoseEngineRegistry
 from .person_tracker import PersonTracker, box_to_pixels
 from .preprocess_fast import fast_preprocess_roi
 from .types import BiomechanicalAngles, InferenceOutput, Landmark2D, SegmentValidation
@@ -99,6 +100,8 @@ class YOLO11PoseEngine(BasePoseEngine):
         warmup: bool = True,
         prefer_fast_model: bool = False,
         name: str | None = None,
+        raise_on_unavailable: bool = False,
+        **kwargs: Any,
     ):
         # O nome distingue a variante para a telemetria: o painel tem de saber se os
         # números que está a ver vêm da rede a 640px ou da rede rápida a 320px.
@@ -123,9 +126,11 @@ class YOLO11PoseEngine(BasePoseEngine):
         self.stabilizer_state = StabilizerState()
 
         if self.model_path is None or not self.model_path.exists():
-            logger.warning(
-                "Modelo YOLO-Pose não encontrado (%s). Usando fallback seguro.", model_path
-            )
+            msg = f"Modelo YOLO-Pose não encontrado ({model_path or self.model_path})."
+            logger.warning("%s Usando fallback seguro.", msg)
+            if raise_on_unavailable:
+                model_id = "yolo11n-pose-320" if prefer_fast_model else "yolo11n-pose"
+                raise ModelUnavailableError(self.name, msg, model_id)
             return
 
         session_opts = hardware_manager.create_session_options(gpu=use_gpu)

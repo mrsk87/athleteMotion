@@ -1,6 +1,6 @@
 # Estado do Projeto — Athlete Motion
 
-> **Status:** 🟢 VIGENTE · **Versão:** 0.3.1 · **Última atualização:** 2026-10-14 · **Responsável:** Senior Core Developer
+> **Status:** 🟢 VIGENTE · **Versão:** 0.4.0 · **Última atualização:** 2026-11-09 · **Responsável:** Senior Core Developer
 
 O estado atualizado do projeto e o progresso da arquitetura encontram-se documentados de forma centralizada e consolidada em:
 

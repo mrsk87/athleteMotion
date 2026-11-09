@@ -17,6 +17,8 @@ from datetime import datetime
 from typing import Any
 
 import numpy as np
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -36,6 +38,17 @@ from athletemotion.services.reporting.charts import (
     generate_fatigue_trend_chart,
 )
 from athletemotion.services.reporting.provenance import Provenance, create_session_provenance
+
+
+def generate_qr_flowable(url: str, size: float = 46.0) -> Drawing:
+    """Gera um elemento Drawing contendo o código QR vetorial da URL."""
+    widget = QrCodeWidget(url)
+    bounds = widget.getBounds()
+    w = max(bounds[2] - bounds[0], 1e-3)
+    h = max(bounds[3] - bounds[1], 1e-3)
+    d = Drawing(size, size, transform=[size / w, 0, 0, size / h, 0, 0])
+    d.add(widget)
+    return d
 
 
 def sanitize_pdf_text(value: Any, max_len: int = 400) -> str:
@@ -305,6 +318,42 @@ def generate_bikefit_pdf(
         )
     )
     story.append(info_table)
+    story.append(Spacer(1, 8))
+
+    # 2.1 Código QR do Relatório Web Interativo
+    session_id = str(session_data.get("id") or session_data.get("session_id") or "live")
+    report_url = str(
+        session_data.get("interactive_report_url")
+        or f"https://athletemotion.app/report/{session_id}"
+    )
+    qr_drawing = generate_qr_flowable(report_url, size=44.0)
+    qr_callout_text = (
+        f"<b>📱 Versão Digital Interativa:</b> Aceda ao relatório web com visualizador de vídeo em câmara lenta, "
+        f"diagrama polar 360° e simulações digitais:<br/>"
+        f"<font color='#2563eb'><u>{report_url}</u></font>"
+        if is_pt
+        else f"<b>📱 Interactive Digital Report:</b> Access web report with slow-motion playback, "
+        f"360° polar plot and kinematic simulations:<br/>"
+        f"<font color='#2563eb'><u>{report_url}</u></font>"
+    )
+    qr_table = Table(
+        [[qr_drawing, Paragraph(qr_callout_text, body_style)]],
+        colWidths=[52, 488],
+    )
+    qr_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f0fdf4")),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#86efac")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    story.append(qr_table)
     story.append(Spacer(1, 10))
 
     # 3. Secção: Avaliação Angular Dinâmica com Incerteza e Confiança
